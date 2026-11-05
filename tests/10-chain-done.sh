@@ -19,6 +19,7 @@ grep -q '^child 2 session=fake-2 transcript=/dev/null$' "$log" || fail "done.jso
 grep -q '^fake child 2 did done$' "$log" || fail "last message not logged"
 grep -q 'job done$' "$log" || fail "no 'job done' line"
 [ "$(grep -c 'gh_token=set' "$JOB/fake-marker")" -eq 2 ] || fail "fake child marker: $(cat "$JOB/fake-marker" 2>&1)"
+[ "$(grep -c '^claude_env=0$' "$JOB/fake-marker")" -eq 2 ] || fail "a child saw a CLAUDE* name (CLAUDE_FLAGS is exported above): $(cat "$JOB/fake-marker")"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "finished child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
 ! tmux -L "$TEST_ID-ok" has-session 2>/dev/null || fail "runner left its tmux server running after exit"
 
@@ -37,6 +38,7 @@ log="$JOB/run.log"
 grep -q 'child 1 timed out after 2s; killing it, next child resumes from checkpoint' "$log" || fail "no timeout line: $(cat "$log")"
 grep -q 'child 2 launched' "$log" || fail "next child not launched after timeout"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "timed-out child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
+grep -qx 'prev_gc_alive=no' "$JOB/fake-marker" || fail "timed-out child 1's grandchild alive when child 2 launched (scope not stopped): $(cat "$JOB/fake-marker")"
 grep -q 'child 1 left checkpoint.md unchanged (stall 1/2)' "$log" || fail "no stall 1 line"
 grep -q 'two stalls; stopping' "$log" || fail "no two-stalls line"
 hung="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
@@ -59,6 +61,7 @@ new_job cap step
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > cap.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "cap run exit $rc: $(cat cap.out)"
 grep -q 'child cap 1 reached' "$JOB/run.log" || fail "no cap line: $(cat "$JOB/run.log")"
+grep -q '^child=1 ' "$JOB/fake-marker" 2>/dev/null || fail "cap 1 stopped the job before child 1 ran: $(cat "$JOB/run.log")"
 grep -q 'child 2 launched' "$JOB/run.log" && fail "child 2 launched past the cap"
 
 # a Stop payload written slowly is read only once complete
@@ -84,8 +87,18 @@ hung="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
 gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB/fake-marker")"
 kill -HUP "$runner"; rc=0; wait "$runner" || rc=$?
 [ "$rc" -eq 129 ] || fail "runner exit after SIGHUP: $rc"
+grep -q 'runner exit 129 without a state' "$JOB/run.log" || fail "SIGHUP not logged: $(cat "$JOB/run.log")"
 wait_until 5 eval "! kill -0 $hung 2>/dev/null && ! kill -0 $gc 2>/dev/null" || fail "child $hung or grandchild $gc alive after runner SIGHUP"
 ! tmux -L "$TEST_ID-hup" has-session 2>/dev/null || fail "tmux server alive after runner SIGHUP"
+
+# a runner abort is logged and never reads as a state: a python3 that exits 4 fails child_report
+# with the cap's code under set -e; the runner exits 1 and run.log ends with the abort line
+new_job abort 'done'
+mkdir -p badpy; printf '#!/bin/sh\nexit 4\n' > badpy/python3; chmod +x badpy/python3
+rc=0; PATH="$PWD/badpy:$PATH" "$bo" run "$JOB" > abort.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "runner abort exit $rc, want 1: $(cat abort.out)"
+tail -n 1 "$JOB/run.log" | grep -q 'runner exit 4 without a state' || fail "abort not logged: $(cat "$JOB/run.log")"
+! tmux -L "$TEST_ID-abort" has-session 2>/dev/null || fail "tmux server alive after runner abort"
 
 # the trust dialog is answered only while a child starts; its text later on screen gets no keys
 export BLAST_OFF_TRUST_SECONDS=2
