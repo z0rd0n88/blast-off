@@ -34,3 +34,13 @@ cleanup() {
   done
 }
 trap cleanup EXIT
+
+# wait_until <seconds> <command...>: poll once a second; 0 as soon as the command succeeds.
+wait_until() {
+  local i n="$1"; shift
+  for ((i=0; i<n; i++)); do "$@" && return 0; sleep 1; done
+  return 1
+}
+# unit_state <unit>: ActiveState, "inactive" once a --collect unit is gone.
+unit_state() { systemctl --user show "$1" -p ActiveState --value; }
+not_active() { case "$(unit_state "$1")" in inactive|failed) return 0 ;; *) return 1 ;; esac; }
