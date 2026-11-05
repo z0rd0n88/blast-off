@@ -6,3 +6,9 @@ cp_status() { sed -n '/^status:/{s/^status: *\([a-z-]*\).*/\1/p;q}' "$JOB/checkp
 
 # Changes whenever a child rewrites the checkpoint; equal before and after a child = a stall.
 cp_fingerprint() { sha256sum "$JOB/checkpoint.md" | cut -c1-16; }
+
+# Rows of the `## Phase plan` table whose first cell is a number: the job's phase count (0 = no table).
+cp_phases() { sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" | wc -l; }
+
+# cp_set_status <word>: rewrite the first `status:` line, the one cp_status reads.
+cp_set_status() { sed -i "0,/^status:.*/s//status: $1/" "$JOB/checkpoint.md"; }

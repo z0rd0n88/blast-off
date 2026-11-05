@@ -26,7 +26,10 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local maxc="${JOB_MAX_CHILDREN:-12}" n=0 stalls=0 s before w
+  local n=0 stalls=0 s before w maxc soft=1 why v
+  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT; do
+    [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
+  done
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
   # constant and the chain never depends on a hand-written handoff.
@@ -41,13 +44,33 @@ chain_run() {
   trap 'exit 130' INT
   child_server
 
+  # The soft cap (F2): the checkpoint's phase count times JOB_CAP_FACTOR, or JOB_MAX_CHILDREN. Reaching
+  # it pauses the job (paused-cap, exit 6) and a re-run continues. With no Phase plan table there is no
+  # phase count, the soft cap is disabled, and the cap is the hard one of phase 1 (exit 4, status kept).
+  local phases; phases="$(cp_phases)"
+  if [ -n "${JOB_MAX_CHILDREN:-}" ] && [ "$phases" -gt 0 ]; then
+    maxc="$JOB_MAX_CHILDREN" why="soft: JOB_MAX_CHILDREN"
+  elif [ "$phases" -gt 0 ]; then
+    maxc=$((phases * ${JOB_CAP_FACTOR:-3})) why="soft: $phases Phase plan rows x JOB_CAP_FACTOR ${JOB_CAP_FACTOR:-3}"
+  else
+    maxc="${JOB_MAX_CHILDREN:-12}" why="hard: no Phase plan table in checkpoint.md" soft=
+  fi
+  log "child cap $maxc ($why)"
+  if [ "$(cp_status)" = paused-cap ]; then
+    cp_set_status running; log "status paused-cap -> running; the chain continues"
+  fi
+
   while :; do
     s="$(cp_status)"
     case "$s" in
       done)    chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
-    n=$((n+1)); [ "$n" -le "$maxc" ] || chain_end 4 "child cap $maxc reached"
+    n=$((n+1))
+    if [ "$n" -gt "$maxc" ]; then
+      [ -n "$soft" ] || chain_end 4 "child cap $maxc reached"
+      cp_set_status paused-cap; chain_end 6 "soft cap $maxc reached; status paused-cap; run again to continue"
+    fi
     before="$(cp_fingerprint)"
 
     child_launch "$n"

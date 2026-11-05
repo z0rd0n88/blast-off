@@ -58,7 +58,7 @@ to the job dir's parent (as in `run-job`).
 | `ci-wait` | `blast-off ci-wait <job-dir> <pr>`: one blocking `gh run watch <id> --exit-status` per run of the PR head, conclusions recorded | 4 |
 
 Environment (non-secret, passed by name through the unit): `PATH`, `CLAUDE_FLAGS`, `JOB_MAX_CHILDREN`
-(override of the derived cap), `JOB_CAP_FACTOR` (default 3), `JOB_CHILD_TIMEOUT` (default 7200),
+(override of the derived cap; with no Phase plan table, the hard cap, default 12), `JOB_CAP_FACTOR` (default 3; the soft cap is the number of `## Phase plan` table rows whose first cell is a number, times this factor; checkpoints number phases from 0, so `phase: N of M` is not used), `JOB_CHILD_TIMEOUT` (default 7200),
 `JOB_SESSION`, `JOB_KEEP_WINDOWS` (leave finished children and, at exit, the server and scopes for inspection), `BLAST_OFF_TRUST_SECONDS` (default 60: the trust-dialog scrape runs only while a child starts). D14 reads "No secrets in any file;
 launch lines pass env var names, never values." blast-off writes no secret (`GH_TOKEN`) to any file,
 and the launch line names them without values: `start` passes each as `--setenv=NAME`, so
@@ -88,9 +88,9 @@ nothing outside `~/.config/systemd/user/`. A `~/.local/bin/blast-off` symlink is
 | 0 | job done | `done` (by the child) | 1 |
 | 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
 | 3 | blocked, needs the owner | `blocked` (by the child) | 1 |
-| 4 | hard child cap reached (only when the soft cap is disabled) | unchanged | 1 |
+| 4 | hard child cap reached (only when the soft cap is disabled: `checkpoint.md` has no `## Phase plan` table, so no phase count) | unchanged | 1, 2 |
 | 5 | two children in a row left the checkpoint unchanged | unchanged | 1 |
-| 6 | soft cap reached; resumable | `paused-cap` | 2 |
+| 6 | soft cap reached; resumable: a re-run of `run` sets `paused-cap` back to `running` and continues with a fresh child count | `paused-cap` | 2 |
 | 7 | dirty tree the checkpoint does not name; `git status --porcelain` in `run.log` | unchanged | 2 |
 | 8 | paused on a usage limit; reset time recorded | `paused-limit` | 3 |
 | 9 | a done phase row has no receipt, or its sha differs from the phase commit | unchanged | 4 |
@@ -209,7 +209,7 @@ the marker records whether the child saw it set (the name, never a value):
 | `11-unit-smoke` | `start` runs the same job from a workdir named `test-<pid>-job` (`<pid>` as in `$TEST_ID`), so the runner unit is `blast-off-test-<pid>-job.service`, in `blast-off.slice` by `systemctl --user show -p Slice,MemoryCurrent`; the template instance for the escaped absolute path of the temp job dir is only loaded by `systemctl --user show -p ExecStart`, never started, and shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope, and its parent is its pane's shell (a `#{pane_pid}`), so tmux's pane move never lands on it; after a second run whose fake child blocks, `blast-off stop` leaves the runner unit and its `-child-<n>` scope inactive or not-found by `systemctl --user show -p ActiveState`, and the fake child's pid gone | 1 |
 | `12-start-env` | `start` with `CLAUDE_FLAGS` unset, then with `GH_TOKEN` empty, exits 1 and creates no unit; `run` with `CLAUDE_FLAGS` unset exits 1 and launches no child (every other scenario that drives `run` exports a dummy `CLAUDE_FLAGS`) | 1 |
 | `20-dead-child` | child exits without the Stop hook; seen within 10 s, not at `JOB_CHILD_TIMEOUT`, its last screen in `run.log`, next child launches; a child that exits right after its Stop hook is finished, not dead; a non-JSON Stop payload is logged and the chain goes on (Q3) | 2 |
-| `21-soft-cap` | derived cap reached; `paused-cap`, exit 6, re-run continues | 2 |
+| `21-soft-cap` | derived cap (Phase plan rows x `JOB_CAP_FACTOR`, default 3, other tables' rows not counted) reached; `paused-cap`, exit 6, the cap and its source in `run.log`; re-run continues to `done`; `JOB_MAX_CHILDREN` overrides and stays soft; a non-numeric factor exits 1 before any child; test 10 keeps the hard cap (no table, exit 4, status unchanged) | 2 |
 | `22-dirty-tree` | unnamed dirty tree; exit 7 with porcelain in `run.log` | 2 |
 | `30-paused-limit` | usage at threshold; `paused-limit`, exit 8, reset time | 3 |
 | `31-resume-after-reset` | resume after a fake reset | 3 |
