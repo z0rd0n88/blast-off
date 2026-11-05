@@ -12,7 +12,10 @@ while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shi
 : "${JOB_DIR:?fake claude needs JOB_DIR}" "${JOB_CHILD:?fake claude needs JOB_CHILD}"
 cp="$JOB_DIR/checkpoint.md"
 mode="$(sed -n "${JOB_CHILD}p" "$JOB_DIR/fake-mode")"; [ -n "$mode" ] || mode="$(tail -n 1 "$JOB_DIR/fake-mode")"
-printf 'child=%s pid=%s mode=%s gh_token=%s\n' "$JOB_CHILD" "$$" "$mode" "$([ -n "${GH_TOKEN:-}" ] && echo set || echo unset)" >> "$JOB_DIR/fake-marker"
+# prev_alive: whether the previous child's process outlived the runner launching this one
+prev="$(sed -n "s/^child=$((JOB_CHILD-1)) pid=\([0-9]*\) .*/\1/p" "$JOB_DIR/fake-marker" 2>/dev/null | tail -n 1 || true)"
+printf 'child=%s pid=%s mode=%s gh_token=%s prev_alive=%s\n' "$JOB_CHILD" "$$" "$mode" \
+  "$([ -n "${GH_TOKEN:-}" ] && echo set || echo unset)" "$([ -n "$prev" ] && kill -0 "$prev" 2>/dev/null && echo yes || echo no)" >> "$JOB_DIR/fake-marker"
 case "$mode" in
   step) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;

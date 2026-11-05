@@ -19,6 +19,7 @@ grep -q '^child 2 session=fake-2 transcript=/dev/null$' "$log" || fail "done.jso
 grep -q '^fake child 2 did done$' "$log" || fail "last message not logged"
 grep -q 'job done$' "$log" || fail "no 'job done' line"
 [ "$(grep -c 'gh_token=set' "$JOB/fake-marker")" -eq 2 ] || fail "fake child marker: $(cat "$JOB/fake-marker" 2>&1)"
+grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "finished child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
 ! tmux -L "$TEST_ID-ok" has-session 2>/dev/null || fail "runner left its tmux server running after exit"
 
 # running -> blocked
@@ -35,6 +36,7 @@ rc=0; JOB_CHILD_TIMEOUT=2 "$bo" run "$JOB" > stall.out 2>&1 || rc=$?
 log="$JOB/run.log"
 grep -q 'child 1 timed out after 2s; killing it, next child resumes from checkpoint' "$log" || fail "no timeout line: $(cat "$log")"
 grep -q 'child 2 launched' "$log" || fail "next child not launched after timeout"
+grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "timed-out child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
 grep -q 'child 1 left checkpoint.md unchanged (stall 1/2)' "$log" || fail "no stall 1 line"
 grep -q 'two stalls; stopping' "$log" || fail "no two-stalls line"
 hung="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
@@ -70,7 +72,8 @@ systemd-run --user --scope --quiet --collect --unit="$TEST_ID-stray-child-1.scop
 wait_until 5 is_active "$TEST_ID-stray-child-1.scope" || fail "stray scope never started"
 new_job stray 'done'
 rc=0; "$bo" run "$JOB" > stray.out 2>&1 || rc=$?
-[ "$rc" -eq 0 ] && grep -q 'mode=done' "$JOB/fake-marker" || fail "run beside a stale scope: exit $rc: $(cat "$JOB/run.log")"
+[ "$rc" -eq 0 ] && grep -q '^child=1 .*mode=done' "$JOB/fake-marker" || fail "run beside a stale scope: exit $rc: $(cat "$JOB/run.log")"
+grep -q 'child 2 launched' "$JOB/run.log" && fail "child 1 failed to start beside a stale scope: $(cat "$JOB/run.log")"
 wait_until 5 eval "! kill -0 $stray 2>/dev/null" || fail "stale scope's process $stray still alive"
 
 # SIGHUP (terminal closed) on a foreground runner: child, grandchild and tmux server all end
