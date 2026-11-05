@@ -67,7 +67,7 @@ grep -q '^fake child 1 did slow-hook$' "$JOB/run.log" || fail "slow payload not 
 
 # a scope left by an earlier run of the same job is stopped before child 1 reuses its name
 systemd-run --user --scope --quiet --collect --unit="$TEST_ID-stray-child-1.scope" sleep 600 & stray=$!
-wait_until 5 test "$(unit_state "$TEST_ID-stray-child-1.scope")" = active || fail "stray scope never started"
+wait_until 5 is_active "$TEST_ID-stray-child-1.scope" || fail "stray scope never started"
 new_job stray 'done'
 rc=0; "$bo" run "$JOB" > stray.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] && grep -q 'mode=done' "$JOB/fake-marker" || fail "run beside a stale scope: exit $rc: $(cat "$JOB/run.log")"

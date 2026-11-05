@@ -15,9 +15,13 @@ chain_run() {
   # shellcheck disable=SC2034  # read by child_launch
   PROMPT="Continue the job in $JOB. Read $JOB/checkpoint.md first, then $JOB/brief.md, then follow the brief's Child protocol section exactly. Work from $WORKDIR."
 
+  # Child scopes sit outside the runner's cgroup, so no exit of the runner (state, set -e abort,
+  # signal) reaches them unless this trap does. JOB_KEEP_WINDOWS leaves everything for inspection.
+  trap '[ -n "${JOB_KEEP_WINDOWS:-}" ] || child_stop_all' EXIT
+  trap 'log "runner stopped by signal; stopping child scopes"; exit 143' TERM
+  trap 'exit 130' INT
+  trap 'exit 129' HUP
   child_server
-  # systemctl stop on the runner's unit reaches only its own cgroup; the child scopes sit beside it.
-  trap 'log "runner stopped by signal; stopping child scopes"; systemctl --user stop "$UNIT-child-*.scope" 2>/dev/null || true; exit 143' TERM INT
 
   while :; do
     s="$(cp_status)"

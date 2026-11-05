@@ -62,4 +62,5 @@ wait_until() {
 }
 # unit_state <unit>: ActiveState, "inactive" once a --collect unit is gone.
 unit_state() { systemctl --user show "$1" -p ActiveState --value; }
+is_active() { [ "$(unit_state "$1")" = active ]; }
 not_active() { case "$(unit_state "$1")" in inactive|failed) return 0 ;; *) return 1 ;; esac; }
