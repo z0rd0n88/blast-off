@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# blast-off: run one large multi-phase coding job as a chain of checkpointed Claude Code sessions,
+# under a systemd user unit, with no Claude session open to drive it. A job dir holds brief.md and
+# checkpoint.md; the workdir defaults to the job dir's parent. Each child reads the checkpoint,
+# works, rewrites it and stops; the runner relaunches until status is done or blocked.
+#
+# Usage: blast-off run <job-dir> [workdir]   the chain loop in the foreground (the unit's ExecStart)
+#  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
+#        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
+#        JOB_MAX_CHILDREN=12       hard stop on relaunches
+#        JOB_SESSION=job-<name>    tmux session on the job's own server, tmux -L blast-off-<name>
+#        JOB_KEEP_WINDOWS=1        leave finished children's windows open
+# Exit:  0 done · 1 usage or dependency error · 3 blocked (needs the owner) · 4 child cap reached
+#        5 two children in a row left checkpoint.md unchanged
+set -euo pipefail
+
+BLAST_OFF_HOME="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+for f in "$BLAST_OFF_HOME"/lib/*.sh; do
+  # shellcheck source=/dev/null
+  source "$f"
+done
+
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+die() { echo "blast-off: $*" >&2; exit 1; }
+
+# job_init <job-dir> [workdir]: JOB, WORKDIR, NAME (workdir basename), UNIT, SESSION, LOG.
+job_init() {
+  [ -n "${1:-}" ] || die "missing <job-dir>"
+  JOB="$(cd "$1" && pwd)" || die "no job dir $1"
+  WORKDIR="$(cd "${2:-$(dirname "$JOB")}" && pwd)" || die "no workdir ${2:-}"
+  NAME="$(basename "$WORKDIR")"
+  [[ $NAME =~ ^[A-Za-z0-9_-]+$ ]] || die "workdir name '$NAME' must be letters, digits, '-' or '_' (it names the unit and tmux session)"
+  # shellcheck disable=SC2034  # UNIT, SESSION: read by lib/*.sh
+  UNIT="blast-off-$NAME"
+  # shellcheck disable=SC2034
+  SESSION="${JOB_SESSION:-job-$NAME}"
+  LOG="$JOB/run.log"
+}
+
+case "${1:-}" in
+  run) shift; job_init "$@"; chain_run ;;
+  -h|--help|"") sed -n '2,15p' "$0" ;;
+  *) die "unknown command '$1' (see blast-off --help)" ;;
+esac

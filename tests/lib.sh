@@ -28,6 +28,9 @@ new_job() {
 # Stop only what this scenario started: units and scopes named $TEST_ID-*, and its own tmux sessions.
 cleanup() {
   systemctl --user stop "$TEST_ID-*" 2>/dev/null || true
-  local s; for s in "${SUFFIXES[@]}"; do tmux -L "$TEST_ID-$s" kill-session -t "job-test-$$-$s" 2>/dev/null || true; done
+  local s; for s in "${SUFFIXES[@]}"; do
+    tmux -L "$TEST_ID-$s" kill-session -t "job-test-$$-$s" 2>/dev/null || true
+    rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$TEST_ID-$s"
+  done
 }
 trap cleanup EXIT
