@@ -7,8 +7,8 @@ use_fakes
 export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token JOB_CHILD_TIMEOUT=30
 bo="$REPO/bin/blast-off"
 
-# running -> done over two children
-new_job ok step 'done'
+# running -> done over two children; finished child 1's scope stop ends its HUP-ignoring grandchild
+new_job ok bg-step 'done'
 rc=0; "$bo" run "$JOB" > done.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "done run exit $rc: $(cat done.out)"
 grep -q '^status: done' "$JOB/checkpoint.md" || fail "checkpoint not done"
@@ -21,6 +21,7 @@ grep -q 'job done$' "$log" || fail "no 'job done' line"
 [ "$(grep -c 'gh_token=set' "$JOB/fake-marker")" -eq 2 ] || fail "fake child marker: $(cat "$JOB/fake-marker" 2>&1)"
 [ "$(grep -c '^claude_env=0$' "$JOB/fake-marker")" -eq 2 ] || fail "a child saw a CLAUDE* name (CLAUDE_FLAGS is exported above): $(cat "$JOB/fake-marker")"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "finished child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
+grep -qx 'prev_gc_alive=no' "$JOB/fake-marker" || fail "finished child 1's HUP-ignoring grandchild alive when child 2 launched (scope not stopped): $(cat "$JOB/fake-marker")"
 ! tmux -L "$TEST_ID-ok" has-session 2>/dev/null || fail "runner left its tmux server running after exit"
 
 # running -> blocked
@@ -116,12 +117,12 @@ kill -TERM "$runner"; rc=0; wait "$runner" || rc=$?
 grep -q 'runner exit 129 without a state' "$JOB/run.log" || fail "SIGHUP exit not logged: $(cat "$JOB/run.log")"
 ! tmux -L "$TEST_ID-sig2" has-session 2>/dev/null || fail "tmux server alive after a second signal during cleanup"
 
-# the trust dialog is answered only while a child starts; its text later on screen gets no keys
-export BLAST_OFF_TRUST_SECONDS=2
+# the trust dialog is answered only while a child starts (the default window: unset here, so the
+# default is what is tested); its text later on screen gets no keys (a 2 s window; the fake shows it at 3 s)
 new_job trustearly trust-early
-"$bo" run "$JOB" > te.out 2>&1 || fail "trust-early run: $(cat te.out)"
+env -u BLAST_OFF_TRUST_SECONDS "$bo" run "$JOB" > te.out 2>&1 || fail "trust-early run: $(cat te.out)"
 grep -q '^keys=yes$' "$JOB/fake-marker" || fail "trust dialog at start not answered: $(cat "$JOB/fake-marker")"
 new_job trustlate trust-late
-"$bo" run "$JOB" > tl.out 2>&1 || fail "trust-late run: $(cat tl.out)"
+BLAST_OFF_TRUST_SECONDS=2 "$bo" run "$JOB" > tl.out 2>&1 || fail "trust-late run: $(cat tl.out)"
 grep -q '^keys=no$' "$JOB/fake-marker" || fail "keys typed into a working child: $(cat "$JOB/fake-marker")"
 echo ok

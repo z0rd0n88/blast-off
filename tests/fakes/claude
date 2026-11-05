@@ -4,6 +4,7 @@
 # file's Stop hook with the payload fields the runner reads, and idles like an interactive session.
 # Modes: step (append a Progress line) · done · blocked · noop · slow-done (sleep 5, done)
 #        hang (no Stop hook; starts a HUP-ignoring grandchild, a stand-in for a background subagent)
+#        bg-step (step, after starting a HUP-ignoring grandchild like hang's; the Stop hook runs as usual)
 #        slow-hook (done; the Stop payload arrives in two parts 2 s apart)
 #        trust-early / trust-late (print the trust dialog's text at once / after 3 s, record whether keys arrived, done)
 set -euo pipefail
@@ -16,13 +17,15 @@ mode="$(sed -n "${JOB_CHILD}p" "$JOB_DIR/fake-mode")"; [ -n "$mode" ] || mode="$
 prev="$(sed -n "s/^child=$((JOB_CHILD-1)) pid=\([0-9]*\) .*/\1/p" "$JOB_DIR/fake-marker" 2>/dev/null | tail -n 1 || true)"
 printf 'child=%s pid=%s mode=%s gh_token=%s prev_alive=%s\n' "$JOB_CHILD" "$$" "$mode" \
   "$([ -n "${GH_TOKEN:-}" ] && echo set || echo unset)" "$([ -n "$prev" ] && kill -0 "$prev" 2>/dev/null && echo yes || echo no)" >> "$JOB_DIR/fake-marker"
-# prev_gc_alive: whether an earlier hang child's HUP-ignoring grandchild outlived its scope's stop
+# prev_gc_alive: whether an earlier hang or bg-step child's HUP-ignoring grandchild outlived its scope's stop
 gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB_DIR/fake-marker" | tail -n 1)"
 [ -z "$gc" ] || echo "prev_gc_alive=$(kill -0 "$gc" 2>/dev/null && echo yes || echo no)" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
 case "$mode" in
   step) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
+    printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;
   slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
   noop) ;;
