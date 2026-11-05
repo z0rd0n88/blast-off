@@ -13,7 +13,8 @@
 #        JOB_MAX_CHILDREN=12       hard stop on relaunches
 #        JOB_SESSION=job-<name>    tmux session on the job's own server, tmux -L blast-off-<name>
 #        JOB_KEEP_WINDOWS=1        leave finished children's windows open
-# Exit:  0 done · 1 usage or dependency error · 3 blocked (needs the owner) · 4 child cap reached
+#        BLAST_OFF_TRUST_SECONDS=60  seconds after a child starts that its trust dialog is answered
+# Exit:  0 done · 1 usage, dependency or runner error · 3 blocked (needs the owner) · 4 child cap reached
 #        5 two children in a row left checkpoint.md unchanged
 set -euo pipefail
 
@@ -44,6 +45,6 @@ case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
   start|status|stop|logs) job_init "${2:-}"; "unit_$1" ;;
   install) units_install ;;
-  -h|--help|"") sed -n '2,17p' "$0" ;;
+  -h|--help|"") sed -n '2,18p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac

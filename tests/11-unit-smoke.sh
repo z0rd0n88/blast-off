@@ -5,7 +5,7 @@
 # (loaded, never started); `stop` ends a hanging second run: runner, scope and child all gone.
 source "$REPO/tests/lib.sh"
 use_fakes
-export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token
+export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token BLAST_OFF_TRUST_SECONDS=45
 bo="$REPO/bin/blast-off"
 udir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 
@@ -18,6 +18,7 @@ new_job job slow-done
 unit="$TEST_ID-job.service"
 "$bo" start "$JOB" > start.out 2>&1 || fail "start: $(cat start.out)"
 grep -q -- "--unit=$TEST_ID-job" start.out && grep -q -- '--setenv=GH_TOKEN ' start.out || fail "launch not printed: $(cat start.out)"
+grep -q -- '--setenv=BLAST_OFF_TRUST_SECONDS ' start.out || fail "start does not pass BLAST_OFF_TRUST_SECONDS: $(cat start.out)"
 ! grep -q dummy-not-a-token start.out || fail "start printed a secret value"
 
 wait_until 20 test -s "$JOB/fake-marker" || fail "child never ran: $(cat "$JOB/run.log" 2>&1); $(journalctl --user -u "$unit" -n 20 --no-pager 2>&1)"
