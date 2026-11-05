@@ -19,6 +19,12 @@ grep -q '  | boom' bad.out || fail "failing scenario output not shown"
 if run_gate empty; then fail "empty fixture exited 0 (unrun is not passed)"; fi
 grep -q '^GATE: FAIL' empty.out || fail "empty fixture verdict: $(cat empty.out)"
 
+# --- the shellcheck skip holds only for a fixture dir, never for the suite tests/run lives beside ---
+mkdir -p self/tests; cp "$REPO/tests/run" self/tests/run
+printf '#!/usr/bin/env bash\nexit 0\n' > self/tests/01-ok.sh
+BLAST_OFF_NO_SHELLCHECK=1 self/tests/run > self.out 2>&1 || true
+if grep -q 'shellcheck=skipped' self.out; then fail "shellcheck skip honored on the real suite: $(cat self.out)"; fi
+
 # --- D10: per-commit LLM plugin opted out in the repo's tracked settings ---
 s="$REPO/.claude/settings.json"
 [[ -f $s ]] || fail "missing .claude/settings.json"
@@ -36,9 +42,10 @@ grep -q 'tests/run' "$REPO/.claude/big-next-job.md" 2>/dev/null || fail ".claude
 # --- the spec maps every keep/fix item, CLI verb, exit code and guide §5 directive ---
 spec="$REPO/docs/spec.md"
 [[ -f $spec ]] || fail "missing docs/spec.md"
-row() { grep -qE "^\| *$1 *\|[^|]*[^ |][^|]*\|" "$spec" || fail "spec has no filled row for $1"; }
-for i in $(seq 1 10); do row "K$i"; done
-for i in $(seq 1 11); do row "F$i"; done
+cell='[^|]*[^ |][^|]*\|'
+row() { grep -qE "^\| *$1 *\|${2:-$cell}" "$spec" || fail "spec has no filled row for $1"; }
+for i in $(seq 1 10); do row "K$i" "$cell$cell$cell"; done
+for i in $(seq 1 11); do row "F$i" "$cell$cell$cell"; done
 for c in run start status stop logs resume install preflight receipt ci-wait; do row "\`$c\`"; done
 for e in 0 3 4 5 6 7 8 9 10; do row "$e"; done
 for d in Description Documentation After Wants Type User Group NoNewPrivileges WorkingDirectory \
@@ -46,5 +53,5 @@ for d in Description Documentation After Wants Type User Group NoNewPrivileges W
          TimeoutStartSec TimeoutStopSec CPUQuota CPUSchedulingPolicy Nice MemoryHigh MemoryMax \
          MemorySwapMax TasksMax LimitNOFILE PrivateTmp ProtectSystem ProtectHome ReadWritePaths \
          StandardOutput StandardError SyslogIdentifier KillMode KillSignal FinalKillSignal WantedBy; do
-  row "\`$d=\`"
+  row "\`$d=\`" " *(adopted|changed|dropped) *\|$cell"
 done

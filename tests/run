@@ -2,7 +2,7 @@
 # tests/run: blast-off's gate. Runs every NN-*.sh scenario in its own temp dir, then shellcheck,
 # and ends with one verdict line. A gate that ran nothing has not passed.
 # Usage: tests/run [scenario-dir]        (default: the dir this script lives in)
-#   env: BLAST_OFF_NO_SHELLCHECK=1       skip shellcheck (set only by the harness self-test)
+#   env: BLAST_OFF_NO_SHELLCHECK=1       skip shellcheck for a fixture scenario-dir only (the harness self-test); ignored on the real suite
 #        BLAST_OFF_TEST_TIMEOUT=300      seconds one scenario may run before it counts as failed
 # Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."
 set -euo pipefail
@@ -26,7 +26,7 @@ for t in "$DIR"/[0-9][0-9]-*.sh; do
 done
 [ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
 
-if [ -z "${BLAST_OFF_NO_SHELLCHECK:-}" ]; then
+if [ -z "${BLAST_OFF_NO_SHELLCHECK:-}" ] || [ "$DIR" = "$HERE" ]; then
   shopt -s nullglob
   files=("$REPO"/bin/blast-off "$REPO"/lib/*.sh "$REPO"/tests/*.sh "$REPO"/tests/run)
   shopt -u nullglob
