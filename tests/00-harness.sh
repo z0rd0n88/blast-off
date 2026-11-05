@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# 00-harness: the gate itself reports honestly, and the phase 0 scaffold is in place.
+# shellcheck source=tests/lib.sh
+source "$REPO/tests/lib.sh"
+
+# --- the harness: pass, fail, and nothing-ran each give the right verdict and exit code ---
+mkdir ok bad empty
+printf 'exit 0\n' > ok/01-ok.sh
+printf 'exit 0\n' > bad/01-ok.sh; printf 'echo boom; exit 1\n' > bad/02-bad.sh
+run_gate() { BLAST_OFF_NO_SHELLCHECK=1 "$REPO/tests/run" "$1" > "$1.out" 2>&1; }
+
+run_gate ok || fail "passing fixture exited non-zero"
+grep -qx 'GATE: PASS passed=1 failed=0 shellcheck=skipped' ok.out || fail "passing fixture verdict: $(cat ok.out)"
+
+if run_gate bad; then fail "failing fixture exited 0"; fi
+grep -qx 'GATE: FAIL passed=1 failed=1 shellcheck=skipped' bad.out || fail "failing fixture verdict: $(cat bad.out)"
+grep -q '  | boom' bad.out || fail "failing scenario output not shown"
+
+if run_gate empty; then fail "empty fixture exited 0 (unrun is not passed)"; fi
+grep -q '^GATE: FAIL' empty.out || fail "empty fixture verdict: $(cat empty.out)"
+
+# --- D10: per-commit LLM plugin opted out in the repo's tracked settings ---
+s="$REPO/.claude/settings.json"
+[[ -f $s ]] || fail "missing .claude/settings.json"
+[[ $(jq -r '.enabledPlugins["security-guidance@claude-plugins-official"]' "$s") == false ]] \
+  || fail "security-guidance plugin not set to false in .claude/settings.json"
+
+# --- job dirs never get staged ---
+for p in .big-next-job/ .worktrees/; do
+  grep -qx "$p" "$REPO/.gitignore" 2>/dev/null || fail ".gitignore lacks $p"
+done
+
+# --- per-repo job notes name the gate ---
+grep -q 'tests/run' "$REPO/.claude/big-next-job.md" 2>/dev/null || fail ".claude/big-next-job.md missing or does not name tests/run"
+
+# --- the spec maps every keep/fix item, CLI verb, exit code and guide §5 directive ---
+spec="$REPO/docs/spec.md"
+[[ -f $spec ]] || fail "missing docs/spec.md"
+row() { grep -qE "^\| *$1 *\|[^|]*[^ |][^|]*\|" "$spec" || fail "spec has no filled row for $1"; }
+for i in $(seq 1 10); do row "K$i"; done
+for i in $(seq 1 11); do row "F$i"; done
+for c in run start status stop logs resume install preflight receipt ci-wait; do row "\`$c\`"; done
+for e in 0 3 4 5 6 7 8 9 10; do row "$e"; done
+for d in Description Documentation After Wants Type User Group NoNewPrivileges WorkingDirectory \
+         EnvironmentFile ExecStart Restart RestartSec StartLimitIntervalSec StartLimitBurst \
+         TimeoutStartSec TimeoutStopSec CPUQuota CPUSchedulingPolicy Nice MemoryHigh MemoryMax \
+         MemorySwapMax TasksMax LimitNOFILE PrivateTmp ProtectSystem ProtectHome ReadWritePaths \
+         StandardOutput StandardError SyslogIdentifier KillMode KillSignal FinalKillSignal WantedBy; do
+  row "\`$d=\`"
+done

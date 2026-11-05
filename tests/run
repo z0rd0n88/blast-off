@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# tests/run: blast-off's gate. Runs every NN-*.sh scenario in its own temp dir, then shellcheck,
+# and ends with one verdict line. A gate that ran nothing has not passed.
+# Usage: tests/run [scenario-dir]        (default: the dir this script lives in)
+#   env: BLAST_OFF_NO_SHELLCHECK=1       skip shellcheck (set only by the harness self-test)
+#        BLAST_OFF_TEST_TIMEOUT=300      seconds one scenario may run before it counts as failed
+# Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(dirname "$HERE")"
+DIR="$(cd "${1:-$HERE}" && pwd)"
+export REPO
+
+passed=0 failed=0 sc=skipped
+for t in "$DIR"/[0-9][0-9]-*.sh; do
+  [ -e "$t" ] || continue
+  name="$(basename "$t" .sh)"
+  work="$(mktemp -d)"; mkdir "$work/cwd"
+  if (cd "$work/cwd" && timeout "${BLAST_OFF_TEST_TIMEOUT:-300}" bash "$t") >"$work/out" 2>&1; then
+    passed=$((passed+1)); echo "PASS $name"
+  else
+    failed=$((failed+1)); echo "FAIL $name"; sed 's/^/  | /' "$work/out"
+  fi
+  rm -rf "$work"
+done
+[ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
+
+if [ -z "${BLAST_OFF_NO_SHELLCHECK:-}" ]; then
+  shopt -s nullglob
+  files=("$REPO"/bin/blast-off "$REPO"/lib/*.sh "$REPO"/tests/*.sh "$REPO"/tests/run)
+  shopt -u nullglob
+  existing=(); for f in "${files[@]}"; do [ -e "$f" ] && existing+=("$f"); done
+  if ! command -v shellcheck >/dev/null; then
+    sc=missing; failed=$((failed+1)); echo "FAIL shellcheck not installed"
+  elif shellcheck -S warning "${existing[@]}"; then
+    sc=ok; echo "PASS shellcheck (${#existing[@]} files)"
+  else
+    sc=fail; failed=$((failed+1)); echo "FAIL shellcheck"
+  fi
+fi
+
+if [ "$failed" -eq 0 ]; then
+  echo "GATE: PASS passed=$passed failed=0 shellcheck=$sc"
+else
+  echo "GATE: FAIL passed=$passed failed=$failed shellcheck=$sc"; exit 1
+fi
