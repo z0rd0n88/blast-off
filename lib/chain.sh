@@ -9,8 +9,11 @@ chain_end() { CHAIN_END=1; log "$2"; exit "$1"; }
 # set -e abort, signal) reaches them unless this does; JOB_KEEP_WINDOWS leaves everything for
 # inspection. An exit chain_end did not make is logged, and an abort's own status (a failed sed
 # exits 4, the cap code) becomes 1 so it never reads as a state; a signal's 128+n stands.
+# Signals are ignored from here on (owner Q6): a second one would exit inside this trap, skip
+# kill-server and replace the status. The scope stop and the unit's TimeoutStopSec bound the wait.
 chain_exit() {
   local rc="$1"
+  trap '' HUP INT TERM
   [ -n "${JOB_KEEP_WINDOWS:-}" ] || child_stop_all
   [ -z "${CHAIN_END:-}" ] || return 0
   log "runner exit $rc without a state; its error is on stderr (the journal under the unit)" || true

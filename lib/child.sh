@@ -24,7 +24,10 @@ child_stop_all() {
 
 # child_launch <n>: CHILD_DIR (settings + done.json), CHILD_WIN, CHILD_SCOPE. tmux 3.4 moves each pane
 # into a tmux-spawn scope outside the runner's unit; systemd-run --scope moves claude again, into
-# blast-off.slice under a name the runner and `blast-off stop` can stop (spec §4).
+# blast-off.slice under a name the runner and `blast-off stop` can stop (spec §4). tmux moves only the
+# pane's own pid, after fork and without waiting, so '; exit' makes the shell fork systemd-run rather
+# than exec it: a late tmux move lands on the shell, never on claude (else claude ends in a tmux-spawn
+# scope the runner cannot name).
 child_launch() {
   local n="$1" q
   CHILD_DIR="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/blast-off.XXXXXX")"
@@ -32,7 +35,7 @@ child_launch() {
   q="'$(printf '%s' "$PROMPT" | sed "s/'/'\\\\''/g")'"
   CHILD_SCOPE="$UNIT-child-$n.scope"
   CHILD_WIN=$(tmux -L "$UNIT" new-window -dP -t "$SESSION" -c "$WORKDIR" -e JOB_DIR="$JOB" -e JOB_CHILD="$n" \
-    "systemd-run --user --scope --quiet --collect --slice=blast-off.slice --unit=$CHILD_SCOPE claude $CLAUDE_FLAGS --settings $CHILD_DIR/settings.json $q")
+    "systemd-run --user --scope --quiet --collect --slice=blast-off.slice --unit=$CHILD_SCOPE claude $CLAUDE_FLAGS --settings $CHILD_DIR/settings.json $q; exit")
   log "child $n launched  window=$CHILD_WIN  (watch: tmux -L $UNIT attach -t $SESSION)"
 }
 
