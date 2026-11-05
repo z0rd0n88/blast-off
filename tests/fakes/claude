@@ -2,7 +2,10 @@
 # Fake claude for scenarios; never calls the real one. Reads --settings <file>, acts on line
 # $JOB_CHILD of $JOB_DIR/fake-mode (last line repeats), records a marker, then runs the settings
 # file's Stop hook with the payload fields the runner reads, and idles like an interactive session.
-# Modes: step (append a Progress line) · done · blocked · noop · hang (no Stop hook) · slow-done (sleep 5, done)
+# Modes: step (append a Progress line) · done · blocked · noop · slow-done (sleep 5, done)
+#        hang (no Stop hook; starts a HUP-ignoring grandchild, a stand-in for a background subagent)
+#        slow-hook (done; the Stop payload arrives in two parts 2 s apart)
+#        trust-early / trust-late (print the trust dialog's text at once / after 3 s, record whether keys arrived, done)
 set -euo pipefail
 settings=
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
@@ -15,10 +18,20 @@ case "$mode" in
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;
   slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
   noop) ;;
-  hang) exec sleep 600 ;;
+  hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
+  slow-hook) sed -i 's/^status: .*/status: done/' "$cp" ;;
+  trust-early|trust-late)
+    [ "$mode" = trust-early ] || sleep 3
+    echo "Yes, I trust this folder"
+    if read -r -t 6 _; then echo keys=yes >> "$JOB_DIR/fake-marker"; else echo keys=no >> "$JOB_DIR/fake-marker"; fi
+    sed -i 's/^status: .*/status: done/' "$cp" ;;
   *) echo "fake claude: unknown mode $mode" >&2; exit 1 ;;
 esac
 hook="$(jq -r '.hooks.Stop[0].hooks[0].command' "$settings")"
-printf '{"session_id":"fake-%s","transcript_path":"/dev/null","last_assistant_message":"fake child %s did %s"}\n' \
-  "$JOB_CHILD" "$JOB_CHILD" "$mode" | bash -c "$hook"
+payload() {
+  printf '{"session_id":"fake-%s","transcript_path":"/dev/null",' "$JOB_CHILD"
+  [ "$mode" != slow-hook ] || sleep 2
+  printf '"last_assistant_message":"fake child %s did %s"}\n' "$JOB_CHILD" "$mode"
+}
+payload | bash -c "$hook"
 exec sleep 600

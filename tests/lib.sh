@@ -25,6 +25,24 @@ new_job() {
   SUFFIXES+=("$s")
 }
 
+# install_units: the real `blast-off install` (unit and slice must be loaded to test them), with the
+# owner's installed files saved first and put back by cleanup, so a scenario never leaves them changed.
+UNITS_SAVED=
+install_units() {
+  local d="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" f
+  UNITS_SAVED="$PWD/units-saved"; mkdir -p "$UNITS_SAVED"
+  for f in blast-off@.service blast-off.slice; do [ ! -e "$d/$f" ] || cp "$d/$f" "$UNITS_SAVED/"; done
+  "$REPO/bin/blast-off" install
+}
+restore_units() {
+  [ -n "$UNITS_SAVED" ] || return 0
+  local d="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" f
+  for f in blast-off@.service blast-off.slice; do
+    if [ -e "$UNITS_SAVED/$f" ]; then cp "$UNITS_SAVED/$f" "$d/$f"; else rm -f "$d/$f"; fi
+  done
+  systemctl --user daemon-reload
+}
+
 # Stop only what this scenario started: units and scopes named $TEST_ID-*, and its own tmux sessions.
 cleanup() {
   systemctl --user stop "$TEST_ID-*" 2>/dev/null || true
@@ -32,6 +50,7 @@ cleanup() {
     tmux -L "$TEST_ID-$s" kill-session -t "job-test-$$-$s" 2>/dev/null || true
     rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$TEST_ID-$s"
   done
+  restore_units
 }
 trap cleanup EXIT
 

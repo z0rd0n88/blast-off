@@ -9,7 +9,7 @@ export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token
 bo="$REPO/bin/blast-off"
 udir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 
-"$bo" install > install.out 2>&1 || fail "install: $(cat install.out)"
+install_units > install.out 2>&1 || fail "install: $(cat install.out)"
 grep -qx "ExecStart=$REPO/bin/blast-off run %f" "$udir/blast-off@.service" || fail "template ExecStart: $(grep ExecStart "$udir/blast-off@.service" 2>&1)"
 grep -qx 'Slice=blast-off.slice' "$udir/blast-off@.service" || fail "template not in blast-off.slice"
 grep -qx 'MemoryAccounting=yes' "$udir/blast-off.slice" || fail "slice not installed"
@@ -43,13 +43,37 @@ exec_start="$(systemctl --user show "$inst" -p ExecStart --value)"; echo "$exec_
 [[ $exec_start == *"argv[]=$REPO/bin/blast-off run $JOB ;"* ]] || fail "template instance ExecStart: $exec_start"
 not_active "$inst" || fail "template instance was started"
 
-# second run: the child hangs; stop ends runner, scope and child
-sed -i 's/^status: .*/status: running/' "$JOB/checkpoint.md"; echo hang > "$JOB/fake-mode"; rm "$JOB/fake-marker"
-"$bo" start "$JOB" > start2.out 2>&1 || fail "second start: $(cat start2.out)"
-wait_until 20 test -s "$JOB/fake-marker" || fail "second child never ran"
-pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
+# start_hang: rerun the job with a hanging child; sets pid (fake claude) and gc (its HUP-ignoring grandchild,
+# a stand-in for a background subagent).
+start_hang() {
+  sed -i 's/^status: .*/status: running/' "$JOB/checkpoint.md"; echo hang > "$JOB/fake-mode"; rm -f "$JOB/fake-marker"
+  "$bo" start "$JOB" > "start-$1.out" 2>&1 || fail "start ($1): $(cat "start-$1.out")"
+  wait_until 20 grep -q '^grandchild=' "$JOB/fake-marker" || fail "hanging child never ran ($1)"
+  pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
+  gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB/fake-marker")"
+}
+gone() { ! kill -0 "$1" 2>/dev/null; }
+scope="$TEST_ID-job-child-1.scope"
+
+# blast-off stop ends runner, scope, child and grandchild
+start_hang stop
 "$bo" stop "$JOB" > stop.out 2>&1 || fail "stop: $(cat stop.out)"
 not_active "$unit" || fail "runner still $(unit_state "$unit") after stop"
-not_active "$TEST_ID-job-child-1.scope" || fail "child scope still $(unit_state "$TEST_ID-job-child-1.scope")"
-wait_until 5 eval "! kill -0 $pid 2>/dev/null" || fail "child $pid alive after stop"
+not_active "$scope" || fail "child scope still $(unit_state "$scope")"
+wait_until 5 gone "$pid" || fail "child $pid alive after stop"
+wait_until 5 gone "$gc" || fail "grandchild $gc alive after stop"
+
+# stopping the runner unit directly: the runner's TERM trap stops the scope
+start_hang trap
+systemctl --user stop "$unit"
+wait_until 5 gone "$gc" || fail "grandchild $gc alive after systemctl stop of the runner (trap path)"
+not_active "$scope" || fail "child scope still $(unit_state "$scope") after runner stop"
+
+# runner killed without its trap: the scope outlives it; blast-off stop's glob still ends it
+start_hang kill
+systemctl --user kill -s KILL --kill-whom=main "$unit"
+wait_until 10 not_active "$unit" || fail "runner unit still $(unit_state "$unit") after SIGKILL"
+kill -0 "$gc" 2>/dev/null || fail "grandchild died with the runner; this case no longer tests stop's scope glob"
+"$bo" stop "$JOB" > stop3.out 2>&1 || fail "stop after runner kill: $(cat stop3.out)"
+wait_until 5 gone "$gc" || fail "grandchild $gc alive after stop (scope glob path)"
 echo ok
