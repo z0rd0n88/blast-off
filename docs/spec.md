@@ -59,7 +59,7 @@ to the job dir's parent (as in `run-job`).
 
 Environment (non-secret, passed by name through the unit): `PATH`, `CLAUDE_FLAGS`, `JOB_MAX_CHILDREN`
 (override of the derived cap), `JOB_CAP_FACTOR` (default 3), `JOB_CHILD_TIMEOUT` (default 7200),
-`JOB_SESSION`, `JOB_KEEP_WINDOWS`. D14 reads "No secrets in any file;
+`JOB_SESSION`, `JOB_KEEP_WINDOWS` (leave finished children and, at exit, the server and scopes for inspection), `BLAST_OFF_TRUST_SECONDS` (default 60: the trust-dialog scrape runs only while a child starts). D14 reads "No secrets in any file;
 launch lines pass env var names, never values." blast-off writes no secret (`GH_TOKEN`) to any file,
 and the launch line names them without values: `start` passes each as `--setenv=NAME`, so
 `systemd-run` reads the value from the caller's environment. systemd itself then stores the resolved
@@ -113,7 +113,7 @@ command line (D14). The brief names no mechanism; this one is chosen because the
 `new-window -e NAME=value`, carries `PATH` but would put the token's value on a tmux command line. The
 socket stays under `/tmp/tmux-1000/` (no `PrivateTmp=`); the owner watches with
 `tmux -L <unit name> attach -t <session>`, and `run.log`'s watch line and the hand-over lines print
-exactly that. Test cleanup kills only the test's own sessions, never `kill-server`. Panes on a private
+exactly that. Test cleanup kills only the test's own sessions, never `kill-server`. The runner owns its socket: at start it stops what an earlier run of the job left (`<unit>-child-*.scope`, `kill-server` on `-L <unit name>`), and an EXIT trap does the same on every exit, signals included, unless `JOB_KEEP_WINDOWS` is set. Panes on a private
 server still land in `tmux-spawn` scopes, so the per-child scope below stays: `-L` fixes the
 environment, the scope fixes the cgroup, and `systemd-run --scope` runs `claude` as its own child, so
 the pane's environment flows through (systemd-run(1)). Phase 1 builds this in `lib/child.sh` and
@@ -201,7 +201,7 @@ the marker records whether the child saw it set (the name, never a value):
 | Scenario | Behavior | Phase |
 |---|---|---|
 | `00-harness` | gate verdicts; phase 0 scaffold and this spec's tables | 0 |
-| `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3); a fake child that hangs past `JOB_CHILD_TIMEOUT=2` is logged as timed out in `run.log` and the next child launches; two children in a row that leave `checkpoint.md` unchanged give exit 5 and `two stalls; stopping` in `run.log`. Exit 4 has no scenario: nothing disables the phase 2 soft cap, so phase 2 either names that switch or drops exit 4 as unreachable (open) | 1 |
+| `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3); a fake child that hangs past `JOB_CHILD_TIMEOUT=2` is logged as timed out in `run.log` and the next child launches; two children in a row that leave `checkpoint.md` unchanged give exit 5 and `two stalls; stopping` in `run.log`, and progress resets that count; `JOB_MAX_CHILDREN=1` gives exit 4 (the phase 1 hard cap; phase 2 decides its fate beside the soft cap); the runner's tmux server and child scopes end on every exit and on SIGHUP; a stale scope of the same job is stopped before child 1; a slowly written Stop payload is read whole; the trust dialog is answered only in a child's first `BLAST_OFF_TRUST_SECONDS` | 1 |
 | `11-unit-smoke` | `start` runs the same job from a workdir named `test-<pid>-job` (`<pid>` as in `$TEST_ID`), so the runner unit is `blast-off-test-<pid>-job.service`, in `blast-off.slice` by `systemctl --user show -p Slice,MemoryCurrent`; the template instance for the escaped absolute path of the temp job dir is only loaded by `systemctl --user show -p ExecStart`, never started, and shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope; after a second run whose fake child blocks, `blast-off stop` leaves the runner unit and its `-child-<n>` scope inactive or not-found by `systemctl --user show -p ActiveState`, and the fake child's pid gone | 1 |
 | `12-start-env` | `start` with `CLAUDE_FLAGS` unset, then with `GH_TOKEN` empty, exits 1 and creates no unit; `run` with `CLAUDE_FLAGS` unset exits 1 and launches no child (every other scenario that drives `run` exports a dummy `CLAUDE_FLAGS`) | 1 |
 | `20-dead-child` | child exits without the Stop hook; seen within 10 s | 2 |
