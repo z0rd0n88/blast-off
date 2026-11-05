@@ -14,6 +14,9 @@ child_server() {
   child_stop_all
   # shellcheck disable=SC2086
   env $scrub tmux -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
+  # A child's pane outlives its claude (tmux(1) remain-on-exit), so child_wait sees the death as
+  # #{pane_dead} and the last screen, the only record of why it died, is still there to log.
+  tmux -L "$UNIT" set-option -g remain-on-exit on
 }
 
 # Every child scope of this job and the job's tmux server.
@@ -39,30 +42,53 @@ child_launch() {
   log "child $n launched  window=$CHILD_WIN  (watch: tmux -L $UNIT attach -t $SESSION)"
 }
 
-# Wait for the child's Stop hook to write done.json; 0 when it did, 1 at the timeout.
+# Wait for the child: 0 when its Stop hook wrote done.json, 1 past TIMEOUT seconds, 2 when it exited
+# first (pane dead or window gone; CHILD_AGE = seconds it lived). Polled once a second, so a death is
+# seen in about 1 s. done.json is read again after a death: the hook's mv ends before claude exits.
+# Time is $SECONDS, not loop turns: capture-pane and the trust keys' sleep stretch a turn (P1R2-4).
 # A folder Claude has not seen shows a trust dialog; the job's worktrees are owner-created, so every
 # trust dialog is answered (owner decision 2026-10-28). The dialog appears only as claude starts, so the
 # scrape runs only for the first BLAST_OFF_TRUST_SECONDS (default 60): later the same text can be on
 # screen in a working child (this repo's own files hold it), and keys typed then would reach its session.
 # ponytail: screen scrape (capture-pane is the only view of the dialog); replace if claude grows a --trust flag.
 child_wait() {
-  local i
-  for ((i=0; i<TIMEOUT; i++)); do
+  local start=$SECONDS el
+  while :; do
+    el=$((SECONDS-start))
     [ -s "$CHILD_DIR/done.json" ] && return 0
-    if [ "$i" -lt "${BLAST_OFF_TRUST_SECONDS:-60}" ] &&
+    if [ "$(tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead}' 2>/dev/null)" != 0 ]; then
+      [ -s "$CHILD_DIR/done.json" ] && return 0
+      # shellcheck disable=SC2034  # CHILD_AGE: read by chain_run
+      CHILD_AGE=$el; return 2
+    fi
+    [ "$el" -le "$TIMEOUT" ] || return 1
+    if [ "$el" -lt "${BLAST_OFF_TRUST_SECONDS:-60}" ] &&
        [[ $(tmux -L "$UNIT" capture-pane -p -t "$CHILD_WIN" 2>/dev/null) == *"Yes, I trust this folder"* ]]; then
       tmux -L "$UNIT" send-keys -t "$CHILD_WIN" Down Enter; sleep 2
     fi
     sleep 1
   done
-  return 1
+}
+
+# child_screen: the child's last 40 lines on screen, blank lines dropped, into run.log.
+child_screen() {
+  { echo "--- child's last screen ---"
+    tmux -L "$UNIT" capture-pane -p -t "$CHILD_WIN" -S -40 2>/dev/null | sed '/^[[:space:]]*$/d' || echo "(window gone)"
+    echo "---"; } >> "$LOG"
 }
 
 # child_report <n>: the Stop payload into run.log, and its tail to stdout (the journal).
 child_report() {
   python3 - "$CHILD_DIR/done.json" "$1" >> "$LOG" <<'PY'
 import json, sys
-ev = json.load(open(sys.argv[1]))
+raw = open(sys.argv[1], errors="replace").read()
+try:
+    ev = json.loads(raw)
+except ValueError:
+    ev = None
+if not isinstance(ev, dict):  # a bad payload is the child's fault; log it, never abort the runner (Q3)
+    print(f"child {sys.argv[2]} Stop payload is not a JSON object: {raw[:200].strip()}")
+    sys.exit(0)
 print(f"child {sys.argv[2]} session={ev.get('session_id')} transcript={ev.get('transcript_path')}")
 print("--- child's last message ---")
 print(ev.get("last_assistant_message") or "(none)")

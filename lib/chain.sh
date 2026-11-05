@@ -26,7 +26,7 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local maxc="${JOB_MAX_CHILDREN:-12}" n=0 stalls=0 s before
+  local maxc="${JOB_MAX_CHILDREN:-12}" n=0 stalls=0 s before w
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
   # constant and the chain never depends on a hand-written handoff.
@@ -51,13 +51,14 @@ chain_run() {
     before="$(cp_fingerprint)"
 
     child_launch "$n"
-    if child_wait; then
-      child_report "$n"
-      child_stop
-    else
-      log "child $n timed out after ${TIMEOUT}s; killing it, next child resumes from checkpoint"
-      child_stop force
-    fi
+    w=0; child_wait || w=$?
+    case "$w" in
+      0) child_report "$n"; child_stop ;;
+      1) log "child $n timed out after ${TIMEOUT}s; killing it, next child resumes from checkpoint"
+         child_stop force ;;
+      *) log "child $n exited without its Stop hook after ${CHILD_AGE}s; its screen follows, next child resumes from checkpoint"
+         child_screen; child_stop force ;;
+    esac
 
     if [ "$(cp_fingerprint)" = "$before" ]; then
       stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2)"
