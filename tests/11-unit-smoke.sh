@@ -23,6 +23,10 @@ grep -q -- '--setenv=BLAST_OFF_TRUST_SECONDS ' start.out || fail "start does not
 
 wait_until 20 test -s "$JOB/fake-marker" || fail "child never ran: $(cat "$JOB/run.log" 2>&1); $(journalctl --user -u "$unit" -n 20 --no-pager 2>&1)"
 pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
+# tmux moves only the pane's own pid into a tmux-spawn scope; the child must be the pane shell's child
+ppid="$(awk '/^PPid:/{print $2}' "/proc/$pid/status")"
+[ -n "$ppid" ] && grep -qx "$ppid" <<<"$(tmux -L "$TEST_ID-job" list-panes -a -F '#{pane_pid}')" ||
+  fail "child $pid is the pane process itself (parent $ppid); tmux's tmux-spawn move can land on it"
 show="$(systemctl --user show "$unit" -p ActiveState,Slice,MemoryCurrent,ExecMainPID)"
 echo "$show"
 grep -qx 'Slice=blast-off.slice' <<<"$show" || fail "runner not in blast-off.slice: $show"

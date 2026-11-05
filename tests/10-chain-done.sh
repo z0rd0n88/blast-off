@@ -100,6 +100,22 @@ rc=0; PATH="$PWD/badpy:$PATH" "$bo" run "$JOB" > abort.out 2>&1 || rc=$?
 tail -n 1 "$JOB/run.log" | grep -q 'runner exit 4 without a state' || fail "abort not logged: $(cat "$JOB/run.log")"
 ! tmux -L "$TEST_ID-abort" has-session 2>/dev/null || fail "tmux server alive after runner abort"
 
+# a second signal while chain_exit stops the child scopes is ignored: the job's tmux server still ends,
+# the exit is logged and the first signal's code stands; a slow systemctl holds that cleanup open
+new_job sig2 hang
+mkdir -p slowctl
+printf '#!/bin/sh\ncase "$*" in *"-child-*.scope"*) touch %s/stopping; sleep 3 ;; esac\nexec %s "$@"\n' \
+  "$PWD" "$(command -v systemctl)" > slowctl/systemctl; chmod +x slowctl/systemctl
+PATH="$PWD/slowctl:$PATH" "$bo" run "$JOB" > sig2.out 2>&1 & runner=$!
+wait_until 20 grep -q '^grandchild=' "$JOB/fake-marker" || fail "sig2 child never ran"
+rm -f stopping
+kill -HUP "$runner"
+wait_until 5 test -e stopping || fail "runner cleanup never reached the scope stop"
+kill -TERM "$runner"; rc=0; wait "$runner" || rc=$?
+[ "$rc" -eq 129 ] || fail "runner exit after SIGHUP then SIGTERM during cleanup: $rc, want 129"
+grep -q 'runner exit 129 without a state' "$JOB/run.log" || fail "SIGHUP exit not logged: $(cat "$JOB/run.log")"
+! tmux -L "$TEST_ID-sig2" has-session 2>/dev/null || fail "tmux server alive after a second signal during cleanup"
+
 # the trust dialog is answered only while a child starts; its text later on screen gets no keys
 export BLAST_OFF_TRUST_SECONDS=2
 new_job trustearly trust-early
