@@ -21,7 +21,7 @@ builds it.
 | K3 | One stacked draft PR per phase, pushed when the phase closes | `templates/brief.md` delivery section; `templates/checkpoint.md` phase row carries PR number | 5 |
 | K4 | Chain mechanics: tmux window per child, Stop-hook `done.json`, resume from `Next action`, idempotent re-run | `lib/chain.sh` (loop, stall fingerprint), `lib/child.sh` (launch, trust-dialog scrape, wait), `templates/settings.child.json` (Stop hook); ported from `run-job` lines 38 to 94 | 1 |
 | K5 | Doubt review and mutation probes inside each phase | `templates/brief.md` review section: doubt pass before round 1, probe set over status and exit logic, trap restores the file | 5 |
-| K6 | One gate script with one verdict line, logs per phase | `tests/run` prints `GATE: PASS|FAIL passed= failed= shellcheck=`; `gate-logs/phase-<n>.log`; `blast-off receipt` reads the verdict line | 0, 4 |
+| K6 | One gate script with one verdict line, logs per phase | `tests/run` prints `GATE: PASS` or `GATE: FAIL` plus `passed=`, `failed=` and `shellcheck=` tallies; `gate-logs/phase-<n>.log`; `blast-off receipt` reads the verdict line | 0, 4 |
 | K7 | Per-phase ledgers with stable finding IDs, sourced decisions | `templates/checkpoint.md` pointers to `phases/phase-<n>.md`; finding IDs `P<n>R<r>-<k>`; `decisions.tsv` | 5 |
 | K8 | Explicit `--model` and `--effort` per child | `CLAUDE_FLAGS` passed through the unit by name; `lib/jev.sh` picks the level per phase with a static fallback; `preflight` prints the resolved flags | 1, 6 |
 | K9 | Blocked parts do not stop the job | child protocol: record under "Open or blocked", leave the patch in `phases/`, continue; runner exits 3 only on `status: blocked` | 1, 5 |
@@ -30,7 +30,7 @@ builds it.
 | F2 | Tool owns the launch as a user unit; prints model, effort, flags, cap, timeout, account; soft derived cap; child liveness; hand-over lines; documented permission rule | `systemd/blast-off@.service`, `blast-off start`, `blast-off preflight`; cap = phases × factor, exit 6 `paused-cap`; `lib/child.sh` polls the child pid every second, exit seen in under 10 s; `skills/blast-off/SKILL.md` and `README.md` hand the owner one start line plus the status and stop commands, and state the permission rule a session needs to run that start line (the owner adds it; blast-off never writes settings and never works around the classifier) | 1, 2, 6, 7 |
 | F3 | Hand back at step boundaries, not on an estimate; checkpoint stays small | `templates/brief.md` step-boundary rule; `lib/checkpoint.sh` warns in `run.log` past 150 lines; final report counts children per phase and hand-back reasons | 5 |
 | F4 | Review shape: LOW recorded not fixed, lenses change each round, at most 3 reviewers, clean round closes | `templates/brief.md` review section (D12 shape); final report counts clean-round versus cap closes | 5 |
-| F5 | Background work dies with the window; dirty tree after a child | child protocol bans ending a turn with background work running; probes restore in a trap on EXIT, TERM, INT; `lib/chain.sh` logs `git status --porcelain` at each child end and exits 7 on a dirty tree the checkpoint does not name; `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in the child env | 2, 5 |
+| F5 | Background work dies with the window; dirty tree after a child | child protocol bans ending a turn with background work running; probes restore in a trap on EXIT, TERM, INT; `lib/chain.sh` logs `git status --porcelain` at each child end and exits 7 on a dirty tree the checkpoint does not name. The child env also sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` (brief §3.3), but it acts only after the final turn of a `claude -p` child, where 0 means wait for background work with no ceiling until `JOB_CHILD_TIMEOUT`; it does nothing for the interactive tmux children and is not one of F5's controls | 2, 5 |
 | F6 | Reviewers read-only by explicit tool allowlist; no servers or ports | `templates/brief.md` reviewer dispatch text: "no Edit, no Write, no process-starting Bash, no servers, no ports; read and grep only" | 5 |
 | F7 | Done without reading CI | `blast-off ci-wait <pr>`: one blocking `gh run watch <id> --exit-status` per run; `lib/chain.sh` refuses `status: done` while a PR lacks recorded conclusions (exit 10); absent checks are not a pass | 4 |
 | F8 | Receipts: machine-written gate evidence the next child checks | `blast-off receipt <job-dir> <phase>` writes `gate-logs/phase-<n>.json` from `templates/receipt.json`; runner refuses a done phase row whose receipt sha differs from the phase commit (exit 9) | 4 |
@@ -47,7 +47,7 @@ to the job dir's parent (as in `run-job`).
 | Command | What it does | Phase |
 |---|---|---|
 | `run` | `blast-off run <job-dir> [workdir]`: the chain loop in the foreground; what the unit's `ExecStart` calls | 1 |
-| `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the MoonPay precedent); names only, never values; prints the resolved launch first | 1 |
+| `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the MoonPay precedent); names only, never values; exits 1 before launching when `GH_TOKEN` or `CLAUDE_FLAGS` is unset or empty in the caller, because `--setenv=NAME` turns an unset name into an empty value in the unit; prints the resolved launch first | 1 |
 | `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service` | 1 |
 | `stop` | `blast-off stop <job-dir>`: `systemctl --user stop blast-off-<name>.service`; the next child resumes from the checkpoint | 1 |
 | `logs` | `blast-off logs <job-dir>`: `run.log` tail and `journalctl --user -u blast-off-<name>.service` | 1 |
@@ -59,9 +59,15 @@ to the job dir's parent (as in `run-job`).
 
 Environment (non-secret, passed by name through the unit): `CLAUDE_FLAGS`, `JOB_MAX_CHILDREN`
 (override of the derived cap), `JOB_CAP_FACTOR` (default 3), `JOB_CHILD_TIMEOUT` (default 7200),
-`JOB_SESSION`, `JOB_KEEP_WINDOWS`. Secrets (`GH_TOKEN`) pass by name only, never by value in a file.
-`start` passes each as `--setenv=NAME` with no value, so `systemd-run` reads it from the caller's
-environment. The user manager's environment holds only `HOME`, `PATH`, `XDG_RUNTIME_DIR` and
+`JOB_SESSION`, `JOB_KEEP_WINDOWS`. Secrets (`GH_TOKEN`) never appear in a file the repo or blast-off
+writes, and the launch line names them without values: `start` passes each as `--setenv=NAME`, so
+`systemd-run` reads the value from the caller's environment. systemd itself then stores the resolved
+value, the token included, in the transient unit file under `$XDG_RUNTIME_DIR/systemd/transient/`
+(tmpfs; the file is mode 0644 inside the owner-only 0700 `$XDG_RUNTIME_DIR`, so the same user and root
+can read it) and in the unit's `Environment` property (`systemctl --user show`) until the unit is
+collected. Whether to accept that storage, or have the runner read the secret itself, is undecided:
+an owner question that phase 1 records as open and does not settle. The user manager's environment
+holds only `HOME`, `PATH`, `XDG_RUNTIME_DIR` and
 `DBUS_SESSION_BUS_ADDRESS`, and `PassEnvironment=` has no effect in user scope (systemd.exec(5)), so a
 hand-started template instance sees none of these names. Phase 1 decides whether `start` ever uses the
 template; the candidate `systemctl --user import-environment GH_TOKEN CLAUDE_FLAGS` passes names only
@@ -75,7 +81,7 @@ nothing outside `~/.config/systemd/user/`. A `~/.local/bin/blast-off` symlink is
 | Code | Meaning | Checkpoint status written | Phase |
 |---|---|---|---|
 | 0 | job done | `done` (by the child) | 1 |
-| 1 | usage or dependency error (missing tool, missing brief or checkpoint), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
+| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
 | 3 | blocked, needs the owner | `blocked` (by the child) | 1 |
 | 4 | hard child cap reached (only when the soft cap is disabled) | unchanged | 1 |
 | 5 | two children in a row left the checkpoint unchanged | unchanged | 1 |
@@ -102,8 +108,10 @@ sized for this box (23 GB RAM, 20 cores; prompt §8), overridable with a drop-in
 `TasksMax=4096`, `ManagedOOMMemoryPressure=kill`, `ManagedOOMMemoryPressureLimit=65%` (guide §4).
 
 **`systemd/blast-off@.service`**, template, the instance is the job dir escaped by
-`systemd-escape --path`. `Type=exec`, `ExecStart=<repo>/bin/blast-off run %I` (`%I` unescapes it, so no
-per-instance file is written; a drop-in would fall outside brief §4), `Slice=blast-off.slice`,
+`systemd-escape --path`. `Type=exec`, `ExecStart=<repo>/bin/blast-off run %f` (`%f` undoes the path
+escaping and prepends `/`, so `run` gets the absolute job dir and no per-instance file is written; `%I`
+would drop the leading `/`, and `run` would resolve the relative path against the unit's working
+directory, find no brief and exit 1; a drop-in would fall outside brief §4), `Slice=blast-off.slice`,
 `KillMode=control-group`, `ManagedOOMPreference=avoid` on the runner, `TimeoutStopSec=`, journald
 output, no `Restart=`, no `[Install]`. The workdir is the job dir's parent, as `run` already defaults.
 `start` uses the transient form with the same directives (§2); one naming rule covers every job:
@@ -168,7 +176,8 @@ per behavior, fake `claude`, `gh` and `jev` first on `PATH`, tmux and unit names
 |---|---|---|
 | `00-harness` | gate verdicts; phase 0 scaffold and this spec's tables | 0 |
 | `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3) | 1 |
-| `11-unit-smoke` | same job under a test-named instance in `blast-off.slice`; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope | 1 |
+| `11-unit-smoke` | same job under a test-named instance in `blast-off.slice`; the template instance is the escaped absolute path of a temp job dir, and `systemctl --user show -p ExecStart` on it shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope | 1 |
+| `12-start-env` | `start` with `CLAUDE_FLAGS` unset, then with `GH_TOKEN` empty, exits 1 and creates no unit | 1 |
 | `20-dead-child` | child exits without the Stop hook; seen within 10 s | 2 |
 | `21-soft-cap` | derived cap reached; `paused-cap`, exit 6, re-run continues | 2 |
 | `22-dirty-tree` | unnamed dirty tree; exit 7 with porcelain in `run.log` | 2 |

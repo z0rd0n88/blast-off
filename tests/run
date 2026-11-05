@@ -27,10 +27,15 @@ done
 [ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
 
 if [ -z "${BLAST_OFF_NO_SHELLCHECK:-}" ] || [ "$DIR" = "$HERE" ]; then
-  shopt -s nullglob
-  files=("$REPO"/bin/blast-off "$REPO"/lib/*.sh "$REPO"/tests/*.sh "$REPO"/tests/run)
-  shopt -u nullglob
-  existing=(); for f in "${files[@]}"; do [ -e "$f" ] && existing+=("$f"); done
+  # D15: every shell script under bin/, lib/ and tests/, by .sh name or a sh/bash shebang
+  shopt -s globstar nullglob
+  existing=(); sh_re='^#!.*[/[:space:]](ba|da|k)?sh([[:space:]]|$)'
+  for f in "$REPO"/bin/** "$REPO"/lib/** "$REPO"/tests/**; do
+    [ -f "$f" ] || continue
+    first=; IFS= read -r first < "$f" || true
+    if [[ $f == *.sh || $first =~ $sh_re ]]; then existing+=("$f"); fi
+  done
+  shopt -u globstar nullglob
   if ! command -v shellcheck >/dev/null; then
     sc=missing; failed=$((failed+1)); echo "FAIL shellcheck not installed"
   elif shellcheck -S warning "${existing[@]}"; then
