@@ -22,7 +22,7 @@ grep -q -- "--unit=$TEST_ID-job" start.out && grep -q -- '--setenv=GH_TOKEN ' st
 
 wait_until 20 test -s "$JOB/fake-marker" || fail "child never ran: $(cat "$JOB/run.log" 2>&1); $(journalctl --user -u "$unit" -n 20 --no-pager 2>&1)"
 pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
-show="$(systemctl --user show "$unit" -p Slice,MemoryCurrent)"
+show="$(systemctl --user show "$unit" -p ActiveState,Slice,MemoryCurrent,ExecMainPID)"
 echo "$show"
 grep -qx 'Slice=blast-off.slice' <<<"$show" || fail "runner not in blast-off.slice: $show"
 grep -qE '^MemoryCurrent=[0-9]+$' <<<"$show" || fail "no MemoryCurrent: $show"

@@ -5,6 +5,9 @@
 # works, rewrites it and stops; the runner relaunches until status is done or blocked.
 #
 # Usage: blast-off run <job-dir> [workdir]   the chain loop in the foreground (the unit's ExecStart)
+#        blast-off start <job-dir>            run it as transient unit blast-off-<name>.service
+#        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
+#        blast-off install                    write the template and slice to ~/.config/systemd/user
 #  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
 #        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
 #        JOB_MAX_CHILDREN=12       hard stop on relaunches
@@ -39,6 +42,8 @@ job_init() {
 
 case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
-  -h|--help|"") sed -n '2,15p' "$0" ;;
+  start|status|stop|logs) job_init "${2:-}"; "unit_$1" ;;
+  install) units_install ;;
+  -h|--help|"") sed -n '2,17p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac
