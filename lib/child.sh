@@ -43,8 +43,10 @@ child_launch() {
 }
 
 # Wait for the child: 0 when its Stop hook wrote done.json, 1 past TIMEOUT seconds, 2 when it exited
-# first (pane dead or window gone; CHILD_AGE = seconds it lived). Polled once a second, so a death is
-# seen in about 1 s. done.json is read again after a death: the hook's mv ends before claude exits.
+# first (CHILD_AGE = seconds it lived). Polled once a second: a dead pane (`1`) is seen in about 1 s; a
+# failed read (window or server gone, or a transient tmux error) counts only on the second in a row, so
+# one bad read never stops a working child. done.json is read again after a death: the hook's mv ends
+# before claude exits.
 # Time is $SECONDS, not loop turns: capture-pane and the trust keys' sleep stretch a turn (P1R2-4).
 # A folder Claude has not seen shows a trust dialog; the job's worktrees are owner-created, so every
 # trust dialog is answered (owner decision 2026-10-28). The dialog appears only as claude starts, so the
@@ -52,11 +54,13 @@ child_launch() {
 # screen in a working child (this repo's own files hold it), and keys typed then would reach its session.
 # ponytail: screen scrape (capture-pane is the only view of the dialog); replace if claude grows a --trust flag.
 child_wait() {
-  local start=$SECONDS el
+  local start=$SECONDS el d miss=0
   while :; do
     el=$((SECONDS-start))
     [ -s "$CHILD_DIR/done.json" ] && return 0
-    if [ "$(tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead}' 2>/dev/null)" != 0 ]; then
+    d=$(tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead}' 2>/dev/null) || d=
+    case "$d" in 0) miss=0 ;; 1) miss=2 ;; *) miss=$((miss+1)) ;; esac
+    if [ "$miss" -ge 2 ]; then
       [ -s "$CHILD_DIR/done.json" ] && return 0
       # shellcheck disable=SC2034  # CHILD_AGE: read by chain_run
       CHILD_AGE=$el; return 2

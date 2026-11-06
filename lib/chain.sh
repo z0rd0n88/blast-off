@@ -38,14 +38,15 @@ chain_lock() {
 
 # chain_dirty <when>: exit 7 when the workdir's repo has uncommitted paths checkpoint.md does not name
 # (F5: a child's unexplained edits must not become the next child's). Porcelain v1 paths are relative
-# to the repo root (git-status(1)); -z keeps odd names whole, a rename's second field is its old name.
+# to the repo root (git-status(1)); -z keeps odd names whole. A rename or copy, in the index (X) or the
+# work tree (Y, `git add -N`), is followed by a field holding its old name, which is skipped.
 # -uall lists untracked files one by one, so the job dir's own files (run.log) are skipped by prefix.
 chain_dirty() {
   [ -n "$TOP" ] || return 0
   local e p skip='' unnamed=() named=()
   while IFS= read -r -d '' e; do
     if [ -n "$skip" ]; then skip=; continue; fi
-    [[ $e != [RC]* ]] || skip=1
+    [[ ${e:0:2} != *[RC]* ]] || skip=1
     p="${e:3}"
     [[ -n $JOBREL && $p == "$JOBREL"/* ]] && continue
     if command grep -qF -- "$p" "$JOB/checkpoint.md"; then named+=("$p"); else unnamed+=("$p"); fi

@@ -34,4 +34,22 @@ rc=0; "$bo" run "$JOB" > bad.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "bad-payload run exit $rc: $(cat bad.out; cat "$JOB/run.log")"
 grep -q '^child 1 Stop payload is not a JSON object: not json$' "$JOB/run.log" || fail "bad payload not logged: $(cat "$JOB/run.log")"
 grep -q 'without a state' "$JOB/run.log" && fail "bad payload aborted the runner"
+
+# child_wait alone, tmux stubbed: one failed `display` read (empty output) is not a death, but reads
+# that keep failing (window or server gone) are. Reads are counted in a file: $(tmux) is a subshell.
+wait_stub() { # wait_stub <display outputs, one per read; "" = failed read; last repeats>; prints child_wait's rc
+  ( source "$REPO/lib/child.sh"
+    CHILD_DIR="$PWD/stub-$1"; mkdir -p "$CHILD_DIR"; echo 0 > "$CHILD_DIR/n"
+    UNIT=stub CHILD_WIN=stub TIMEOUT=8 BLAST_OFF_TRUST_SECONDS=0
+    label="$1" reads=("${@:2}")
+    tmux() { # read n gets reads[n-1]; a transient stub's child finishes (done.json) at its second read
+      local n; n=$(($(cat "$CHILD_DIR/n") + 1)); echo "$n" > "$CHILD_DIR/n"
+      [ "$n" -lt 2 ] || [ "$label" != transient ] || echo '{}' > "$CHILD_DIR/done.json"
+      local out="${reads[$((n <= ${#reads[@]} ? n - 1 : ${#reads[@]} - 1))]}"
+      [ -n "$out" ] || return 1; echo "$out"
+    }
+    rc=0; child_wait || rc=$?; echo "$rc" )
+}
+[ "$(wait_stub transient '' 0)" = 0 ] || fail "one failed pane_dead read counted as a death"
+[ "$(wait_stub gone '')" = 2 ] || fail "pane_dead reads that keep failing (window gone) not seen as a death"
 echo ok

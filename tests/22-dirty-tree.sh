@@ -43,6 +43,19 @@ rc=0; "$bo" run "$JOB" > clean.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "clean run exit $rc (job dir counted as dirty?): $(cat clean.out; cat "$JOB/run.log")"
 grep -q 'dirty tree' "$JOB/run.log" && fail "clean tree reported dirty"
 
+# a work-tree rename (git add -N; porcelain ` R new<NUL>old<NUL>`, Y column R) whose new name the
+# checkpoint names passes: the old-name field is not a path of its own
+new_job rename 'done'
+repo
+w="$(dirname "$JOB")"
+echo x > "$w/orig-qz.txt"
+git -C "$w" add orig-qz.txt && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m old
+mv "$w/orig-qz.txt" "$w/moved.txt" && git -C "$w" add -N moved.txt
+git -C "$w" status --porcelain | command grep -qx ' R orig-qz.txt -> moved.txt' || fail "setup: not a work-tree rename: $(git -C "$w" status --porcelain)"
+echo '- moved.txt renamed, left uncommitted' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > rename.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "named work-tree rename run exit $rc: $(cat rename.out; cat "$JOB/run.log")"
+
 # a workdir outside git is not checked
 new_job nogit dirty 'done'
 rc=0; "$bo" run "$JOB" > nogit.out 2>&1 || rc=$?
