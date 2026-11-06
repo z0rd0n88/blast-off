@@ -47,7 +47,9 @@ child_launch() {
 }
 
 # Wait for the child: 0 when its Stop hook wrote done.json, 1 past TIMEOUT seconds, 2 when it exited
-# first (CHILD_AGE = seconds it lived). Polled once a second: a dead pane (`1`) is seen in about 1 s; a
+# first (CHILD_AGE = seconds it lived, CHILD_RC = its exit status, #{pane_dead_status}), 3 when its
+# StopFailure hook wrote failed.json: an API error (a rate limit among them) ended its turn, and an
+# interactive claude then idles at its prompt, so waiting longer would only run out the timeout. Polled once a second: a dead pane (`1`) is seen in about 1 s; a
 # failed read (window or server gone, or a transient tmux error) counts only on the second in a row, so
 # one bad read never stops a working child. done.json is read again after a death: the hook's mv ends
 # before claude exits.
@@ -62,12 +64,15 @@ child_wait() {
   while :; do
     el=$((SECONDS-start))
     [ -s "$CHILD_DIR/done.json" ] && return 0
+    [ -s "$CHILD_DIR/failed.json" ] && return 3
     d=$(tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead}' 2>/dev/null) || d=
     case "$d" in 0) miss=0 ;; 1) miss=2 ;; *) miss=$((miss+1)) ;; esac
     if [ "$miss" -ge 2 ]; then
       [ -s "$CHILD_DIR/done.json" ] && return 0
-      # shellcheck disable=SC2034  # CHILD_AGE: read by chain_run
-      CHILD_AGE=$el; return 2
+      [ -s "$CHILD_DIR/failed.json" ] && return 3
+      # shellcheck disable=SC2034  # CHILD_AGE, CHILD_RC: read by chain_run
+      CHILD_AGE=$el CHILD_RC=$(tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead_status}' 2>/dev/null) || CHILD_RC=
+      return 2
     fi
     [ "$el" -le "$TIMEOUT" ] || return 1
     if [ "$el" -lt "${BLAST_OFF_TRUST_SECONDS:-60}" ] &&
@@ -85,9 +90,10 @@ child_screen() {
     echo "---"; } >> "$LOG"
 }
 
-# child_report <n>: the Stop payload into run.log, and its tail to stdout (the journal).
+# child_report <n> [file]: the Stop payload (or failed.json's StopFailure one) into run.log, and its tail
+# to stdout (the journal).
 child_report() {
-  python3 - "$CHILD_DIR/done.json" "$1" >> "$LOG" <<'PY'
+  python3 - "$CHILD_DIR/${2:-done.json}" "$1" >> "$LOG" <<'PY'
 import json, sys
 raw = open(sys.argv[1], errors="replace").read()
 try:
@@ -98,11 +104,20 @@ if not isinstance(ev, dict):  # a bad payload is the child's fault; log it, neve
     print(f"child {sys.argv[2]} Stop payload is not a JSON object: {raw[:200].strip()}")
     sys.exit(0)
 print(f"child {sys.argv[2]} session={ev.get('session_id')} transcript={ev.get('transcript_path')}")
+if ev.get("error"):
+    print(f"child {sys.argv[2]} StopFailure error={ev.get('error')}")
 print("--- child's last message ---")
 print(ev.get("last_assistant_message") or "(none)")
 print("---")
 PY
   sed -n "/^child $1 session=/,/^---$/p" "$LOG" | tail -n 40
+}
+
+# child_field <name>: a top-level string of the child's payload (done.json, else failed.json), reduced
+# to the characters a session id or an error name holds; empty when there is none.
+child_field() {
+  local f="$CHILD_DIR/done.json"; [ -s "$f" ] || f="$CHILD_DIR/failed.json"
+  jq -r --arg k "$1" '.[$k] // empty | strings' "$f" 2>/dev/null | tr -cd 'A-Za-z0-9_-' || true
 }
 
 # child_clean: remove the child's dir from the /run/user tmpfs (P2-L1: every child left one). A kept

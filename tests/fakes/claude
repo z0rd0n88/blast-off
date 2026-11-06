@@ -10,6 +10,10 @@
 #        die (print an error and exit 3 with no Stop hook, like claude dying on an API error)
 #        done-exit (done; exit right after the Stop hook, no idle) · bad-payload (done; a non-JSON Stop payload)
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
+#        ratelimit / apierr (step; then the StopFailure hook with error rate_limit / overloaded, no Stop hook)
+#        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
+# With $JOB_DIR/fake-usage present, its content is this session's status-line usage record:
+# $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, the file ~/.claude/hooks/usage-limit-tee.sh writes.
 set -euo pipefail
 settings=
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
@@ -29,8 +33,12 @@ echo "status_at_start=$(sed -n 's/^status: *//p' "$cp" | head -n 1)" >> "$JOB_DI
 echo "settings=$settings" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
+if [ -e "$JOB_DIR/fake-usage" ]; then
+  : "${BLAST_OFF_STATE_DIR:?fake-usage needs BLAST_OFF_STATE_DIR}"
+  cp "$JOB_DIR/fake-usage" "$BLAST_OFF_STATE_DIR/usage-limits-fake-$JOB_CHILD.json"
+fi
 case "$mode" in
-  step) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  step|ratelimit|apierr) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty) echo x > "$(dirname "$JOB_DIR")/stray.txt"; printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
@@ -41,6 +49,7 @@ case "$mode" in
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
   slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
   die) echo "fake child $JOB_CHILD: API Error: fake death"; exit 3 ;;
+  die75) echo "fake child $JOB_CHILD: usage limit"; exit 75 ;;
   trust-early|trust-late)
     [ "$mode" = trust-early ] || sleep 3
     echo "Yes, I trust this folder"
@@ -48,6 +57,14 @@ case "$mode" in
     sed -i 's/^status: .*/status: done/' "$cp" ;;
   *) echo "fake claude: unknown mode $mode" >&2; exit 1 ;;
 esac
+if [ "$mode" = ratelimit ] || [ "$mode" = apierr ]; then
+  # StopFailure fires instead of Stop when an API error ends the turn (claude 2.1.316 hook registry)
+  err=rate_limit; [ "$mode" = ratelimit ] || err=overloaded
+  hook="$(jq -r '.hooks.StopFailure[0].hooks[0].command' "$settings")"
+  printf '{"session_id":"fake-%s","transcript_path":"/dev/null","hook_event_name":"StopFailure","error":"%s","last_assistant_message":"fake child %s hit %s"}\n' \
+    "$JOB_CHILD" "$err" "$JOB_CHILD" "$err" | bash -c "$hook"
+  exec sleep 600
+fi
 hook="$(jq -r '.hooks.Stop[0].hooks[0].command' "$settings")"
 payload() {
   [ "$mode" != bad-payload ] || { echo 'not json'; return; }

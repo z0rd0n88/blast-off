@@ -13,17 +13,23 @@ units_install() {
   echo "installed $UNIT_DIR/blast-off@.service and blast-off.slice; daemon reloaded; not enabled"
 }
 
-# The transient form of the template: same [Service] directives as -p properties, names passed with
-# --setenv=NAME so systemd-run reads each value from this environment and no value is on the line (D14).
+# UNIT_ENV: the --setenv=NAME list of every unit blast-off starts (the runner, the resume timer's
+# service). systemd-run reads each value from this environment, so no value is on the line (D14).
+unit_env() {
+  UNIT_ENV=(--setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS); local v
+  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS \
+           JOB_USAGE_PAUSE JOB_RESUME_MARGIN BLAST_OFF_STATE_DIR; do
+    [ -z "${!v+x}" ] || UNIT_ENV+=(--setenv="$v")
+  done
+}
+
+# The transient form of the template: same [Service] directives as -p properties, names by --setenv.
 unit_start() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
   [ -n "${GH_TOKEN:-}" ] || die "GH_TOKEN is unset or empty; --setenv=GH_TOKEN would pass an empty value to the unit"
   test -s "$JOB/brief.md" && test -s "$JOB/checkpoint.md" || die "missing $JOB/brief.md or checkpoint.md"
-  local args=(--user --collect --unit="$UNIT" --working-directory="$WORKDIR"
-    --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS) v p
-  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS; do
-    [ -z "${!v+x}" ] || args+=(--setenv="$v")
-  done
+  unit_env
+  local args=(--user --collect --unit="$UNIT" --working-directory="$WORKDIR" "${UNIT_ENV[@]}") p
   while IFS= read -r p; do
     case "$p" in ExecStart=*) ;; *) args+=(-p "$p") ;; esac
   done < <(sed -n '/^\[Service\]/,/^\[/{/^[A-Za-z]*=/p}' "$TEMPLATE")
@@ -40,7 +46,8 @@ unit_status() {
 
 # Stopping the runner fires its TERM trap; the child scopes sit outside its cgroup, so stop them too.
 unit_stop() {
-  systemctl --user stop "$UNIT.service" "$UNIT-child-*.scope" || true # not loaded = already stopped
+  # the resume timer too: a stopped job must not start again at its reset
+  systemctl --user stop "$UNIT.service" "$UNIT-child-*.scope" "$UNIT-resume.timer" || true # not loaded = already stopped
   local s; s="$(systemctl --user show "$UNIT.service" -p ActiveState --value)"
   [ "$s" != active ] || die "$UNIT.service still active"
   echo "stopped $UNIT.service ($s); the next start resumes from the checkpoint"

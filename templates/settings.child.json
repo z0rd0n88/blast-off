@@ -1,1 +1,1 @@
-{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"cat > @DIR@/done.tmp && mv @DIR@/done.tmp @DIR@/done.json"}]}]}}
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"cat > @DIR@/done.tmp && mv @DIR@/done.tmp @DIR@/done.json"}]}],"StopFailure":[{"hooks":[{"type":"command","command":"cat > @DIR@/failed.tmp && mv @DIR@/failed.tmp @DIR@/failed.json"}]}]}}

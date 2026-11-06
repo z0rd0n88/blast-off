@@ -82,12 +82,12 @@ chain_dirty() {
 
 chain_run() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
-  local b; for b in claude tmux python3 systemd-run systemctl git realpath; do command -v "$b" >/dev/null || die "$b not on PATH"; done
+  local b; for b in claude tmux python3 jq systemd-run systemctl git realpath; do command -v "$b" >/dev/null || die "$b not on PATH"; done
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before w maxc soft=1 why v
-  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT; do
+  local n=0 stalls=0 s before w maxc soft=1 why v limited
+  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN; do
     [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
   done
 
@@ -126,9 +126,14 @@ chain_run() {
   JOBREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$JOB")"
   [[ $JOBREL != ..* ]] || JOBREL=
   WORKREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$WORKDIR")"
-  if [ "$(cp_status)" = paused-cap ]; then
-    cp_set_status running; log "status paused-cap -> running; the chain continues"
-  fi
+  case "$(cp_status)" in
+    paused-cap) cp_set_status running; log "status paused-cap -> running; the chain continues" ;;
+    paused-limit) # before the reset nothing may start; the timer (or the owner) runs resume after it
+      local until; until="$(usage_until)"
+      [ -z "$until" ] || [ "$until" -le "$(date +%s)" ] ||
+        chain_end 8 "still paused-limit until $(date -u -d "@$until" +%FT%TZ); nothing started"
+      cp_set_status running; log "status paused-limit -> running; the reset has passed" ;;
+  esac
 
   chain_dirty "before child 1"
   while :; do
@@ -145,16 +150,26 @@ chain_run() {
     before="$(cp_fingerprint)"
 
     child_launch "$n"
-    w=0; child_wait || w=$?
+    w=0 limited=; child_wait || w=$?
     case "$w" in
       0) child_report "$n"; child_stop ;;
       1) log "child $n timed out after ${TIMEOUT}s; killing it, next child resumes from checkpoint"
          child_stop force ;;
-      *) log "child $n exited without its Stop hook after ${CHILD_AGE}s; its screen follows, next child resumes from checkpoint"
-         child_screen; child_stop force ;;
+      3) child_report "$n" failed.json; child_stop force
+         if [ "$(child_field error)" = rate_limit ]; then limited="StopFailure rate_limit"
+         else log "child $n ended on API error $(child_field error); next child resumes from checkpoint"; fi ;;
+      *) log "child $n exited without its Stop hook after ${CHILD_AGE}s (exit ${CHILD_RC:-?}); its screen follows, next child resumes from checkpoint"
+         child_screen; child_stop force
+         [ "${CHILD_RC:-}" != "$LIMIT_EXIT" ] || limited="exit $LIMIT_EXIT" ;;
     esac
+    usage_read "$(child_field session_id)"
+    log "child $n usage: $USAGE"
     child_clean
     chain_dirty "after child $n"
+    # A limit pauses the chain (F10) unless the child finished it: done and blocked are final.
+    if [ -n "$limited$USAGE_OVER" ] && [[ ! $(cp_status) =~ ^(done|blocked)$ ]]; then
+      usage_pause "${USAGE_OVER:-$USAGE_5H}" "${limited:+child $n hit a usage limit ($limited); }usage $USAGE${USAGE_OVER:+, at or above JOB_USAGE_PAUSE ${JOB_USAGE_PAUSE:-95}%}"
+    fi
 
     if [ "$(cp_fingerprint)" = "$before" ]; then
       stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2$([ "$w" != 2 ] || echo '; it died'))"
