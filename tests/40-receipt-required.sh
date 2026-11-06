@@ -37,6 +37,18 @@ rc=0; "$bo" receipt "$JOB" 2 > r2.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "receipt on a FAIL log exit $rc, want 1"
 jq -e '.verdict == "FAIL" and .tally.failed == 2' "$JOB/gate-logs/phase-2.json" > /dev/null || fail "FAIL receipt: $(cat "$JOB/gate-logs/phase-2.json" 2>&1)"
 
+# a verdict line with no tally still writes the whole receipt, tally null (P4R2-1)
+gate 6 'GATE: PASS'; rc=0; "$bo" receipt "$JOB" 6 > r8.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "receipt on a bare GATE: PASS exit $rc: $(cat r8.out)"
+gate 7 'GATE: FAIL'; rc=0; "$bo" receipt "$JOB" 7 > r9.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "receipt on a bare GATE: FAIL exit $rc, want 1"
+for kv in 6:PASS 7:FAIL; do
+  jq -e --arg k "${kv%:*}" --arg v "${kv#*:}" --arg h "$head" '.phase == $k and .verdict == $v
+    and .verdict_line == "GATE: \($v)" and .head_sha == $h
+    and .tally == {"passed": null, "failed": null, "shellcheck": null}' "$JOB/gate-logs/phase-${kv%:*}.json" > /dev/null ||
+    fail "bare verdict receipt $kv: $(cat "$JOB/gate-logs/phase-${kv%:*}.json" 2>&1)"
+done
+
 # no log, a log with no verdict line, a phase that is not a row key: exit 1, nothing written
 rc=0; "$bo" receipt "$JOB" 3 > r3.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && [ ! -e "$JOB/gate-logs/phase-3.json" ] || fail "receipt with no log: exit $rc: $(cat r3.out)"
@@ -158,7 +170,7 @@ grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 9 at done changed th
 sed -i "s/^| 2 | p2 | x | pending |$/| 2.5 | p2 | x | Done ($s7) |/" "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > o2.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q "phase row 2.5 is done at $s7 but has no receipt" "$log" || fail "Done row 2.5: exit $rc: $(cat "$log")"
-gate 2.5 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 2.5 > /dev/null
+gate 2.5 'GATE: PASS'; "$bo" receipt "$JOB" 2.5 > /dev/null  # a bare verdict, no tally, receipts a done row too (P4R2-1)
 rc=0; "$bo" run "$JOB" > o3.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "all rows done and receipted: exit $rc: $(cat "$log")"
 # D4-7: receipt [workdir]: the job dir outside the repo it gates

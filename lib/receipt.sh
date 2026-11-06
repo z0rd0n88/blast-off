@@ -30,8 +30,8 @@ receipt_write() {
   jq --arg k "$k" --arg v "$v" --arg g "$g" --arg sha "$sha" --arg t "$(date -u +%FT%TZ)" '
     .phase = $k | .verdict = (if ($v | startswith("GATE: PASS")) then "PASS" else "FAIL" end)
     | .verdict_line = $v | .gate_log = $g | .head_sha = $sha | .utc = $t
-    | .tally = ($v | capture("passed=(?<passed>[0-9]+) failed=(?<failed>[0-9]+) shellcheck=(?<shellcheck>[a-z]+)")
-                   | .passed |= tonumber | .failed |= tonumber) // .tally' \
+    | .tally = (($v | capture("passed=(?<passed>[0-9]+) failed=(?<failed>[0-9]+) shellcheck=(?<shellcheck>[a-z]+)")
+                   | .passed |= tonumber | .failed |= tonumber) // .tally)' \
     "$BLAST_OFF_HOME/templates/receipt.json" > "$r.tmp"
   mv "$r.tmp" "$r"
   log "receipt phase $k: $v at $sha"

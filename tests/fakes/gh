@@ -6,20 +6,26 @@
 #                    push, or a workflow queued after the first finishes)
 #   appear-<sha>     run ids listed from the third `run list` on: runs a wait finds, but not the re-list after
 #                    the watches alone (P4R1-3)
+#   hang-pr-<n>      seconds `pr view <n>` sleeps before it answers (a stalled API)
+#   hang-run-<id>    seconds `run watch <id>` sleeps before it returns; `run view <id>` then reports no
+#                    conclusion ("": a run that never completes)
 #   calls            every call, one per line, each followed by `cwd=<dir>` (appended)
 set -euo pipefail
 : "${FAKE_GH:?fake gh needs FAKE_GH}"
 echo "$*" >> "$FAKE_GH/calls"; echo "cwd=$PWD" >> "$FAKE_GH/calls"
 case "$1 $2" in
-  "pr view") cat "$FAKE_GH/pr-$3-head" > /dev/null && jq -n --arg h "$(cat "$FAKE_GH/pr-$3-head")" '{headRefOid: $h}' ;;
+  "pr view") [ ! -f "$FAKE_GH/hang-pr-$3" ] || sleep "$(cat "$FAKE_GH/hang-pr-$3")"
+    cat "$FAKE_GH/pr-$3-head" > /dev/null && jq -n --arg h "$(cat "$FAKE_GH/pr-$3-head")" '{headRefOid: $h}' ;;
   "run list") [ "$3" = --commit ] || { echo "fake gh: run list needs --commit" >&2; exit 1; }
     n="$(grep -c "^run list --commit $4 " "$FAKE_GH/calls")"
     { cat "$FAKE_GH/runs-$4" 2>/dev/null || true
       [ "$n" -lt 2 ] || cat "$FAKE_GH/later-$4" 2>/dev/null || true
       [ "$n" -lt 3 ] || cat "$FAKE_GH/appear-$4" 2>/dev/null || true
     } | jq -R 'tonumber | {databaseId: .}' | jq -s . ;;
-  "run watch") [ "$(cat "$FAKE_GH/run-$3")" = success ] ;;
+  "run watch") [ ! -f "$FAKE_GH/hang-run-$3" ] || sleep "$(cat "$FAKE_GH/hang-run-$3")"
+    [ "$(cat "$FAKE_GH/run-$3")" = success ] ;;
   "run view") c="$(cat "$FAKE_GH/run-$3")"; grep -qx "run watch $3 --exit-status" "$FAKE_GH/calls" || c=
+    [ ! -f "$FAKE_GH/hang-run-$3" ] || c=
     jq -n --argjson id "$3" --arg c "$c" '{databaseId: $id, name: "ci-\($id)", conclusion: $c}' ;;
   *) echo "fake gh: unknown call: $*" >&2; exit 1 ;;
 esac

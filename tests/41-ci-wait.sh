@@ -21,6 +21,8 @@ echo success > "$FAKE_GH/run-31"; echo failure > "$FAKE_GH/run-32"
 echo "$h11" > "$FAKE_GH/pr-11-head"; echo 41 > "$FAKE_GH/appear-$h11"; echo success > "$FAKE_GH/run-41"
 h12=7777777777777777777777777777777777777777; echo "$h12" > "$FAKE_GH/pr-12-head"
 echo 42 > "$FAKE_GH/appear-$h12"; echo success > "$FAKE_GH/run-42"
+h13=8888888888888888888888888888888888888888; echo "$h13" > "$FAKE_GH/pr-13-head"; echo 51 > "$FAKE_GH/runs-$h13"
+echo success > "$FAKE_GH/run-51"; echo 30 > "$FAKE_GH/hang-run-51"
 
 # --- ci-wait command ---
 new_job cmd noop
@@ -51,6 +53,11 @@ rc=0; BLAST_OFF_CI_APPEAR=10 "$bo" ci-wait "$JOB" 11 > w11.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] && jq -e '.verdict == "success" and .runs[0].id == 41' "$JOB/gate-logs/ci-pr-11.json" > /dev/null || fail "runs that appear late: exit $rc: $(cat w11.out)"
 rc=0; BLAST_OFF_CI_APPEAR=0 "$bo" ci-wait "$JOB" 12 > w12.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && jq -e '.verdict == "absent" and .runs == []' "$JOB/gate-logs/ci-pr-12.json" > /dev/null || fail "BLAST_OFF_CI_APPEAR=0 still waited: exit $rc: $(cat w12.out)"
+# P4R2-3: a watch past BLAST_OFF_CI_WATCH ends; the run is recorded as it stands (not success) and logged
+SECONDS=0; rc=0; BLAST_OFF_CI_WATCH=1 "$bo" ci-wait "$JOB" 13 > w13.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && [ "$SECONDS" -lt 10 ] || fail "stuck run: exit $rc after $SECONDS s: $(cat w13.out)"
+jq -e '.verdict == "failure" and ([.runs[] | "\(.id) \(.conclusion)"] == ["51 "])' "$JOB/gate-logs/ci-pr-13.json" > /dev/null || fail "stuck run record: $(cat "$JOB/gate-logs/ci-pr-13.json" 2>&1)"
+grep -q 'ci PR #13: run 51 watch timed out after 1 s' "$JOB/run.log" && [ "$(grep -c '^run watch 51 ' "$FAKE_GH/calls")" -eq 1 ] || fail "stuck run not logged once: $(cat "$JOB/run.log")"
 # D4-7: ci-wait [workdir]: gh runs in that workdir, whose remote names the repo
 wd="$PWD/wd"; mkdir -p "$wd"
 "$bo" ci-wait "$JOB" 8 "$wd" > /dev/null 2>&1 && grep -qx "cwd=$wd" "$FAKE_GH/calls" || fail "ci-wait did not run gh in its workdir $wd"
@@ -86,4 +93,9 @@ rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "green and absent records: exit $rc: $(cat d4.out "$log")"
 grep -q 'PR #9: no CI runs (absent, not a pass)' "$log" || fail "absent not logged: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "a child ran after done: $(cat "$JOB/fake-marker")"
+# P4R2-2: a gh pr view past BLAST_OFF_CI_HEAD is a failed call: unread, exit 10, status unchanged, fast
+echo 30 > "$FAKE_GH/hang-pr-7"
+SECONDS=0; rc=0; BLAST_OFF_CI_HEAD=1 "$bo" run "$JOB" > d5.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && [ "$SECONDS" -lt 10 ] && grep -q 'PR #7 CI unread for head unknown (gh pr view 7 failed)' "$log" || fail "stalled gh pr view: exit $rc after $SECONDS s: $(cat d5.out "$log")"
+grep -q '^status: done$' "$JOB/checkpoint.md" || fail "a stalled gh pr view changed the status"
 echo ok

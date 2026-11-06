@@ -6,8 +6,9 @@
 # seconds after a push, so an empty list is re-read every 5 s for up to BLAST_OFF_CI_APPEAR (60) s: a
 # wait for runs to exist, not a poll for them to finish. After the watches the list is read again and new
 # runs (a workflow queued late or chained after the first) are watched too, at most 3 rounds (D4-6); a run
-# still unwatched then is recorded as it stands. Exit 0 green (success, skipped or neutral), 10 red or no
-# runs: absent checks are not a pass.
+# still unwatched then is recorded as it stands. Each watch ends after BLAST_OFF_CI_WATCH (3600) s: a run
+# that never completes (a runner label nobody serves, an approval) is logged and recorded as it stands, not
+# success (P4R2-3). Exit 0 green (success, skipped or neutral), 10 red or no runs: absent checks are not a pass.
 ci_wait() {
   local pr="${1:-}" sha all new seen=' ' id i=0 round v r
   [[ $pr =~ ^[1-9][0-9]*$ ]] || die "PR '$pr' must be a PR number"
@@ -20,7 +21,11 @@ ci_wait() {
     sleep 5; i=$((i+5))
   done
   for round in 1 2 3; do
-    for id in $new; do gh run watch "$id" --exit-status > /dev/null 2>&1 || true; seen+="$id "; done
+    for id in $new; do
+      timeout "${BLAST_OFF_CI_WATCH:-3600}" gh run watch "$id" --exit-status > /dev/null 2>&1 || [ $? -ne 124 ] ||
+        log "ci PR #$pr: run $id watch timed out after ${BLAST_OFF_CI_WATCH:-3600} s; recorded as it stands"
+      seen+="$id "
+    done
     all="$(gh run list --commit "$sha" --limit 100 --json databaseId | jq -r '.[].databaseId')" || die "gh run list failed"
     new=; for id in $all; do [[ $seen == *" $id "* ]] || new+="$id "; done
     [ -n "$new" ] || break
@@ -60,11 +65,11 @@ ci_check() {
 
 # ci_head <pr>: a passing record must be of the PR's head now, read with one `gh pr view` in the workdir
 # (P4R1-1; whether the runner may call gh is owner question P4Q4). A push after ci-wait, or a gh failure,
-# reads as unread.
+# reads as unread; so does a call past BLAST_OFF_CI_HEAD (60) s, which would otherwise hold the lock (P4R2-2).
 ci_head() {
   local h cur
   h="$(jq -r '.head_sha // ""' "$JOB/gate-logs/ci-pr-$1.json")"
-  cur="$(cd "$WORKDIR" && gh pr view "$1" --json headRefOid | jq -r .headRefOid)" || cur=
+  cur="$(cd "$WORKDIR" && timeout "${BLAST_OFF_CI_HEAD:-60}" gh pr view "$1" --json headRefOid | jq -r .headRefOid)" || cur=
   [ -n "$cur" ] && [ "$cur" = "$h" ] ||
     chain_end 10 "PR #$1 CI unread for head ${cur:-unknown (gh pr view $1 failed)}: gate-logs/ci-pr-$1.json is of '$h'; blast-off ci-wait <job-dir> $1, then run again"
 }

@@ -23,6 +23,8 @@
 #        JOB_API_BACKOFF=600       seconds before the next child after an API error that clears (overloaded, server_error, unknown)
 #        BLAST_OFF_STATE_DIR=~/.claude/state  where the status line records each session's usage
 #        BLAST_OFF_CI_APPEAR=60    seconds ci-wait waits for a PR head's runs to be listed (not to finish)
+#        BLAST_OFF_CI_WATCH=3600   seconds ci-wait watches one run; one still running is recorded as not success
+#        BLAST_OFF_CI_HEAD=60      seconds the runner's gh pr view of a PR head may take at done; past it, CI is unread
 # Exit:  0 done · 1 usage, dependency or runner error · 3 blocked (needs the owner) · 4 hard child cap reached
 #        5 two children in a row left checkpoint.md unchanged · 6 soft cap reached, status paused-cap (run again)
 #        7 uncommitted paths checkpoint.md does not name (after a child or before child 1)
@@ -59,6 +61,6 @@ case "${1:-}" in
   receipt) job_init "${2:-}" "${4:-}"; receipt_write "${3:-}" ;;
   ci-wait) job_init "${2:-}" "${4:-}"; ci_wait "${3:-}" ;;
   install) units_install ;;
-  -h|--help|"") sed -n '2,30p' "$0" ;;
+  -h|--help|"") sed -n '2,32p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac
