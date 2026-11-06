@@ -41,18 +41,30 @@ ci_wait() {
 }
 
 # ci_check: at status done, exit 10 while a PR the checkpoint names (`PR #N` in any case, `PR#N`, or
-# `/pull/N`; leading zeros dropped) has no ci-wait record for that PR or a red one. An absent record
-# (no runs) passes, logged as not a pass: a repo with no workflow never gets runs, and refusing done
-# there forever helps nobody (owner question P4Q1).
+# `/pull/N`; leading zeros dropped) has no ci-wait record for that PR, a red one, or one of an older head
+# than the PR's now (ci_head). An absent record (no runs) of the current head passes, logged as not a
+# pass: a repo with no workflow never gets runs, and refusing done there forever helps nobody (owner
+# question P4Q1).
 ci_check() {
   local pr v
   for pr in $({ command grep -oiE 'PR ?#[0-9]+|/pull/[0-9]+' "$JOB/checkpoint.md" || true; } | sed 's/.*[#/]//; s/^0*//; /^$/d' | sort -un); do
     v="$(jq -r --argjson n "$pr" 'if .pr == $n then .verdict // "" else "" end' "$JOB/gate-logs/ci-pr-$pr.json" 2>/dev/null || true)"
     case "$v" in
-      success) ;;
-      absent) log "PR #$pr: no CI runs (absent, not a pass)" ;;
+      success) ci_head "$pr" ;;
+      absent) log "PR #$pr: no CI runs (absent, not a pass)"; ci_head "$pr" ;;
       failure) chain_end 10 "PR #$pr CI red (gate-logs/ci-pr-$pr.json); done refused, status unchanged" ;;
       *) chain_end 10 "PR #$pr CI unread: no readable record for PR $pr in gate-logs/ci-pr-$pr.json; blast-off ci-wait <job-dir> $pr, then run again" ;;
     esac
   done
+}
+
+# ci_head <pr>: a passing record must be of the PR's head now, read with one `gh pr view` in the workdir
+# (P4R1-1; whether the runner may call gh is owner question P4Q4). A push after ci-wait, or a gh failure,
+# reads as unread.
+ci_head() {
+  local h cur
+  h="$(jq -r '.head_sha // ""' "$JOB/gate-logs/ci-pr-$1.json")"
+  cur="$(cd "$WORKDIR" && gh pr view "$1" --json headRefOid | jq -r .headRefOid)" || cur=
+  [ -n "$cur" ] && [ "$cur" = "$h" ] ||
+    chain_end 10 "PR #$1 CI unread for head ${cur:-unknown (gh pr view $1 failed)}: gate-logs/ci-pr-$1.json is of '$h'; blast-off ci-wait <job-dir> $1, then run again"
 }

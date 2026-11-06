@@ -136,12 +136,15 @@ rc=0; "$bo" run "$JOB" > g3.out 2>&1 || rc=$?
 gate 5 $'GATE: PASS passed=1 failed=0 shellcheck=ok\nPASS 00-harness\n'
 rc=0; "$bo" receipt "$JOB" 5 > r6.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && [ ! -e "$JOB/gate-logs/phase-5.json" ] || fail "verdict not the last line: exit $rc: $(cat r6.out)"
+grep -q 'receipt refused: the last line of .*phase-5.log is not a GATE: verdict' "$JOB/run.log" || fail "no-verdict refusal not logged: $(cat "$JOB/run.log")"
 gate 5 $'GATE: PASS passed=1 failed=0 shellcheck=ok\n\n'
 "$bo" receipt "$JOB" 5 > /dev/null || fail "trailing blank lines after the verdict refused"
 # D4-3: a receipt is refused while the tree has uncommitted paths outside the job dir
 echo x > "$(dirname "$JOB")/wip.txt"
 rc=0; "$bo" receipt "$JOB" 5 > r7.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && grep -q 'wip.txt' r7.out || fail "receipt on a dirty tree: exit $rc: $(cat r7.out)"
+grep -q 'receipt refused: uncommitted paths outside the job dir.* wip.txt' "$JOB/run.log" || fail "dirty-tree refusal not logged: $(cat "$JOB/run.log")"
+jq -e '.verdict == "PASS"' "$JOB/gate-logs/phase-5.json" > /dev/null || fail "a refused receipt changed the earlier one"
 rm "$(dirname "$JOB")/wip.txt"
 # D4-4: done with a row still pending is refused; `Done` and a dotted key are done rows too
 new_job open 'done'

@@ -8,20 +8,24 @@ receipt_verdict() {
   [[ $v == "GATE: "* ]] && printf '%s\n' "$v"
 }
 
+# receipt_refuse <msg>: a refused receipt leaves one run.log line (newlines flattened), then dies.
+receipt_refuse() { log "receipt refused: ${1//$'\n'/ }" || true; die "$1"; }
+
 # receipt_write <phase>: the verdict of gate-logs/phase-<phase>.log (the tests/run output the child saved)
 # and the workdir's HEAD into gate-logs/phase-<phase>.json, from templates/receipt.json. Refused while the
 # tree has uncommitted paths outside the job dir: the gate ran on a tree HEAD does not hold (D4-3). A FAIL
-# verdict is written too, as evidence the runner refuses by name; exit 0 PASS, 1 otherwise.
+# verdict is written too, as evidence the runner refuses by name; exit 0 PASS, 1 otherwise. A refusal is
+# logged to run.log and writes nothing: an earlier receipt stays, and its gate-log match refuses it (D4-8).
 receipt_write() {
   local k="${1:-}" g v sha r top rel dirty
-  [[ $k =~ ^[0-9A-Za-z._-]+$ ]] || die "phase '$k' must be a Phase plan row key: letters, digits, '.', '-' or '_'"
+  [[ $k =~ ^[0-9A-Za-z._-]+$ ]] || receipt_refuse "phase '$k' must be a Phase plan row key: letters, digits, '.', '-' or '_'"
   g="gate-logs/phase-$k.log" r="$JOB/gate-logs/phase-$k.json"
-  [ -s "$JOB/$g" ] || die "no gate log $JOB/$g; save the tests/run output there first"
-  v="$(receipt_verdict "$JOB/$g")" || die "the last line of $JOB/$g is not a GATE: verdict; run the gate again and save its whole output there"
+  [ -s "$JOB/$g" ] || receipt_refuse "no gate log $JOB/$g; save the tests/run output there first"
+  v="$(receipt_verdict "$JOB/$g")" || receipt_refuse "the last line of $JOB/$g is not a GATE: verdict; run the gate again and save its whole output there"
   top="$(git -C "$WORKDIR" rev-parse --show-toplevel)" || die "$WORKDIR is not in a git repo; a receipt names a commit"
   rel="$(realpath --relative-to="$top" "$JOB")"; [[ $rel != ..* && $rel != . ]] || rel=
   dirty="$(git -C "$top" status --porcelain -uall -- ${rel:+":(exclude)$rel"})" || die "git status failed in $top"
-  [ -z "$dirty" ] || die "uncommitted paths outside the job dir; commit or revert them, run the gate again, then the receipt:"$'\n'"$dirty"
+  [ -z "$dirty" ] || receipt_refuse "uncommitted paths outside the job dir; commit or revert them, run the gate again, then the receipt:"$'\n'"$dirty"
   sha="$(git -C "$WORKDIR" rev-parse HEAD)" || die "git rev-parse HEAD failed in $WORKDIR"
   jq --arg k "$k" --arg v "$v" --arg g "$g" --arg sha "$sha" --arg t "$(date -u +%FT%TZ)" '
     .phase = $k | .verdict = (if ($v | startswith("GATE: PASS")) then "PASS" else "FAIL" end)

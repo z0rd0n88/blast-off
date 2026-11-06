@@ -18,7 +18,9 @@ echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
 h10=4444444444444444444444444444444444444444 h11=5555555555555555555555555555555555555555
 echo "$h10" > "$FAKE_GH/pr-10-head"; echo 31 > "$FAKE_GH/runs-$h10"; echo 32 > "$FAKE_GH/later-$h10"
 echo success > "$FAKE_GH/run-31"; echo failure > "$FAKE_GH/run-32"
-echo "$h11" > "$FAKE_GH/pr-11-head"; echo 41 > "$FAKE_GH/later-$h11"; echo success > "$FAKE_GH/run-41"
+echo "$h11" > "$FAKE_GH/pr-11-head"; echo 41 > "$FAKE_GH/appear-$h11"; echo success > "$FAKE_GH/run-41"
+h12=7777777777777777777777777777777777777777; echo "$h12" > "$FAKE_GH/pr-12-head"
+echo 42 > "$FAKE_GH/appear-$h12"; echo success > "$FAKE_GH/run-42"
 
 # --- ci-wait command ---
 new_job cmd noop
@@ -43,9 +45,12 @@ rc=0; "$bo" ci-wait "$JOB" x > wx.out 2>&1 || rc=$?
 rc=0; "$bo" ci-wait "$JOB" 10 > w10.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && jq -e '.verdict == "failure" and ([.runs[].id] == [31, 32])' "$JOB/gate-logs/ci-pr-10.json" > /dev/null || fail "late run: exit $rc: $(cat "$JOB/gate-logs/ci-pr-10.json" w10.out 2>&1)"
 grep -q '^run watch 32 ' "$FAKE_GH/calls" || fail "late run 32 not watched"
-# runs listed only on the second read: ci-wait waits up to BLAST_OFF_CI_APPEAR for them
+# runs listed only from the third read (after the re-list a missing wait would make): ci-wait waits up to
+# BLAST_OFF_CI_APPEAR for them, and with 0 records absent (P4R1-3)
 rc=0; BLAST_OFF_CI_APPEAR=10 "$bo" ci-wait "$JOB" 11 > w11.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] && jq -e '.verdict == "success" and .runs[0].id == 41' "$JOB/gate-logs/ci-pr-11.json" > /dev/null || fail "runs that appear late: exit $rc: $(cat w11.out)"
+rc=0; BLAST_OFF_CI_APPEAR=0 "$bo" ci-wait "$JOB" 12 > w12.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && jq -e '.verdict == "absent" and .runs == []' "$JOB/gate-logs/ci-pr-12.json" > /dev/null || fail "BLAST_OFF_CI_APPEAR=0 still waited: exit $rc: $(cat w12.out)"
 # D4-7: ci-wait [workdir]: gh runs in that workdir, whose remote names the repo
 wd="$PWD/wd"; mkdir -p "$wd"
 "$bo" ci-wait "$JOB" 8 "$wd" > /dev/null 2>&1 && grep -qx "cwd=$wd" "$FAKE_GH/calls" || fail "ci-wait did not run gh in its workdir $wd"
@@ -69,6 +74,14 @@ cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-8.json" "$JOB/gate-logs/ci-pr-9.j
 rc=0; "$bo" run "$JOB" > d3b.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && [ "$(grep -c 'PR #9 CI unread' "$log")" -eq 2 ] || fail "PR 8's record for PR 9: exit $rc: $(cat "$log")"
 cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-9.json" "$JOB/gate-logs/"
+# P4R1-1: a record of an older head is unread once the PR head moved, and so is one gh cannot check
+echo 6666666666666666666666666666666666666666 > "$FAKE_GH/pr-7-head"
+rc=0; "$bo" run "$JOB" > d3c.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && grep -q 'PR #7 CI unread for head 6666666666666666666666666666666666666666' "$log" || fail "green record of an old head: exit $rc: $(cat "$log")"
+echo "$h7" > "$FAKE_GH/pr-7-head"; rm "$FAKE_GH/pr-9-head"
+rc=0; "$bo" run "$JOB" > d3d.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread for head unknown' "$log" || fail "absent record gh could not check: exit $rc: $(cat "$log")"
+echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
 rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "green and absent records: exit $rc: $(cat d4.out "$log")"
 grep -q 'PR #9: no CI runs (absent, not a pass)' "$log" || fail "absent not logged: $(cat "$log")"

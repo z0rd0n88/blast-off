@@ -150,7 +150,7 @@ grep -q "^no resume timer: run blast-off resume $JOB after " x75st.out || fail "
 # D3-2: a job run with its own workdir arms no timer: resume takes only the job dir and would pick
 # another workdir and unit name
 fresh own step
-own="$PWD/test-$$-own2"; mkdir -p "$own"  # its unit name is $TEST_ID-own2
+own="$PWD/test-$$-own2"; mkdir -p "$own"; SUFFIXES+=(own2)  # its unit name is $TEST_ID-own2; cleanup removes its socket
 usage "{\"five_hour\":{\"used_percentage\":99,\"resets_at\":$r}}"
 rc=0; "$bo" run "$JOB" "$own" > own.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "own workdir exit $rc, want 8: $(cat own.out "$JOB/run.log")"
