@@ -72,7 +72,8 @@ unit_status() {
   # the resume timer is transient: a reboot or user-manager exit deletes it and nothing resumes (spec §4)
   local t u; t="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value)"; u="$(usage_until)"
   echo "resume timer: $t"
-  [ -z "$u" ] || [ "$t" = active ] || echo "no resume timer: run blast-off resume $JOB after $(date -u -d "@$u" +%FT%TZ)"
+  # status takes only the job dir, so it cannot tell a job run with its own workdir (P3R3-1, P3Q9)
+  [ -z "$u" ] || [ "$t" = active ] || echo "no resume timer: run blast-off resume $JOB after $(date -u -d "@$u" +%FT%TZ) (a job run with its own workdir: blast-off run $JOB <workdir>)"
 }
 
 # Stopping the runner fires its TERM trap; the child scopes sit outside its cgroup, so stop them too.

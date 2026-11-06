@@ -68,11 +68,16 @@ fresh knob step
 usage "{\"seven_day\":{\"used_percentage\":50,\"resets_at\":$((now + 86400))}}"
 rc=0; JOB_USAGE_PAUSE=50 "$bo" run "$JOB" > knob.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "JOB_USAGE_PAUSE=50 at 50% exit $rc, want 8: $(cat knob.out)"
-# a child that finished the job is done, not paused
+# a child that finished the job (done or blocked) is not paused: no paused-limit, no timer
 fresh fin 'done'
 usage "{\"five_hour\":{\"used_percentage\":99,\"resets_at\":$r}}"
 rc=0; "$bo" run "$JOB" > fin.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] && grep -q '^status: done$' "$JOB/checkpoint.md" || fail "done child at 99% exit $rc: $(head -4 "$JOB/checkpoint.md")"
+fresh finb blocked
+usage "{\"five_hour\":{\"used_percentage\":99,\"resets_at\":$r}}"
+rc=0; "$bo" run "$JOB" > finb.out 2>&1 || rc=$?
+[ "$rc" -eq 3 ] && grep -q '^status: blocked$' "$JOB/checkpoint.md" || fail "blocked child at 99% exit $rc: $(head -4 "$JOB/checkpoint.md")"
+not_active "$TEST_ID-finb.resume.timer" || fail "resume timer armed for a blocked job"
 # no record (no status line figure): logged unknown, no pause
 fresh none step 'done'
 rc=0; "$bo" run "$JOB" > none.out 2>&1 || rc=$?
@@ -139,6 +144,7 @@ rc=0; env -u GH_TOKEN "$bo" run "$JOB" > x75.out 2>&1 || rc=$?
 grep -q 'child 1 hit a usage limit (exit 75)' "$JOB/run.log" || fail "exit 75 not logged: $(cat "$JOB/run.log")"
 grep -q 'no resume timer: GH_TOKEN is unset' "$JOB/run.log" || fail "timer without GH_TOKEN: $(cat "$JOB/run.log")"
 not_active "$TEST_ID-x75.resume.timer" || fail "timer armed with no GH_TOKEN"
+! grep -q 'the timer does it' "$JOB/run.log" || fail "pause line claims a timer: $(cat "$JOB/run.log")"
 "$bo" status "$JOB" > x75st.out 2>&1 || fail "status: $(cat x75st.out)"
 grep -q "^no resume timer: run blast-off resume $JOB after " x75st.out || fail "status hides the missing timer: $(cat x75st.out)"
 # D3-2: a job run with its own workdir arms no timer: resume takes only the job dir and would pick
@@ -150,6 +156,9 @@ rc=0; "$bo" run "$JOB" "$own" > own.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "own workdir exit $rc, want 8: $(cat own.out "$JOB/run.log")"
 grep -q "no resume timer: workdir $own is not the job dir's parent" "$JOB/run.log" || fail "own workdir timer: $(cat "$JOB/run.log")"
 not_active "$TEST_ID-own2.resume.timer" || fail "timer armed for a custom workdir"
+"$bo" status "$JOB" > ownst.out 2>&1 || fail "status: $(cat ownst.out)"
+grep -q "^no resume timer: .*blast-off run $JOB <workdir>" ownst.out || fail "status hint for an own workdir: $(cat ownst.out)"
+grep -q "status paused-limit until .*; no resume timer; run blast-off run $JOB $own after that" "$JOB/run.log" && ! grep -q 'the timer does it' "$JOB/run.log" || fail "own workdir pause line: $(cat "$JOB/run.log")"
 
 # a non-numeric threshold is a usage error before any child
 fresh badp 'done'

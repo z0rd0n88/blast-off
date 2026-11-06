@@ -46,7 +46,7 @@ usage_pause() {
   until="$(date -u -d "@$at" +%FT%TZ)"
   cp_set_status "paused-limit until $until"
   usage_arm "$at"
-  chain_end 8 "$why; status paused-limit until $until; blast-off resume $JOB after that (the timer does it)"
+  chain_end 8 "$why; status paused-limit until $until; $USAGE_NEXT"
 }
 
 # usage_arm <epoch>: a transient timer <unit>.resume that runs `blast-off resume <job-dir>` at that
@@ -55,8 +55,10 @@ usage_pause() {
 # CLAUDE_FLAGS or GH_TOKEN, so the timer's service gets the same --setenv names as `start` (D21).
 usage_arm() {
   local cal; cal="$(date -u -d "@$1" '+%F %T UTC')"
+  USAGE_NEXT="no resume timer; run blast-off resume $JOB after that"  # usage_pause's last words (P3R3-2)
   # resume takes only the job dir, so it would pick the default workdir and another unit name (D3-2)
   if [ "$WORKDIR" != "$(dirname "$JOB")" ]; then
+    USAGE_NEXT="no resume timer; run blast-off run $JOB $WORKDIR after that"
     log "no resume timer: workdir $WORKDIR is not the job dir's parent; run blast-off run $JOB $WORKDIR after $cal"; return 0
   fi
   if [ -z "${GH_TOKEN:-}" ]; then
@@ -67,6 +69,7 @@ usage_arm() {
   unit_env
   if systemd-run --user --quiet --collect --unit="$UNIT.resume" --on-calendar="$cal" --timer-property=AccuracySec=1s \
        "${UNIT_ENV[@]}" "$BLAST_OFF_HOME/bin/blast-off" resume "$JOB" 2>> "$LOG"; then
+    USAGE_NEXT="blast-off resume $JOB after that (the timer does it)"
     log "resume timer $UNIT.resume.timer armed for $cal"
   else
     log "resume timer not armed (systemd-run failed, above); run blast-off resume $JOB after $cal"

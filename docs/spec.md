@@ -48,7 +48,7 @@ to the job dir's parent (as in `run-job`).
 |---|---|---|
 | `run` | `blast-off run <job-dir> [workdir]`: the chain loop in the foreground; what the unit's `ExecStart` calls; exits 1 before the first child when `CLAUDE_FLAGS` is unset or empty, so every entry point refuses a child with no `--model` or `--effort` (K8, D8). Before child 1 it takes the job's runner lock (`$XDG_RUNTIME_DIR/<unit>.lock`, exit 1 while another live runner holds it), logs the child cap and its source, sets `paused-cap` back to `running`, and runs the dirty-tree check (exit 7); the same check runs after every child (§3) | 1, 2 |
 | `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name and `BLAST_OFF_TRUST_SECONDS`, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the shape of the MoonPay launch line, which passed `HOME`, `PATH`, `CLAUDE_FLAGS` and `JOB_MAX_CHILDREN`; `HOME` is left out because the user manager already holds it, and `GH_TOKEN` through the unit is new); names only, never values; exits 1 before launching when `GH_TOKEN` or `CLAUDE_FLAGS` is unset or empty in the caller, because `--setenv=NAME` turns an unset name into an empty value in the unit; prints the resolved launch first | 1 |
-| `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service`, then `resume timer: <ActiveState of <unit>.resume.timer>`; a `paused-limit` job whose timer is not active (lost to a reboot, never armed, or stopped) adds `no resume timer: run blast-off resume <job-dir> after <until>` (P3R2-4) | 1, 3 |
+| `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service`, then `resume timer: <ActiveState of <unit>.resume.timer>`; a `paused-limit` job whose timer is not active (lost to a reboot, never armed, or stopped) adds `no resume timer: run blast-off resume <job-dir> after <until> (a job run with its own workdir: blast-off run <job-dir> <workdir>)` (P3R2-4; status takes only the job dir, so it names both, P3R3-1) | 1, 3 |
 | `stop` | `blast-off stop <job-dir>`: `systemctl --user stop blast-off-<name>.service`; the next child resumes from the checkpoint | 1 |
 | `logs` | `blast-off logs <job-dir>`: `run.log` tail and `journalctl --user -u blast-off-<name>.service` | 1 |
 | `resume` | `blast-off resume <job-dir>`: runs `start` for a `paused-cap` job, or a `paused-limit` one once its `until` time has passed; before that time it exits 8 and changes nothing; with `CLAUDE_FLAGS` or `GH_TOKEN` unset it exits 1. It never writes the status: the started runner clears the pause once it holds the job's lock, so a failed start leaves the job paused (D3-1). It first waits up to 90 s for a stopping `blast-off-<name>.service` (the timer can fire during the old runner's exit), and stops a pending `<unit>.resume.timer` after a successful start. What the resume timer runs; no timer is armed for a job run with a workdir other than the job dir's parent, since `resume` takes only the job dir (D3-2) | 3 |
@@ -182,10 +182,13 @@ timer that elapses while the host sleeps fires on resume, while monotonic timers
 suspended WSL2 host resumes the job on wake (owner question P2Q3). `AccuracySec` defaults to 1 min.
 The user manager has no `CLAUDE_FLAGS` or `GH_TOKEN`, so the timer's service carries the same names
 as `start`, and systemd stores the token in that transient unit's file as D21 accepts for `start`.
-With `GH_TOKEN` unset no timer is armed and `run.log` says when to run `resume`. `stop` stops the
+With `GH_TOKEN` unset no timer is armed and `run.log` says when to run `resume`. The pause's last
+`run.log` line says `(the timer does it)` only when the timer was armed; for a job run with its own
+workdir it names `blast-off run <job-dir> <workdir>` (P3R3-2). `stop` stops the
 timer. The timer is transient, its unit file on tmpfs: a reboot, `wsl --shutdown` or user-manager
 exit before `until` deletes it and nothing resumes the job; `status` then prints `no resume timer:
-run blast-off resume <job-dir> after <until>` for the owner to run (P3R2-4; a resume that survives a
+run blast-off resume <job-dir> after <until> (a job run with its own workdir: blast-off run <job-dir>
+<workdir>)` for the owner to run (P3R2-4, P3R3-1; a resume that survives a
 reboot without the owner is owner question P3Q8, open).
 Phase rows: when a child turns a `## Phase plan` row's Status cell to `done`, the runner
 appends ` · usage <figure>` to that cell (rows done before the child are left alone); the stall
