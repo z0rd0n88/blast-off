@@ -50,10 +50,6 @@ for i in $(seq 1 10); do row "K$i" "$cell$cell$cell"; done
 for i in $(seq 1 11); do row "F$i" "$cell$cell$cell"; done
 for c in run start status stop logs resume install preflight receipt ci-wait; do row "\`$c\`" "$cell$cell"; done
 for e in 0 3 4 5 6 7 8 9 10; do row "$e" "$cell$cell$cell"; done
-for d in Description Documentation After Wants Type User Group NoNewPrivileges WorkingDirectory \
-         EnvironmentFile ExecStart Restart RestartSec StartLimitIntervalSec StartLimitBurst \
-         TimeoutStartSec TimeoutStopSec CPUQuota CPUSchedulingPolicy Nice MemoryHigh MemoryMax \
-         MemorySwapMax TasksMax LimitNOFILE PrivateTmp ProtectSystem ProtectHome ReadWritePaths \
-         StandardOutput StandardError SyslogIdentifier KillMode KillSignal FinalKillSignal WantedBy; do
+for d in "${GUIDE_DIRECTIVES[@]}"; do
   row "\`$d=\`" " *(adopted|changed|dropped) *\|$cell$cell"
 done
