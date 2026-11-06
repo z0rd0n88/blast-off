@@ -9,7 +9,7 @@ bo="$REPO/bin/blast-off"
 pad() { local i; for ((i = 0; i < $1; i++)); do echo "- pad $i"; done >> "$JOB/checkpoint.md"; }
 
 # at exactly 150 lines: no warning
-new_job small done
+new_job small 'done'
 pad $((150 - $(wc -l < "$JOB/checkpoint.md")))
 [ "$(wc -l < "$JOB/checkpoint.md")" -eq 150 ] || fail "small setup: $(wc -l < "$JOB/checkpoint.md") lines"
 rc=0; "$bo" run "$JOB" > small.out 2>&1 || rc=$?
@@ -18,7 +18,7 @@ grep -q '^child=1 ' "$JOB/fake-marker" || fail "small: no fake child ran"
 ! grep -q 'over 150' "$JOB/run.log" || fail "150 lines warned: $(grep 'over 150' "$JOB/run.log")"
 
 # 151 lines before child 1: warned before it, with the count
-new_job big done
+new_job big 'done'
 pad $((151 - $(wc -l < "$JOB/checkpoint.md")))
 rc=0; "$bo" run "$JOB" > big.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "big run exit $rc: $(cat big.out "$JOB/run.log")"
@@ -27,7 +27,7 @@ grep -q 'checkpoint.md is 151 lines, over 150' "$JOB/run.log" || fail "151 lines
 [ "$(grep -c 'over 150' "$JOB/run.log")" -eq 1 ] || fail "big: warned $(grep -c 'over 150' "$JOB/run.log") times, want 1"
 
 # a child grows it past 150: warned before child 2, not before child 1
-new_job grow step-pad done
+new_job grow step-pad 'done'
 pad $((140 - $(wc -l < "$JOB/checkpoint.md")))
 rc=0; "$bo" run "$JOB" > grow.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "grow run exit $rc: $(cat grow.out "$JOB/run.log")"
