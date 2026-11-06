@@ -57,7 +57,7 @@ ci_check() {
     case "$v" in
       success) ci_head "$pr" ;;
       absent) log "PR #$pr: no CI runs (absent, not a pass)"; ci_head "$pr" ;;
-      failure) chain_end 10 "PR #$pr CI red (gate-logs/ci-pr-$pr.json); done refused, status unchanged" ;;
+      failure) chain_end 10 "PR #$pr CI red or unfinished at $(jq -r '.head_sha // "?"' "$JOB/gate-logs/ci-pr-$pr.json") (gate-logs/ci-pr-$pr.json); fix and push if red, then blast-off ci-wait <job-dir> $pr (once its runs finish, if one was only unfinished), then run again; done refused, status unchanged" ;;
       *) chain_end 10 "PR #$pr CI unread: no readable record for PR $pr in gate-logs/ci-pr-$pr.json; blast-off ci-wait <job-dir> $pr, then run again" ;;
     esac
   done

@@ -73,6 +73,7 @@ mkdir -p "$JOB/gate-logs"
 cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-7.json" "$JOB/gate-logs/"
 rc=0; "$bo" run "$JOB" > d2.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #7 CI red' "$log" || fail "done with red CI: exit $rc: $(cat "$log")"
+grep -q "PR #7 CI red or unfinished at $h7 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <job-dir> 7" "$log" || fail "red CI names no head or action: $(cat "$log")"  # P4R3-2
 jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-7.json" > ci7 && mv ci7 "$JOB/gate-logs/ci-pr-7.json"
 rc=0; "$bo" run "$JOB" > d3.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread' "$log" || fail "second PR unread: exit $rc: $(cat "$log")"

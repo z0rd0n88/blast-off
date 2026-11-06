@@ -89,6 +89,8 @@ echo y > "$w/code.txt"; git -C "$w" add code.txt; git -C "$w" -c user.name=t -c 
 gate 2 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 2 > /dev/null
 rc=0; "$bo" run "$JOB" > c4.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q "phase row 2 receipt is for $(git -C "$w" rev-parse HEAD), not" "$log" || fail "stale receipt: exit $rc: $(cat "$log")"
+hh="$(git -C "$w" rev-parse HEAD)"  # P4R3-1: the advice clears exit 9 when followed literally (line below follows it)
+grep -q "then make HEAD's commit the row's: the first 7 to 40 hex word in its Status cell counts, so replace, not append (the receipt names ${hh:0:7}; if that is HEAD, only the row needs it)" "$log" || fail "stale receipt advice: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 2 ] || fail "a child ran past a refused receipt: $(cat "$JOB/fake-marker")"
 
 # row 2 names the new commit: the receipt matches, child 1 finds nothing pending, done -> exit 0

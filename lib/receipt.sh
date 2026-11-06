@@ -44,27 +44,28 @@ receipt_write() {
 # also hold HEAD's code: nothing outside the job dir changed since its commit (D4-1). Off outside git.
 receipt_check() {
   [ -n "$TOP" ] || return 0
-  local k sha r v h g l ex=()
+  local k sha r v h g l fix ex=()
   [ -z "$JOBREL" ] || ex=(":(exclude)$JOBREL")
   rf() { jq -r ".$1 // \"\"" "$r" 2>/dev/null || true; }
   for k in $(cp_done_rows); do
     sha="$(cp_row_sha "$k")" r="$JOB/gate-logs/phase-$k.json"
-    [ -n "$sha" ] || chain_end 9 "phase row $k is done but names no commit; put its sha in the Status cell, then blast-off receipt <job-dir> $k"
+    fix="run the gate on HEAD into gate-logs/phase-$k.log, blast-off receipt <job-dir> $k, then make HEAD's commit the row's: the first 7 to 40 hex word in its Status cell counts, so replace, not append"
+    [ -n "$sha" ] || chain_end 9 "phase row $k is done but names no commit; $fix"
     git -C "$TOP" merge-base --is-ancestor "$sha" HEAD 2>/dev/null ||
-      chain_end 9 "phase row $k commit $sha is not in HEAD's history; name the phase's commit on this branch"
-    [ -s "$r" ] || chain_end 9 "phase row $k is done at $sha but has no receipt $r; blast-off receipt <job-dir> $k"
+      chain_end 9 "phase row $k commit $sha is not in HEAD's history; bring the phase's work onto this branch if it is missing, then $fix"
+    [ -s "$r" ] || chain_end 9 "phase row $k is done at $sha but has no receipt $r; $fix"
     v="$(rf verdict)" h="$(rf head_sha)" g="$(rf gate_log)" l="$(rf verdict_line)"
-    [ "$v" = PASS ] || chain_end 9 "phase row $k receipt $r has verdict ${v:-unreadable}; fix and re-run the gate, then blast-off receipt <job-dir> $k"
-    [[ $h == "$sha"* ]] || chain_end 9 "phase row $k receipt is for ${h:-no commit}, not $sha; run the gate on $sha's tree and write the receipt again"
+    [ "$v" = PASS ] || chain_end 9 "phase row $k receipt $r has verdict ${v:-unreadable}; fix the code and commit, then $fix"
+    [[ $h == "$sha"* ]] || chain_end 9 "phase row $k receipt is for ${h:-no commit}, not $sha; $fix${h:+ (the receipt names ${h:0:7}; if that is HEAD, only the row needs it)}"
     [[ -n $g && $l == "GATE: PASS"* && $(receipt_verdict "$JOB/$g" || true) == "$l" ]] ||
-      chain_end 9 "phase row $k receipt does not match its gate log ${g:-(none)}; run the gate, save it there, then blast-off receipt <job-dir> $k"
+      chain_end 9 "phase row $k receipt does not match its gate log ${g:-(none)}; $fix"
     [[ " $1 " == *" $k "* ]] || git -C "$TOP" diff --quiet "$sha" HEAD -- "${ex[@]}" ||
-      chain_end 9 "phase row $k is done at $sha but code changed after it (git diff $sha HEAD); run the gate on HEAD, blast-off receipt <job-dir> $k, and name HEAD's commit in the row"
+      chain_end 9 "phase row $k is done at $sha but code changed after it (git diff $sha HEAD); $fix"
   done
 }
 
 # receipt_all_done: at status done, exit 9 while a Phase plan row is not done (D4-4); status unchanged.
 receipt_all_done() {
   local k; k="$(cp_open_rows)"; k="${k%%$'\n'*}"
-  [ -z "$k" ] || chain_end 9 "status done but phase row $k is not done; close it (done, its commit, a receipt) or set the status back, then run again"
+  [ -z "$k" ] || chain_end 9 "status done but phase row $k is not done; close it (run the gate on HEAD into gate-logs/phase-$k.log, blast-off receipt <job-dir> $k, then a Status cell of done and HEAD's commit, replacing any older sha) or set the status back, then run again"
 }
