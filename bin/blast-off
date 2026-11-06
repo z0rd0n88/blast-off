@@ -9,6 +9,8 @@
 #        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
 #        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: running, then start
 #        blast-off install                    write the template and slice to ~/.config/systemd/user
+#        blast-off receipt <job-dir> <phase>  last GATE: line of gate-logs/phase-<phase>.log + HEAD -> phase-<phase>.json
+#        blast-off ci-wait <job-dir> <pr>     watch each CI run of the PR head; conclusions -> gate-logs/ci-pr-<pr>.json
 #  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
 #        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
 #        JOB_CAP_FACTOR=3          soft cap = Phase plan rows in checkpoint.md times this
@@ -20,10 +22,12 @@
 #        JOB_RESUME_MARGIN=60      seconds after a usage reset that the resume timer fires
 #        JOB_API_BACKOFF=600       seconds before the next child after an API error that clears (overloaded, server_error, unknown)
 #        BLAST_OFF_STATE_DIR=~/.claude/state  where the status line records each session's usage
+#        BLAST_OFF_CI_APPEAR=60    seconds ci-wait waits for a PR head's runs to be listed (not to finish)
 # Exit:  0 done · 1 usage, dependency or runner error · 3 blocked (needs the owner) · 4 hard child cap reached
 #        5 two children in a row left checkpoint.md unchanged · 6 soft cap reached, status paused-cap (run again)
 #        7 uncommitted paths checkpoint.md does not name (after a child or before child 1)
 #        8 usage limit: status paused-limit until <time>; <unit>.resume.timer runs `blast-off resume` then
+#        9 a done Phase plan row names no commit, or lacks a PASS receipt for it · 10 done refused: a PR's CI red or unread
 set -euo pipefail
 
 BLAST_OFF_HOME="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
@@ -53,7 +57,8 @@ case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
   start|status|stop|logs|resume) job_init "${2:-}"; "unit_$1" ;;
   receipt) job_init "${2:-}"; receipt_write "${3:-}" ;;
+  ci-wait) job_init "${2:-}"; ci_wait "${3:-}" ;;
   install) units_install ;;
-  -h|--help|"") sed -n '2,26p' "$0" ;;
+  -h|--help|"") sed -n '2,30p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac
