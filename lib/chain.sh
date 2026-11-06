@@ -136,11 +136,12 @@ chain_run() {
   esac
 
   chain_dirty "before child 1"
+  rows="$(cp_done_rows | tr '\n' ' ')"  # rows done before child 1 are not the last child's (receipt_check)
   while :; do
-    receipt_check
+    receipt_check "$rows"
     s="$(cp_status)"
     case "$s" in
-      done)    ci_check; chain_end 0 "job done" ;;
+      done)    receipt_all_done; ci_check; chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((n+1))

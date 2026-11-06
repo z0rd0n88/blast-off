@@ -98,4 +98,70 @@ plan '| 1 | p1 | x | done (earlier) |'
 rc=0; "$bo" run "$JOB" > g1.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "non-git done row: exit $rc: $(cat "$JOB/run.log")"
 grep -q 'receipt check off' "$JOB/run.log" || fail "receipt check off not logged: $(cat "$JOB/run.log")"
+
+# --- doubt pass fixes (D4-1..D4-8) ---
+new_job later close-sha-later
+repo
+w="$(dirname "$JOB")" log="$JOB/run.log"
+plan '| 1 | p1 | x | pending |'
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
+# D4-1: the child names the receipted commit, then commits more code: the row's commit is not HEAD's code
+rc=0; "$bo" run "$JOB" > l1.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && grep -q 'phase row 1 is done at [0-9a-f]* but code changed after it' "$log" || fail "code after the receipted commit: exit $rc: $(cat "$log")"
+grep -q 'name the receipted commit' "$log" && fail "exit 9 advice names the bypass: $(cat "$log")"
+# D4-1: a row commit outside HEAD's history (another branch) is refused
+new_job side noop
+repo
+w="$(dirname "$JOB")" log="$JOB/run.log"
+git -C "$w" checkout -q -b side && git -C "$w" -c user.name=t -c user.email=t@t commit -q --allow-empty -m side
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
+s7="$(git -C "$w" rev-parse --short HEAD)"; git -C "$w" checkout -q -
+plan "| 1 | p1 | x | done ($s7) |"
+rc=0; "$bo" run "$JOB" > s1.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && grep -q "phase row 1 commit $s7 is not in HEAD's history" "$log" || fail "row commit off HEAD: exit $rc: $(cat "$log")"
+# D4-2: the receipt says PASS but its gate log now ends FAIL; a receipt with no gate log
+new_job relog noop
+repo
+log="$JOB/run.log"; s7="$(git -C "$(dirname "$JOB")" rev-parse --short HEAD)"
+plan "| 1 | p1 | x | done ($s7) |"
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
+gate 1 'GATE: FAIL passed=0 failed=1 shellcheck=ok'
+rc=0; "$bo" run "$JOB" > g2.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && grep -q 'phase row 1 receipt does not match its gate log' "$log" || fail "receipt vs gate log: exit $rc: $(cat "$log")"
+jq '.gate_log = null' "$JOB/gate-logs/phase-1.json" > hand.json && mv hand.json "$JOB/gate-logs/phase-1.json"
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'
+rc=0; "$bo" run "$JOB" > g3.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && [ "$(grep -c 'receipt does not match its gate log' "$log")" -eq 2 ] || fail "receipt with no gate log: exit $rc: $(cat "$log")"
+# D4-8: the newest run in an appended log died before its verdict: the earlier PASS is not the verdict
+gate 5 $'GATE: PASS passed=1 failed=0 shellcheck=ok\nPASS 00-harness\n'
+rc=0; "$bo" receipt "$JOB" 5 > r6.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && [ ! -e "$JOB/gate-logs/phase-5.json" ] || fail "verdict not the last line: exit $rc: $(cat r6.out)"
+gate 5 $'GATE: PASS passed=1 failed=0 shellcheck=ok\n\n'
+"$bo" receipt "$JOB" 5 > /dev/null || fail "trailing blank lines after the verdict refused"
+# D4-3: a receipt is refused while the tree has uncommitted paths outside the job dir
+echo x > "$(dirname "$JOB")/wip.txt"
+rc=0; "$bo" receipt "$JOB" 5 > r7.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && grep -q 'wip.txt' r7.out || fail "receipt on a dirty tree: exit $rc: $(cat r7.out)"
+rm "$(dirname "$JOB")/wip.txt"
+# D4-4: done with a row still pending is refused; `Done` and a dotted key are done rows too
+new_job open 'done'
+repo
+log="$JOB/run.log"; s7="$(git -C "$(dirname "$JOB")" rev-parse --short HEAD)"
+plan "| 1 | p1 | x | done ($s7) |"$'\n'"| 2 | p2 | x | pending |"
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
+rc=0; "$bo" run "$JOB" > o1.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && grep -q 'status done but phase row 2 is not done' "$log" || fail "done with a pending row: exit $rc: $(cat "$log")"
+grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 9 at done changed the status"
+sed -i "s/^| 2 | p2 | x | pending |$/| 2.5 | p2 | x | Done ($s7) |/" "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > o2.out 2>&1 || rc=$?
+[ "$rc" -eq 9 ] && grep -q "phase row 2.5 is done at $s7 but has no receipt" "$log" || fail "Done row 2.5: exit $rc: $(cat "$log")"
+gate 2.5 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 2.5 > /dev/null
+rc=0; "$bo" run "$JOB" > o3.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "all rows done and receipted: exit $rc: $(cat "$log")"
+# D4-7: receipt [workdir]: the job dir outside the repo it gates
+new_job wd noop
+wd="$PWD/wd-$$"; mkdir -p "$wd"; git -C "$wd" init -q && git -C "$wd" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'
+rc=0; "$bo" receipt "$JOB" 1 "$wd" > w1.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] && jq -e --arg h "$(git -C "$wd" rev-parse HEAD)" '.head_sha == $h' "$JOB/gate-logs/phase-1.json" > /dev/null || fail "receipt with a workdir: exit $rc: $(cat w1.out)"
 echo ok

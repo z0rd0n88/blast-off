@@ -14,6 +14,7 @@
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
 #        close (mark the first pending Phase plan row done; with none pending, status done)
 #        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>)`)
+#        close-sha-later (close-sha, then commit later.txt: the row names a commit older than HEAD)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
 # status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
 set -euo pipefail
@@ -56,6 +57,10 @@ case "$mode" in
              sha="$(git -C "$(dirname "$JOB_DIR")" rev-parse --short HEAD)"
              sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($sha) |/" "$cp"
            else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
+  close-sha-later) w="$(dirname "$JOB_DIR")"
+    grep -q '^| [0-9]* |.*| pending |$' "$cp" || { sed -i 's/^status: .*/status: done/' "$cp"; w=; }
+    [ -z "$w" ] || sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($(git -C "$w" rev-parse --short HEAD)) |/" "$cp"
+    [ -z "$w" ] || { echo x > "$w/later.txt"; git -C "$w" add later.txt; git -C "$w" -c user.name=t -c user.email=t@t commit -q -m later; } ;;
   noop) ;;
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
   slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
