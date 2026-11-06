@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 23-runner-lock: one runner per job unit (D1-6). A second `run` of a job whose runner is alive exits 1
-# before it touches anything, so the first runner's child lives on; a lock left by a dead runner, or
-# naming a pid that is no blast-off runner, is taken over.
+# before it touches anything, so the first runner's child lives on; a lock whose pid is dead, or alive
+# with another start time (a reused pid), is taken over (D2-3).
 source "$REPO/tests/lib.sh"
 use_fakes
 export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token JOB_CHILD_TIMEOUT=60
@@ -31,16 +31,17 @@ kill -TERM "$first"; wait "$first" || true
 [ "$rc" -eq 1 ] || fail "second runner beside a symlink-started one exit $rc, want 1: $(cat link2.out)"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "second runner launched a child beside a symlink-started one"
 
-# a stale lock (dead pid) and a lock naming some other live process are both taken over
+# a stale lock (dead pid) and one whose live pid has another start time (a reused pid) are both taken
+# over; the fixtures carry a start time, a bare pid would skip the start-time check (P2R1-3)
 new_job stale 'done'
 lock="${XDG_RUNTIME_DIR:-/tmp}/$TEST_ID-stale.lock"
-true & dead=$!; wait "$dead"; echo "$dead" > "$lock"
+true & dead=$!; wait "$dead"; echo "$dead 1" > "$lock"
 rc=0; "$bo" run "$JOB" > stale.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "run over a dead runner's lock exit $rc: $(cat stale.out)"
-sleep 600 & other=$!; echo "$other" > "$lock"
+sleep 600 & other=$!; echo "$other 1" > "$lock"
 sed -i 's/^status: .*/status: running/' "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > other.out 2>&1 || rc=$?
 kill "$other"
-[ "$rc" -eq 0 ] || fail "run over a lock naming a non-runner pid exit $rc: $(cat other.out)"
+[ "$rc" -eq 0 ] || fail "run over a lock whose live pid has another start time exit $rc: $(cat other.out)"
 [ ! -e "$lock" ] || fail "lock left after a clean exit"
 echo ok

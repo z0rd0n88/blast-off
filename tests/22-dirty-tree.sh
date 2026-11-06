@@ -56,22 +56,35 @@ echo '- moved.txt renamed, left uncommitted' >> "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > rename.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "named work-tree rename run exit $rc: $(cat rename.out; cat "$JOB/run.log")"
 
-# "named" means the whole path, not a substring: README is not named by README.md (D2-5)
+# "named" means the whole path, not a substring: doc/README is not named by doc/README.md (D2-5)
 new_job token 'done'
 repo
-echo x > "$(dirname "$JOB")/README"
-echo '- README.md updated' >> "$JOB/checkpoint.md"
+mkdir -p "$(dirname "$JOB")/doc"; echo x > "$(dirname "$JOB")/doc/README"
+echo '- doc/README.md updated' >> "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > token.out 2>&1 || rc=$?
-[ "$rc" -eq 7 ] || fail "README named only by README.md: run exit $rc, want 7: $(cat token.out; cat "$JOB/run.log")"
+[ "$rc" -eq 7 ] || fail "README named only by README.md, under doc/: run exit $rc, want 7: $(cat token.out; cat "$JOB/run.log")"
 
-# a path at the end of a sentence is named; so is a path spelled relative to the workdir (D2-5)
+# a bare name (no '/', no '.') is named only in backticks: `status: running` does not name a file
+# called status, `status` does (P2R1-2)
+new_job bare 'done'
+repo
+echo x > "$(dirname "$JOB")/status"
+rc=0; "$bo" run "$JOB" > bare.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || fail "file status named by its status: line: run exit $rc, want 7: $(cat bare.out; cat "$JOB/run.log")"
+echo '- left `status` uncommitted' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > bare2.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "backticked bare name not taken: run exit $rc: $(cat bare2.out; cat "$JOB/run.log")"
+
+# a path at the end of a sentence is named; so is a path spelled relative to the workdir (D2-5).
+# The workdir's basename names the unit, socket and lock, so it keeps the test prefix (P2R1-1)
 new_job sentence 'done'
 repo
-w="$(dirname "$JOB")"; mkdir -p "$w/sub"
-echo x > "$w/a.c"; echo x > "$w/sub/rel.txt"
+SUFFIXES+=(sentence-sub); w="$(dirname "$JOB")"; sub="$w/test-$$-sentence-sub"; mkdir -p "$sub"
+echo x > "$w/a.c"; echo x > "$sub/rel.txt"
 printf -- '- edited a.c.\n- left rel.txt for the next child\n' >> "$JOB/checkpoint.md"
-rc=0; "$bo" run "$JOB" "$w/sub" > sentence.out 2>&1 || rc=$?
+rc=0; "$bo" run "$JOB" "$sub" > sentence.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "sentence-end or workdir-relative name not taken: run exit $rc: $(cat sentence.out; cat "$JOB/run.log")"
+grep -q "tmux -L $TEST_ID-sentence-sub attach" "$JOB/run.log" || fail "sentence case ran outside the test namespace: $(cat "$JOB/run.log")"
 
 # a git status that fails is not a clean tree (D2-6)
 new_job gitfail 'done'
