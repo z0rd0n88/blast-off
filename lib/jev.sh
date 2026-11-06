@@ -61,7 +61,8 @@ jev_pick() {
     log "model level for phase $k: $JEV_LEVEL (jev, confidence $JEV_CONF): $CHILD_FLAGS"
   fi
   why="${JEV_WHY:-jev choice, confidence $JEV_CONF}"
-  # the six columns of the job's decision log: utc, phase, decision, why, evidence, result
+  # the six columns of the job's decision log (show-me-your-work's header): ts, phase, decision, why, evidence, result
+  [ -e "$JOB/decisions.tsv" ] || printf 'ts\tphase\tdecision\twhy\tevidence\tresult\n' > "$JOB/decisions.tsv"
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "phase-${k:-none}" "model level $JEV_LEVEL: $CHILD_FLAGS" \
     "$why" "blast-off jev_pick; run.log" "child $1" | tr -d '\r' >> "$JOB/decisions.tsv"
 }
