@@ -17,7 +17,9 @@ cp_set_status() { sed -i "0,/^status:.*/s//status: $1/" "$JOB/checkpoint.md"; }
 # (README is not named by README.md); a trailing '.' that ends a sentence still counts (D2-5).
 # A bare name, no '/' and no '.', counts only in backticks (`status`): prose such as every
 # checkpoint's `status: running` must not name a file called status (P2R1-2; owner P2Q1 open).
+# A name holding a newline is never named: grep would split it into two patterns (P2R2-1).
 cp_names() {
+  [[ $1 != *$'\n'* ]] || return 1
   [[ $1 == */* || $1 == *.* ]] || { command grep -qF -- "\`$1\`" "$JOB/checkpoint.md"; return; }
   local esc; esc="$(printf '%s' "$1" | sed 's#[][\.*^$+?(){}|]#\\&#g')"
   command grep -qE -- "(^|[^[:alnum:]_./-])$esc([^[:alnum:]_./-]|\.([^[:alnum:]_]|$)|$)" "$JOB/checkpoint.md"

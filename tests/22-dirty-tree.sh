@@ -86,6 +86,15 @@ rc=0; "$bo" run "$JOB" "$sub" > sentence.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "sentence-end or workdir-relative name not taken: run exit $rc: $(cat sentence.out; cat "$JOB/run.log")"
 grep -q "tmux -L $TEST_ID-sentence-sub attach" "$JOB/run.log" || fail "sentence case ran outside the test namespace: $(cat "$JOB/run.log")"
 
+# a name holding a newline is never named: grep would split it into two patterns, and
+# `- touched notes` names the first half (P2R2-1)
+new_job newline 'done'
+repo
+echo x > "$(dirname "$JOB")/notes"$'\n'".txt"
+echo '- touched notes' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > newline.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || fail "name with a newline named by half of it: run exit $rc, want 7: $(cat newline.out; cat "$JOB/run.log")"
+
 # a git status that fails is not a clean tree (D2-6)
 new_job gitfail 'done'
 repo
