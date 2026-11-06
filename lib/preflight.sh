@@ -16,12 +16,12 @@ preflight_run() {
 
   echo "job: $JOB · workdir: $WORKDIR · unit: $UNIT.service"
   k="$(cp_open_rows | head -n 1)"; row="$([ -z "$k" ] || cp_row "$k")"
-  jev_flags "$row"
+  # start's view, no jev call: start and the resume timer pass no OPENROUTER_API_KEY (owner question P6Q1)
+  OPENROUTER_API_KEY='' jev_flags "$row"
   echo "flags: $CHILD_FLAGS"
   echo "model: $(pf_flag model) · effort: $(pf_flag effort)"
   if [ -z "$k" ]; then echo "level: no open Phase plan row; static CLAUDE_FLAGS"
-  elif [ "$JEV_LEVEL" = static ]; then echo "level: phase $k: static CLAUDE_FLAGS ($JEV_WHY)"
-  else echo "level: phase $k: $JEV_LEVEL (jev, confidence $JEV_CONF)"; fi
+  else echo "level: phase $k: static CLAUDE_FLAGS under start ($JEV_WHY; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev)"; fi
   chain_cap
   echo "cap: $MAXC ($CAP_WHY)"
   echo "timeout: ${JOB_CHILD_TIMEOUT:-7200} s per child"
@@ -57,7 +57,7 @@ pf_account() {
 pf_usage() {
   local dir="${BLAST_OFF_STATE_DIR:-$HOME/.claude/state}" f
   PF_7D_LEFT=
-  f="$(find "$dir" -maxdepth 1 -name 'usage-limits-*.json' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)"
+  f="$(find "$dir" -maxdepth 1 -name 'usage-limits-*.json' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)" || true  # no dir: find exits 1
   if [ -z "$f" ]; then
     echo "usage: no usage records in $dir: usage pause is off until ~/.claude/hooks/usage-limit-tee.sh writes one"; return 0
   fi

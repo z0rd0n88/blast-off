@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 60-preflight: `blast-off preflight <job-dir> [workdir]` prints, one `name: value` line each, what a
-# launch would use and what stands against it (F2, F9, F10, K8): flags after the Jev pick, model and
-# effort, the pick and its source, cap, timeout, account, current usage, usage estimate, slice
+# launch would use and what stands against it (F2, F9, F10, K8): the flags `start` gives, model and
+# effort, the level (static, no jev call: start passes no OPENROUTER_API_KEY, P6Q1), cap, timeout,
+# account, current usage, usage estimate, slice
 # (D1-7), scope stop timeout (Q2), open PRs on the brief's target set, behind-base count. It writes
 # nothing. Exit 1, every line still printed, when the estimate is over what is left of the seven_day
 # window or a launch would refuse (CLAUDE_FLAGS empty); no estimate or no usage record never refuses.
@@ -49,9 +50,9 @@ before="$(ls -A "$JOB" | tr '\n' ' ')"
 # --- everything printed, nothing written ---
 rc=0; BLAST_OFF_ESTIMATE_FROM="$prior" "$bo" preflight "$JOB" > p1.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "preflight exit $rc: $(cat p1.out)"
-has '^flags: --model opus --effort xhigh --foo bar$' p1.out
-has '^model: opus · effort: xhigh$' p1.out
-has '^level: phase 2: deep \(jev, confidence 0\.87\)$' p1.out
+has '^flags: --model fake --effort low --foo bar$' p1.out
+has '^model: fake · effort: low$' p1.out
+has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev\)$' p1.out
 has '^cap: 9 \(soft: 3 Phase plan rows x JOB_CAP_FACTOR 3\)$' p1.out
 has '^timeout: 7200 s per child$' p1.out
 has '^account: fake@example\.com \(max, Fake Org\)$' p1.out
@@ -64,10 +65,12 @@ has '^open PRs on the target set: 2$' p1.out
 has '^  #11 feat/a: touches lib \(lib/x\.sh\)$' p1.out
 has '^  #13 feat/c: docs \(docs/a\.md\)$' p1.out
 grep -qE '#12|#14' p1.out && fail "a PR outside the target set listed: $(cat p1.out)"
+command grep -A1 -x 'pr list --state open --limit 100 --json number,title,headRefName,files' "$FAKE_GH/calls" | command grep -qx "cwd=$w" ||
+  fail "gh pr list not the F9 query in workdir $w: $(cat "$FAKE_GH/calls")"
 has '^behind: 1 \(git rev-list --count HEAD\.\.origin/main\)$' p1.out
 has '^preflight: ok$' p1.out
 [ "$(ls -A "$JOB" | tr '\n' ' ')" = "$before" ] || fail "preflight wrote into the job dir: $(ls -A "$JOB")"
-[ "$(wc -l < "$FAKE_JEV/calls")" -eq 1 ] || fail "want one jev call: $(cat "$FAKE_JEV/calls")"
+[ ! -e "$FAKE_JEV/calls" ] || fail "preflight asked jev (start passes no key, P6Q1): $(cat "$FAKE_JEV/calls")"
 
 # --- an estimate over what is left of the seven_day window refuses ---
 echo '{"seven_day":{"used_percentage":70,"resets_at":'$((now+259200))'}}' > "$BLAST_OFF_STATE_DIR/usage-limits-s3.json"
@@ -89,12 +92,17 @@ rc=0; BLAST_OFF_STATE_DIR="$PWD/empty-state" "$bo" preflight "$JOB" > p4.out 2>&
 [ "$rc" -eq 0 ] || fail "no record: exit $rc: $(cat p4.out)"
 has "^usage: no usage records in $PWD/empty-state: usage pause is off until ~/\\.claude/hooks/usage-limit-tee\\.sh writes one$" p4.out
 has '^estimate: no estimate \(fewer than two 7d figures in the Phase plan rows of ' p4.out
+# a state dir that does not exist (usage-limit-tee.sh never ran): the same line, not an abort
+rc=0; BLAST_OFF_STATE_DIR="$PWD/no-state" "$bo" preflight "$JOB" > p6.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "missing state dir: exit $rc: $(cat p6.out)"
+has "^usage: no usage records in $PWD/no-state: usage pause is off " p6.out
+has '^preflight: ok$' p6.out
 
 # --- static fallback; a launch that would refuse; no target set in the brief ---
 printf '# brief, no target set\n' > "$JOB/brief.md"
 rc=0; env -u OPENROUTER_API_KEY -u GH_TOKEN CLAUDE_FLAGS= "$bo" preflight "$JOB" > p5.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "CLAUDE_FLAGS empty: exit $rc, want 1: $(cat p5.out)"
-has '^level: phase 2: static CLAUDE_FLAGS \(no OPENROUTER_API_KEY in the runner environment\)$' p5.out
+has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; ' p5.out
 has '^GH_TOKEN: unset \(start refuses\)$' p5.out
 has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p5.out
 has '^open PRs on the target set: 4 \(no Target set bullet in brief\.md; every open PR\)$' p5.out
