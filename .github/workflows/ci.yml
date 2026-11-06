@@ -1,0 +1,39 @@
+# ci: blast-off's gate (D15) on every pull request: tests/run, every scenario plus shellcheck -S warning.
+# Tests 10-12 drive `systemctl --user` and `systemd-run --user --scope`, so the runner user's systemd
+# manager is started first (linger); without one they fail, never skip. shellcheck is pinned to the
+# version on the build box (0.11.0) so CI and a local gate judge the same warnings.
+name: ci
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies (D14; bash, jq, python3, systemd ship with the image)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q tmux
+          curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/shellcheck-v0.11.0" >> "$GITHUB_PATH"
+          git config --global user.name blast-off-ci
+          git config --global user.email blast-off-ci@localhost
+      - name: User systemd manager
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          rt="/run/user/$(id -u)"
+          echo "XDG_RUNTIME_DIR=$rt" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=$rt/bus" >> "$GITHUB_ENV"
+          for _ in $(seq 60); do [ -S "$rt/bus" ] && break; sleep 1; done
+          XDG_RUNTIME_DIR="$rt" systemctl --user is-system-running --wait || true
+          XDG_RUNTIME_DIR="$rt" systemctl --user show -p Version
+      - name: tests/run
+        run: |
+          # The owner's launch env may carry these into a job; test 21 then fails (P2R3-6).
+          unset JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_KEEP_WINDOWS JOB_SESSION JOB_CHILD_TIMEOUT
+          tmux -V; shellcheck --version | sed -n 2p
+          tests/run
