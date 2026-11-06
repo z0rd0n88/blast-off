@@ -63,8 +63,11 @@ resume; `templates/` holds the brief and checkpoint you fill.
 
 The owner runs `blast-off start`. You run it only when the owner asks you to and has added an allow
 rule for its command text to `permissions.allow` in the session's project `.claude/settings.json`: `"Bash(blast-off start:*)"`,
-or the absolute-path form if that is how you call it. When the auto-mode classifier denies it, that is
-final: the owner runs it with `! blast-off start <job-dir>`. Hand over `blast-off start`, not
+or the absolute-path form if that is how you call it. Type it bare, `blast-off start <job-dir>`: the rule
+does not match past a `CLAUDE_FLAGS=...` prefix, so `GH_TOKEN` and `CLAUDE_FLAGS` must already be in
+your environment (exported before `claude` started, or `CLAUDE_FLAGS` in that settings file's `env`). When the auto-mode classifier denies it, that is
+final: the owner runs it with `! CLAUDE_FLAGS='<owner flags>' blast-off start <job-dir>`
+(`GH_TOKEN` exported) or the step 7 block in a terminal. Hand over `blast-off start`, not
 `systemctl --user start blast-off@...`: a template instance gets no `CLAUDE_FLAGS` and exits 1.
 
 ## Common mistakes

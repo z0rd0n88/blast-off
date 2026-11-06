@@ -71,9 +71,13 @@ exits 1. Use `blast-off start`.
 line. For a session that should run it, the owner adds an allow rule for that command text to
 `permissions.allow` in the project's `.claude/settings.json`: `"Bash(blast-off start:*)"`. The rule
 matches the command as written, so `/abs/path/bin/blast-off start ...` needs its own rule
-(`"Bash(/abs/path/bin/blast-off start:*)"`). In auto mode a matching narrow allow rule resolves before
+(`"Bash(/abs/path/bin/blast-off start:*)"`). It does not match past a leading `CLAUDE_FLAGS=...` (an
+allow rule stops at an assignment of a variable not on Claude Code's known-safe list), so the session
+types the bare line, with `GH_TOKEN` and `CLAUDE_FLAGS` already in its environment: exported before
+`claude` starts, or `CLAUDE_FLAGS` (never `GH_TOKEN`) in that settings file's `env`. In auto mode a matching narrow allow rule resolves before
 the classifier; with no rule the classifier decides, and its denial is final: the owner runs the line
-(`! blast-off start <job-dir>` in the prompt). blast-off never writes settings and never works around
+(`! CLAUDE_FLAGS='<flags>' blast-off start <job-dir>` in the prompt with `GH_TOKEN` exported, or the
+block above in a terminal). blast-off never writes settings and never works around
 the classifier.
 
 ## Watch, stop, resume
@@ -134,7 +138,8 @@ safe to run again.
 instead, the skill writes the brief and checkpoint from **blast-off's** templates (they carry the rules
 the runner enforces: digit row keys, `done (<sha>)` cells, receipts, `ci-wait`; a checkpoint from
 big-next-job's template ends in exit 9 at its first done row) into `<worktree>/.big-next-job/`, then
-replaces its launch line with `blast-off preflight <job-dir>` and the `blast-off start <job-dir>` line
+replaces its launch line with the [Check, then start](#check-then-start) block (`export GH_TOKEN
+CLAUDE_FLAGS=...`, `blast-off preflight <job-dir>`, `blast-off start <job-dir>`)
 for the owner. blast-off never reads or writes big-next-job's files.
 
 ## Tests

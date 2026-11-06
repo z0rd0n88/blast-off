@@ -6,14 +6,22 @@ source "$REPO/tests/lib.sh"
 # --- SKILL.md: frontmatter, description under the 1024-char ceiling, the hand-over commands ---
 skill="$REPO/skills/blast-off/SKILL.md"
 [[ -f $skill ]] || fail "missing skills/blast-off/SKILL.md"
-front="$(awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {exit} f' "$skill")"
+front="$(awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {c=1; exit} f {print} END {exit !c}' "$skill")" \
+  || fail "SKILL.md frontmatter does not open and close with ---"
 grep -qx 'name: blast-off' <<<"$front" || fail "SKILL.md frontmatter name is not blast-off"
 desc="$(sed -n 's/^description: //p' <<<"$front")"
-[[ -n $desc ]] || fail "SKILL.md has no one-line description"
+[[ $desc =~ ^[A-Za-z] ]] || fail "SKILL.md description is not one plain line: $desc"
 (( ${#desc} <= 1024 )) || fail "SKILL.md description is ${#desc} chars, over 1024"
-for s in 'Prompt-only' 'Run' 'Target set' 'blast-off preflight' 'blast-off start' 'blast-off status' 'blast-off stop'; do
-  grep -qF "$s" "$skill" || fail "SKILL.md does not mention '$s'"
+# Line-anchored: the mode bullets, step 3, and the hand-over block (3-space indent) under step 7.
+for s in '^- \*\*Prompt-only\*\*' '^- \*\*Run\*\*' '^3\. \*\*Confirm the Target set\*\* .*own question' \
+  '^   export GH_TOKEN CLAUDE_FLAGS=' '^   blast-off start <job-dir>( |$)' '^   blast-off status <job-dir>( |$)' \
+  '^   tmux -L blast-off-<name> attach -t job-<name>( |$)' '^   blast-off stop <job-dir>( |$)'; do
+  grep -qE "$s" "$skill" || fail "SKILL.md has no line matching '$s'"
 done
+for s in "blast-off preflight <job-dir>" "\`CLAUDE_FLAGS\` is the owner's string, verbatim"; do
+  grep -qF "$s" "$skill" || fail "SKILL.md does not say '$s'"
+done
+! grep -qE '^ +systemctl --user start' "$skill" || fail "SKILL.md hands over a systemctl line, not blast-off start"
 
 # --- README: every subcommand, every exit code the CLI prints, the big-next-job note ---
 readme="$REPO/README.md"
@@ -42,5 +50,7 @@ for d in "${GUIDE_DIRECTIVES[@]}"; do
   line="$(grep -E "^\| *\`$d=\` *\|" "$dev")" || fail "deviations table has no row for $d="
   [[ $line =~ ^\|[^|]+\|\ *(adopted|changed|dropped)\ *\|$cell$cell$ ]] \
     || fail "deviations row for $d= lacks disposition, why or verified: $line"
-  [[ $line != *'| pending |' ]] || fail "deviations row for $d= still pending"
+  verified="${line%|}"; verified="${verified##*|}"
+  [[ ${verified,,} =~ ^\ *(yes|partly|n/a|not\ verified)(:|\ *$) ]] \
+    || fail "deviations row for $d= verified cell is not yes, partly, n/a or not verified: $line"
 done
