@@ -77,10 +77,11 @@ grep -q "PR #7 CI red or unfinished at $h7 (gate-logs/ci-pr-7.json); fix and pus
 jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-7.json" > ci7 && mv ci7 "$JOB/gate-logs/ci-pr-7.json"
 rc=0; "$bo" run "$JOB" > d3.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread' "$log" || fail "second PR unread: exit $rc: $(cat "$log")"
-# D4-2: a record for another PR does not count
-cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-8.json" "$JOB/gate-logs/ci-pr-9.json"
+# D4-2: a record for another PR does not count, even when both PRs share a head (the head check alone passes)
+cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-8.json" "$JOB/gate-logs/ci-pr-9.json"; echo "$h8" > "$FAKE_GH/pr-9-head"
 rc=0; "$bo" run "$JOB" > d3b.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #9 CI unread' "$log")" -eq 2 ] || fail "PR 8's record for PR 9: exit $rc: $(cat "$log")"
+[ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread: no readable record for PR 9' "$log" || fail "PR 8's record for PR 9: exit $rc: $(cat "$log")"
+echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
 cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-9.json" "$JOB/gate-logs/"
 # P4R1-1: a record of an older head is unread once the PR head moved, and so is one gh cannot check
 echo 6666666666666666666666666666666666666666 > "$FAKE_GH/pr-7-head"
