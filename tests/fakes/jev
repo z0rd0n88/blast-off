@@ -8,7 +8,7 @@
 # Answers like `jev -q '<json>'`: the .answers object, {"level":{"choice":...,"confidence":...}}.
 set -euo pipefail
 : "${FAKE_JEV:?fake jev needs FAKE_JEV}"
-n=$(( $(wc -l < "$FAKE_JEV/calls" 2>/dev/null || echo 0) + 1 ))
+n=1; [ ! -e "$FAKE_JEV/calls" ] || n=$(( $(wc -l < "$FAKE_JEV/calls") + 1 ))
 printf 'argv=%s typesafe=%s base=%s key=%s\n' "$*" "${TYPESAFE_API_KEY:+set}" "${JEV_BASE_URL:+set}" "${OPENROUTER_API_KEY:0:6}" >> "$FAKE_JEV/calls"
 cat > "$FAKE_JEV/state-$n"
 [ ! -e "$FAKE_JEV/fail" ] || { echo '{"error":"fake failure"}' >&2; exit 2; }

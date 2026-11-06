@@ -23,7 +23,7 @@ set -euo pipefail
 if [ "${1:-} ${2:-}" = "auth status" ]; then
   echo '{"loggedIn":true,"authMethod":"claude.ai","email":"fake@example.com","orgName":"Fake Org","subscriptionType":"max"}'; exit 0
 fi
-settings= flags=() pre=1
+settings='' flags=() pre=1
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; pre=; shift 2 ;; *) [ -z "$pre" ] || flags+=("$1"); shift ;; esac; done
 : "${JOB_DIR:?fake claude needs JOB_DIR}" "${JOB_CHILD:?fake claude needs JOB_CHILD}"
 cp="$JOB_DIR/checkpoint.md"

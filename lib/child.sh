@@ -44,7 +44,7 @@ child_launch() {
   q="'$(printf '%s' "$PROMPT" | sed "s/'/'\\\\''/g")'"
   CHILD_SCOPE="$UNIT-child-$n.scope"
   CHILD_WIN=$(tmux -L "$UNIT" new-window -dP -F '#{pane_id}' -t "$SESSION" -c "$WORKDIR" -e JOB_DIR="$JOB" -e JOB_CHILD="$n" \
-    "systemd-run --user --scope --quiet --collect --slice=blast-off.slice --unit=$CHILD_SCOPE claude $CLAUDE_FLAGS --settings $CHILD_DIR/settings.json $q; exit")
+    "systemd-run --user --scope --quiet --collect --slice=blast-off.slice --unit=$CHILD_SCOPE claude $CHILD_FLAGS --settings $CHILD_DIR/settings.json $q; exit")
   log "child $n launched  window=$CHILD_WIN  (watch: tmux -L $UNIT attach -t $SESSION)"
 }
 

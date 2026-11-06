@@ -153,6 +153,7 @@ chain_run() {
     if [ -n "$back" ]; then sleep "$back" & wait $!; back=; fi
     before="$(cp_fingerprint)" rows="$(cp_done_rows | tr '\n' ' ')"
     cp_size_warn
+    jev_pick "$n"
 
     child_launch "$n"
     w=0 limited=; child_wait || w=$?
