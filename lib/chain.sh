@@ -14,8 +14,9 @@ chain_end() { CHAIN_END=1; log "$2"; exit "$1"; }
 chain_exit() {
   local rc="$1"
   trap '' HUP INT TERM
-  [ "$(cat "$LOCK" 2>/dev/null)" != "$$" ] || rm -f "$LOCK"
   [ -n "${JOB_KEEP_WINDOWS:-}" ] || child_stop_all
+  # after the stop: a runner that takes the lock sooner would lose its server to this kill-server (D2-4)
+  [ "$(cat "$LOCK" 2>/dev/null)" != "$LOCK_ME" ] || rm -f "$LOCK" || true
   [ -z "${CHAIN_END:-}" ] || return 0
   log "runner exit $rc without a state; its error is on stderr (the journal under the unit)" || true
   [ "$rc" -ge 128 ] || exit 1
@@ -23,17 +24,26 @@ chain_exit() {
 
 # One runner per job unit (D1-6): two would share the tmux server and the child scope names, and the
 # second's child_server would kill the first's child, so this runs before it and before the EXIT trap.
-# LOCK holds the runner's pid; noclobber makes its creation atomic. A lock whose pid is gone or is no
-# `blast-off run` (pid reuse) is stale and taken over.
+# LOCK holds the runner's pid and start time; noclobber makes its creation atomic. The lock is held
+# while that pid is alive with that start time; a dead pid or a reused one (other start time) is stale
+# and taken over. No name match: a runner started through a symlink is still a runner (D2-3).
 # ponytail: takeover of a stale lock is not atomic; two runners racing for one stale lock both proceed.
 chain_lock() {
-  LOCK="${XDG_RUNTIME_DIR:-/tmp}/$UNIT.lock"
-  (set -o noclobber; echo "$$" > "$LOCK") 2>/dev/null && return 0
-  local pid; pid="$(cat "$LOCK" 2>/dev/null || true)"
-  if [[ $pid =~ ^[0-9]+$ && $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) == *"blast-off run"* ]]; then
+  LOCK="${XDG_RUNTIME_DIR:-/tmp}/$UNIT.lock" LOCK_ME="$$ $(pid_start $$)"
+  (set -o noclobber; echo "$LOCK_ME" > "$LOCK") 2>/dev/null && return 0
+  local pid='' start=''
+  { read -r pid start < "$LOCK"; } 2>/dev/null || true
+  if [[ $pid =~ ^[0-9]+$ && -n $start && $(pid_start "$pid") == "$start" ]]; then
     die "runner $pid already drives $UNIT (lock $LOCK); blast-off stop <job-dir>, or wait for it"
   fi
-  echo "$$" > "$LOCK"
+  echo "$LOCK_ME" > "$LOCK"
+}
+
+# pid_start <pid>: start time in clock ticks since boot (proc(5) /proc/<pid>/stat field 22, counted
+# after the parenthesised comm, which may hold spaces); empty when the pid is gone.
+pid_start() {
+  local st; st="$(cat "/proc/$1/stat" 2>/dev/null)" || return 0
+  read -ra st <<< "${st##*) }"; echo "${st[19]}"
 }
 
 # chain_dirty <when>: exit 7 when the workdir's repo has uncommitted paths checkpoint.md does not name
