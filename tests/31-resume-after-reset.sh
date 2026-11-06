@@ -34,9 +34,24 @@ rc=0; env -u GH_TOKEN "$bo" resume "$JOB" > nogh.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && grep -q '^status: paused-limit until' "$JOB/checkpoint.md" || fail "resume with no GH_TOKEN exit $rc: $(cat nogh.out; head -4 "$JOB/checkpoint.md")"
 "$bo" resume "$JOB" > late.out 2>&1 || fail "resume after the reset: $(cat late.out)"
 wait_until 30 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "resumed job not done: $(cat late.out "$JOB/run.log")"
-grep -q "resume: status paused-limit -> running; starting $TEST_ID-late.service" "$JOB/run.log" || fail "resume not logged: $(cat "$JOB/run.log")"
+grep -q "resume: starting $TEST_ID-late.service" "$JOB/run.log" || fail "resume not logged: $(cat "$JOB/run.log")"
+grep -q 'status paused-limit -> running; the reset has passed' "$JOB/run.log" || fail "runner did not clear the pause: $(cat "$JOB/run.log")"
 [ "$(sed -n 's/^status_at_start=//p' "$JOB/fake-marker")" = running ] || fail "child launched under $(cat "$JOB/fake-marker")"
 wait_until 10 not_active "$TEST_ID-late.service" || fail "runner unit still active after done"
+
+# D3-1: the timer can fire while the old runner unit is still stopping; resume waits for it, then
+# starts. A start that fails leaves the job paused, never `running` with no runner.
+new_job busy 'done'
+pause "paused-limit until $(iso $(( $(date +%s) - 10 )))"
+systemd-run --user --quiet --collect --unit="$TEST_ID-busy" sleep 4 || fail "busy stand-in unit did not start"
+"$bo" resume "$JOB" > busy.out 2>&1 || fail "resume beside a stopping runner unit: $(cat busy.out)"
+wait_until 30 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "busy job not done: $(cat busy.out "$JOB/run.log")"
+new_job nostart 'done'
+pause "paused-limit until $(iso $(( $(date +%s) - 10 )))"
+mkdir -p badrun; printf '#!/bin/sh\necho "fake systemd-run: refused" >&2; exit 1\n' > badrun/systemd-run; chmod +x badrun/systemd-run
+rc=0; PATH="$PWD/badrun:$PATH" "$bo" resume "$JOB" > nostart.out 2>&1 || rc=$?
+[ "$rc" -ne 0 ] || fail "resume with a failing start exit 0"
+grep -q '^status: paused-limit until' "$JOB/checkpoint.md" || fail "failed start left status $(sed -n 's/^status: //p' "$JOB/checkpoint.md")"
 
 # paused-cap resumes the same way
 new_job cap 'done'
@@ -59,7 +74,7 @@ rc=0; "$bo" run "$JOB" > fire.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "fire run exit $rc, want 8: $(cat fire.out "$JOB/run.log")"
 rm -f "$JOB/fake-usage"; echo 'done' > "$JOB/fake-mode"
 wait_until 40 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "timer never resumed the job: $(cat "$JOB/run.log"; journalctl --user -u "$TEST_ID-fire-resume.service" -n 20 --no-pager)"
-grep -q "resume: status paused-limit -> running; starting $TEST_ID-fire.service" "$JOB/run.log" || fail "timer's resume not logged: $(cat "$JOB/run.log")"
+grep -q "resume: starting $TEST_ID-fire.service" "$JOB/run.log" || fail "timer's resume not logged: $(cat "$JOB/run.log")"
 wait_until 10 not_active "$TEST_ID-fire.service" || fail "resumed runner unit still active"
 # `stop` ends a pending resume timer: a stopped job does not start again at its reset
 new_job stop step

@@ -48,6 +48,10 @@ usage_pause() {
 # CLAUDE_FLAGS or GH_TOKEN, so the timer's service gets the same --setenv names as `start` (D21).
 usage_arm() {
   local cal; cal="$(date -u -d "@$1" '+%F %T UTC')"
+  # resume takes only the job dir, so it would pick the default workdir and another unit name (D3-2)
+  if [ "$WORKDIR" != "$(dirname "$JOB")" ]; then
+    log "no resume timer: workdir $WORKDIR is not the job dir's parent; run blast-off run $JOB $WORKDIR after $cal"; return 0
+  fi
   if [ -z "${GH_TOKEN:-}" ]; then
     log "no resume timer: GH_TOKEN is unset, so its start would refuse; run blast-off resume $JOB after $cal"; return 0
   fi

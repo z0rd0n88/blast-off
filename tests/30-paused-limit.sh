@@ -104,6 +104,16 @@ rc=0; env -u GH_TOKEN "$bo" run "$JOB" > x75.out 2>&1 || rc=$?
 grep -q 'child 1 hit a usage limit (exit 75)' "$JOB/run.log" || fail "exit 75 not logged: $(cat "$JOB/run.log")"
 grep -q 'no resume timer: GH_TOKEN is unset' "$JOB/run.log" || fail "timer without GH_TOKEN: $(cat "$JOB/run.log")"
 not_active "$TEST_ID-x75-resume.timer" || fail "timer armed with no GH_TOKEN"
+# D3-2: a job run with its own workdir arms no timer: resume takes only the job dir and would pick
+# another workdir and unit name
+fresh own step
+own="$PWD/test-$$-own2"; mkdir -p "$own"  # its unit name is $TEST_ID-own2
+usage "{\"five_hour\":{\"used_percentage\":99,\"resets_at\":$r}}"
+rc=0; "$bo" run "$JOB" "$own" > own.out 2>&1 || rc=$?
+[ "$rc" -eq 8 ] || fail "own workdir exit $rc, want 8: $(cat own.out "$JOB/run.log")"
+grep -q "no resume timer: workdir $own is not the job dir's parent" "$JOB/run.log" || fail "own workdir timer: $(cat "$JOB/run.log")"
+not_active "$TEST_ID-own2-resume.timer" || fail "timer armed for a custom workdir"
+
 # a non-numeric threshold is a usage error before any child
 fresh badp 'done'
 rc=0; JOB_USAGE_PAUSE=9x "$bo" run "$JOB" > badp.out 2>&1 || rc=$?

@@ -44,9 +44,12 @@ unit_start() {
   echo "status: blast-off status $JOB · watch: tmux -L $UNIT attach -t $SESSION · stop: blast-off stop $JOB"
 }
 
-# resume: paused-cap, or paused-limit once its reset has passed, back to running, then `start`. Before
-# the reset it exits 8 and changes nothing; the resume timer runs it at the reset (lib/usage.sh). A
-# pending timer is stopped, so a resume by hand is not followed by a second one.
+# resume: `start` a paused-cap job, or a paused-limit one once its reset has passed. Before the reset it
+# exits 8 and changes nothing; the resume timer runs it at the reset (lib/usage.sh). The status is not
+# touched here: the runner clears the pause once it holds the job's lock (chain_run), so a start that
+# fails leaves the job paused, never `running` with no runner (D3-1). The timer can fire while the old
+# runner unit still stops (its EXIT trap, TimeoutStopSec=60), when systemd-run would refuse the name,
+# so resume waits for it first. A pending timer is stopped once the start succeeded.
 unit_resume() {
   local s until; s="$(cp_status)"
   case "$s" in paused-cap|paused-limit) ;; *) die "status is '$s'; resume acts only on paused-cap or paused-limit" ;; esac
@@ -55,10 +58,12 @@ unit_resume() {
     echo "blast-off: paused-limit until $(date -u -d "@$until" +%FT%TZ); resume then ($UNIT-resume.timer does it)" >&2; exit 8
   fi
   unit_check
-  systemctl --user stop "$UNIT-resume.timer" 2>/dev/null || true
-  cp_set_status running
-  log "resume: status $s -> running; starting $UNIT.service"
+  local i; for ((i = 0; i < 90; i++)); do
+    [ "$(systemctl --user show "$UNIT.service" -p ActiveState --value)" != inactive ] || break; sleep 1
+  done
+  log "resume: starting $UNIT.service (status $s)"
   unit_start
+  systemctl --user stop "$UNIT-resume.timer" 2>/dev/null || true
 }
 
 unit_status() {
