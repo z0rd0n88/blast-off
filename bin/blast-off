@@ -10,7 +10,7 @@
 #        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: running, then start
 #        blast-off install                    write the template and slice to ~/.config/systemd/user
 #        blast-off receipt <job-dir> <phase> [workdir]  last GATE: line of gate-logs/phase-<phase>.log + HEAD -> phase-<phase>.json
-#        blast-off ci-wait <job-dir> <pr>     watch each CI run of the PR head; conclusions -> gate-logs/ci-pr-<pr>.json
+#        blast-off ci-wait <job-dir> <pr> [workdir]  watch each CI run of the PR head; conclusions -> gate-logs/ci-pr-<pr>.json
 #  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
 #        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
 #        JOB_CAP_FACTOR=3          soft cap = Phase plan rows in checkpoint.md times this
@@ -57,7 +57,7 @@ case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
   start|status|stop|logs|resume) job_init "${2:-}"; "unit_$1" ;;
   receipt) job_init "${2:-}" "${4:-}"; receipt_write "${3:-}" ;;
-  ci-wait) job_init "${2:-}"; ci_wait "${3:-}" ;;
+  ci-wait) job_init "${2:-}" "${4:-}"; ci_wait "${3:-}" ;;
   install) units_install ;;
   -h|--help|"") sed -n '2,30p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;

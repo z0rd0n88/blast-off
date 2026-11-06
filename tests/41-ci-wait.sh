@@ -15,6 +15,10 @@ echo "$h7" > "$FAKE_GH/pr-7-head"; printf '11\n12\n' > "$FAKE_GH/runs-$h7"
 echo success > "$FAKE_GH/run-11"; echo failure > "$FAKE_GH/run-12"
 echo "$h8" > "$FAKE_GH/pr-8-head"; echo 21 > "$FAKE_GH/runs-$h8"; echo success > "$FAKE_GH/run-21"
 echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
+h10=4444444444444444444444444444444444444444 h11=5555555555555555555555555555555555555555
+echo "$h10" > "$FAKE_GH/pr-10-head"; echo 31 > "$FAKE_GH/runs-$h10"; echo 32 > "$FAKE_GH/later-$h10"
+echo success > "$FAKE_GH/run-31"; echo failure > "$FAKE_GH/run-32"
+echo "$h11" > "$FAKE_GH/pr-11-head"; echo 41 > "$FAKE_GH/later-$h11"; echo success > "$FAKE_GH/run-41"
 
 # --- ci-wait command ---
 new_job cmd noop
@@ -33,10 +37,22 @@ rc=0; "$bo" ci-wait "$JOB" 9 > w9.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && jq -e '.verdict == "absent" and .runs == []' "$JOB/gate-logs/ci-pr-9.json" > /dev/null || fail "no runs: exit $rc: $(cat w9.out)"
 rc=0; "$bo" ci-wait "$JOB" x > wx.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "ci-wait for PR 'x' exit $rc, want 1"
+# D4-9: one watch per run, each before its conclusion is read (the fake reports none before a watch)
+[ "$(grep -c '^run watch 11 ' "$FAKE_GH/calls")" -eq 1 ] && [ "$(grep -c '^run watch 21 ' "$FAKE_GH/calls")" -eq 1 ] || fail "watches per run: $(grep '^run watch' "$FAKE_GH/calls")"
+# D4-6: a run listed only after the first is watched (a late or chained workflow) is watched and counted
+rc=0; "$bo" ci-wait "$JOB" 10 > w10.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && jq -e '.verdict == "failure" and ([.runs[].id] == [31, 32])' "$JOB/gate-logs/ci-pr-10.json" > /dev/null || fail "late run: exit $rc: $(cat "$JOB/gate-logs/ci-pr-10.json" w10.out 2>&1)"
+grep -q '^run watch 32 ' "$FAKE_GH/calls" || fail "late run 32 not watched"
+# runs listed only on the second read: ci-wait waits up to BLAST_OFF_CI_APPEAR for them
+rc=0; BLAST_OFF_CI_APPEAR=10 "$bo" ci-wait "$JOB" 11 > w11.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] && jq -e '.verdict == "success" and .runs[0].id == 41' "$JOB/gate-logs/ci-pr-11.json" > /dev/null || fail "runs that appear late: exit $rc: $(cat w11.out)"
+# D4-7: ci-wait [workdir]: gh runs in that workdir, whose remote names the repo
+wd="$PWD/wd"; mkdir -p "$wd"
+"$bo" ci-wait "$JOB" 8 "$wd" > /dev/null 2>&1 && grep -qx "cwd=$wd" "$FAKE_GH/calls" || fail "ci-wait did not run gh in its workdir $wd"
 
 # --- runner: exit 10 at done ---
 new_job fin 'done'
-printf -- '- phase 0 delivered as PR #7\n- phase 1: https://github.com/o/r/pull/9\n' >> "$JOB/checkpoint.md"
+printf -- '- phase 0 delivered as pr#07\n- phase 1: https://github.com/o/r/pull/9\n' >> "$JOB/checkpoint.md"  # D4-5, D4-17: any case, no space, leading 0
 log="$JOB/run.log"
 rc=0; "$bo" run "$JOB" > d1.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #7 CI unread' "$log" || fail "done with unread CI: exit $rc: $(cat d1.out "$log")"
@@ -48,6 +64,10 @@ rc=0; "$bo" run "$JOB" > d2.out 2>&1 || rc=$?
 jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-7.json" > ci7 && mv ci7 "$JOB/gate-logs/ci-pr-7.json"
 rc=0; "$bo" run "$JOB" > d3.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread' "$log" || fail "second PR unread: exit $rc: $(cat "$log")"
+# D4-2: a record for another PR does not count
+cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-8.json" "$JOB/gate-logs/ci-pr-9.json"
+rc=0; "$bo" run "$JOB" > d3b.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #9 CI unread' "$log")" -eq 2 ] || fail "PR 8's record for PR 9: exit $rc: $(cat "$log")"
 cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-9.json" "$JOB/gate-logs/"
 rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "green and absent records: exit $rc: $(cat d4.out "$log")"
