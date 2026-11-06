@@ -9,6 +9,7 @@
 #   hang-pr-<n>      seconds `pr view <n>` sleeps before it answers (a stalled API)
 #   hang-run-<id>    seconds `run watch <id>` sleeps before it returns; `run view <id>` then reports no
 #                    conclusion ("": a run that never completes)
+#   prs.json         what `pr list` prints (blast-off preflight's open PRs; default [])
 #   calls            every call, one per line, each followed by `cwd=<dir>` (appended)
 set -euo pipefail
 : "${FAKE_GH:?fake gh needs FAKE_GH}"
@@ -27,5 +28,6 @@ case "$1 $2" in
   "run view") c="$(cat "$FAKE_GH/run-$3")"; grep -qx "run watch $3 --exit-status" "$FAKE_GH/calls" || c=
     [ ! -f "$FAKE_GH/hang-run-$3" ] || c=
     jq -n --argjson id "$3" --arg c "$c" '{databaseId: $id, name: "ci-\($id)", conclusion: $c}' ;;
+  "pr list") cat "$FAKE_GH/prs.json" 2>/dev/null || echo '[]' ;;
   *) echo "fake gh: unknown call: $*" >&2; exit 1 ;;
 esac

@@ -6,6 +6,8 @@ set -euo pipefail
 : "${REPO:?run scenarios through tests/run}"
 TEST_ID="blast-off-test-$$"
 export TEST_ID
+# No scenario may reach a real Jev key or route: a runner under test calls only the fake jev, with a dummy key.
+unset OPENROUTER_API_KEY TYPESAFE_API_KEY JEV_BASE_URL
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 

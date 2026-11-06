@@ -18,9 +18,13 @@
 #        close-sha-later (close-sha, then commit later.txt: the row names a commit older than HEAD)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
 # status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
+# `claude auth status --json` (blast-off preflight's account line) answers a fixed account and exits.
 set -euo pipefail
-settings=
-while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
+if [ "${1:-} ${2:-}" = "auth status" ]; then
+  echo '{"loggedIn":true,"authMethod":"claude.ai","email":"fake@example.com","orgName":"Fake Org","subscriptionType":"max"}'; exit 0
+fi
+settings= flags=() pre=1
+while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; pre=; shift 2 ;; *) [ -z "$pre" ] || flags+=("$1"); shift ;; esac; done
 : "${JOB_DIR:?fake claude needs JOB_DIR}" "${JOB_CHILD:?fake claude needs JOB_CHILD}"
 cp="$JOB_DIR/checkpoint.md"
 mode="$(sed -n "${JOB_CHILD}p" "$JOB_DIR/fake-mode")"; [ -n "$mode" ] || mode="$(tail -n 1 "$JOB_DIR/fake-mode")"
@@ -39,6 +43,8 @@ echo "settings=$settings" >> "$JOB_DIR/fake-marker"
 [ -z "$pd" ] || echo "prev_dir=$([ -e "$(dirname "$pd")" ] && echo left || echo gone)" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
+# flags: the words before --settings, as the runner's pane shell split them (Jev's pick, phase 6)
+echo "flags=${flags[*]}" >> "$JOB_DIR/fake-marker"
 u="$JOB_DIR/fake-usage-$JOB_CHILD"; [ -e "$u" ] || u="$JOB_DIR/fake-usage"
 if [ -e "$u" ]; then
   : "${BLAST_OFF_STATE_DIR:?fake-usage needs BLAST_OFF_STATE_DIR}"
