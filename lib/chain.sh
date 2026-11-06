@@ -14,10 +14,26 @@ chain_end() { CHAIN_END=1; log "$2"; exit "$1"; }
 chain_exit() {
   local rc="$1"
   trap '' HUP INT TERM
+  [ "$(cat "$LOCK" 2>/dev/null)" != "$$" ] || rm -f "$LOCK"
   [ -n "${JOB_KEEP_WINDOWS:-}" ] || child_stop_all
   [ -z "${CHAIN_END:-}" ] || return 0
   log "runner exit $rc without a state; its error is on stderr (the journal under the unit)" || true
   [ "$rc" -ge 128 ] || exit 1
+}
+
+# One runner per job unit (D1-6): two would share the tmux server and the child scope names, and the
+# second's child_server would kill the first's child, so this runs before it and before the EXIT trap.
+# LOCK holds the runner's pid; noclobber makes its creation atomic. A lock whose pid is gone or is no
+# `blast-off run` (pid reuse) is stale and taken over.
+# ponytail: takeover of a stale lock is not atomic; two runners racing for one stale lock both proceed.
+chain_lock() {
+  LOCK="${XDG_RUNTIME_DIR:-/tmp}/$UNIT.lock"
+  (set -o noclobber; echo "$$" > "$LOCK") 2>/dev/null && return 0
+  local pid; pid="$(cat "$LOCK" 2>/dev/null || true)"
+  if [[ $pid =~ ^[0-9]+$ && $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) == *"blast-off run"* ]]; then
+    die "runner $pid already drives $UNIT (lock $LOCK); blast-off stop <job-dir>, or wait for it"
+  fi
+  echo "$$" > "$LOCK"
 }
 
 # chain_dirty <when>: exit 7 when the workdir's repo has uncommitted paths checkpoint.md does not name
@@ -61,6 +77,7 @@ chain_run() {
 
   # Bash runs the EXIT trap on HUP and INT by itself, but with a stale $?; their traps pass the
   # signal's status to chain_exit so run.log records it.
+  chain_lock
   trap 'chain_exit $?' EXIT
   trap 'log "runner stopped by signal; stopping child scopes"; exit 143' TERM
   trap 'exit 129' HUP

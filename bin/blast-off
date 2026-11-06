@@ -47,6 +47,6 @@ case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
   start|status|stop|logs) job_init "${2:-}"; "unit_$1" ;;
   install) units_install ;;
-  -h|--help|"") sed -n '2,21p' "$0" ;;
+  -h|--help|"") sed -n '2,20p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac

@@ -86,7 +86,7 @@ nothing outside `~/.config/systemd/user/`. A `~/.local/bin/blast-off` symlink is
 | Code | Meaning | Checkpoint status written | Phase |
 |---|---|---|---|
 | 0 | job done | `done` (by the child) | 1 |
-| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
+| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty, `run` while another live runner holds the job's lock, a `JOB_*` count that is not a whole number), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
 | 3 | blocked, needs the owner | `blocked` (by the child) | 1 |
 | 4 | hard child cap reached (only when the soft cap is disabled: `checkpoint.md` has no `## Phase plan` table, so no phase count) | unchanged | 1, 2 |
 | 5 | two children in a row left the checkpoint unchanged | unchanged | 1 |
@@ -211,6 +211,7 @@ the marker records whether the child saw it set (the name, never a value):
 | `20-dead-child` | child exits without the Stop hook; seen within 10 s, not at `JOB_CHILD_TIMEOUT`, its last screen in `run.log`, next child launches; a child that exits right after its Stop hook is finished, not dead; a non-JSON Stop payload is logged and the chain goes on (Q3) | 2 |
 | `21-soft-cap` | derived cap (Phase plan rows x `JOB_CAP_FACTOR`, default 3, other tables' rows not counted) reached; `paused-cap`, exit 6, the cap and its source in `run.log`; re-run continues to `done`; `JOB_MAX_CHILDREN` overrides and stays soft; a non-numeric factor exits 1 before any child; test 10 keeps the hard cap (no table, exit 4, status unchanged) | 2 |
 | `22-dirty-tree` | a child leaves an untracked file `checkpoint.md` does not name: exit 7, the unnamed paths and `git status --porcelain -uall` in `run.log`, status unchanged, no next child; a re-run on that tree refuses before child 1; a named path passes; the untracked job dir never counts; a workdir outside git is not checked (logged once) | 2 |
+| `23-runner-lock` | a second `run` of a job whose runner is alive exits 1 before it starts anything (the first runner's child lives on); the lock `$XDG_RUNTIME_DIR/blast-off-<name>.lock` holds the runner pid and is gone after exit; a lock naming a dead pid or a pid that is no `blast-off run` is taken over (D1-6) | 2 |
 | `30-paused-limit` | usage at threshold; `paused-limit`, exit 8, reset time | 3 |
 | `31-resume-after-reset` | resume after a fake reset | 3 |
 | `32-usage-per-phase` | usage percent on each phase row | 3 |
