@@ -40,7 +40,7 @@ unit_start() {
   done < <(sed -n '/^\[Service\]/,/^\[/{/^[A-Za-z]*=/p}' "$TEMPLATE")
   args+=("$BLAST_OFF_HOME/bin/blast-off" run "$JOB")
   echo "systemd-run ${args[*]}"
-  systemd-run "${args[@]}"
+  systemd-run "${args[@]}" || return  # explicit: under resume's `unit_start ||` set -e is off
   echo "status: blast-off status $JOB · watch: tmux -L $UNIT attach -t $SESSION · stop: blast-off stop $JOB"
 }
 
@@ -62,7 +62,7 @@ unit_resume() {
     [ "$(systemctl --user show "$UNIT.service" -p ActiveState --value)" != inactive ] || break; sleep 1
   done
   log "resume: starting $UNIT.service (status $s)"
-  unit_start
+  unit_start || { log "resume: start of $UNIT.service failed, status kept; why: stderr above, or journalctl --user -u $UNIT-resume.service when the timer ran it"; exit 1; }
   systemctl --user stop "$UNIT-resume.timer" 2>/dev/null || true
 }
 

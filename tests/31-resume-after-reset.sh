@@ -52,6 +52,7 @@ mkdir -p badrun; printf '#!/bin/sh\necho "fake systemd-run: refused" >&2; exit 1
 rc=0; PATH="$PWD/badrun:$PATH" "$bo" resume "$JOB" > nostart.out 2>&1 || rc=$?
 [ "$rc" -ne 0 ] || fail "resume with a failing start exit 0"
 grep -q '^status: paused-limit until' "$JOB/checkpoint.md" || fail "failed start left status $(sed -n 's/^status: //p' "$JOB/checkpoint.md")"
+grep -q "resume: start of $TEST_ID-nostart.service failed" "$JOB/run.log" || fail "failed start not logged: $(cat "$JOB/run.log")"
 
 # paused-cap resumes the same way
 new_job cap 'done'
