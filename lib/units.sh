@@ -23,11 +23,16 @@ unit_env() {
   done
 }
 
-# The transient form of the template: same [Service] directives as -p properties, names by --setenv.
-unit_start() {
+# What `start` needs from the caller's environment and the job dir; checked before anything changes.
+unit_check() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
   [ -n "${GH_TOKEN:-}" ] || die "GH_TOKEN is unset or empty; --setenv=GH_TOKEN would pass an empty value to the unit"
   test -s "$JOB/brief.md" && test -s "$JOB/checkpoint.md" || die "missing $JOB/brief.md or checkpoint.md"
+}
+
+# The transient form of the template: same [Service] directives as -p properties, names by --setenv.
+unit_start() {
+  unit_check
   unit_env
   local args=(--user --collect --unit="$UNIT" --working-directory="$WORKDIR" "${UNIT_ENV[@]}") p
   while IFS= read -r p; do
@@ -37,6 +42,23 @@ unit_start() {
   echo "systemd-run ${args[*]}"
   systemd-run "${args[@]}"
   echo "status: blast-off status $JOB · watch: tmux -L $UNIT attach -t $SESSION · stop: blast-off stop $JOB"
+}
+
+# resume: paused-cap, or paused-limit once its reset has passed, back to running, then `start`. Before
+# the reset it exits 8 and changes nothing; the resume timer runs it at the reset (lib/usage.sh). A
+# pending timer is stopped, so a resume by hand is not followed by a second one.
+unit_resume() {
+  local s until; s="$(cp_status)"
+  case "$s" in paused-cap|paused-limit) ;; *) die "status is '$s'; resume acts only on paused-cap or paused-limit" ;; esac
+  until="$([ "$s" != paused-limit ] || usage_until)"
+  if [ -n "$until" ] && [ "$until" -gt "$(date +%s)" ]; then
+    echo "blast-off: paused-limit until $(date -u -d "@$until" +%FT%TZ); resume then ($UNIT-resume.timer does it)" >&2; exit 8
+  fi
+  unit_check
+  systemctl --user stop "$UNIT-resume.timer" 2>/dev/null || true
+  cp_set_status running
+  log "resume: status $s -> running; starting $UNIT.service"
+  unit_start
 }
 
 unit_status() {
