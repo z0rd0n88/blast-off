@@ -28,4 +28,25 @@ for s in 'done (<sha>)' 'PR #<n>' 'replace' '· usage' 'paused-' 'backticks' 'ph
          'gate-logs/phase-<n>' 'Hand-backs' 'children <a>-<b>'; do
   has "$t" "$s"
 done
+
+# templates/brief.md carries the fixed child protocol (spec §1 K1-K10, F1-F11; phase 5 done-when)
+b="$REPO/templates/brief.md"
+[ -s "$b" ] || fail "missing templates/brief.md"
+grep -q '^## .*Child protocol' "$b" || fail "brief has no Child protocol section (the runner's prompt names it)"
+for s in \
+  'wiring file' 'test dir' 'build file' 'every file a gate or CI check reads' 'May widen to' \
+  'confirmed as its own question' \
+  'step boundary' 'never on an estimate' \
+  'at most 3 rounds' 'LOW findings are recorded, never fixed in the loop' 'at most 3 reviewers' \
+  'lenses change every round' 'nothing above LOW closes the phase' 'doubt pass' 'mutation probe' \
+  'no Edit, no Write, no process-starting Bash, no servers, no ports; read and grep only' \
+  'Never end a turn with a background task' 'even when a harness notice' 'EXIT, TERM and INT' \
+  'gh pr list' 'rev-list --count HEAD..origin/' 'merge the base in before the gate' \
+  'Per-commit LLM hooks and plugins' 'Codex lanes' \
+  'running, done or blocked' 'paused-limit' 'exit 75' 'usage-checkpoint' \
+  'gate-logs/phase-<n>.log' 'blast-off receipt <job-dir> <n>' 'blast-off ci-wait <job-dir> <pr>' \
+  'replace, not append' 'PR #<n>' 'backticks' 'Unrun is not passed'; do
+  has "$b" "$s"
+done
+! grep -qi 'about a third' "$b" || fail "brief hands back on an estimate ('about a third'); F3 wants step boundaries"
 echo ok
