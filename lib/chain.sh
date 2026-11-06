@@ -77,7 +77,7 @@ chain_dirty() {
   fi
   log "dirty tree $1: checkpoint.md does not name ${unnamed[*]}; git status --porcelain:"
   git -C "$WORKDIR" status --porcelain -uall >> "$LOG"
-  chain_end 7 "dirty tree; commit, revert or name those paths in checkpoint.md, then run again"
+  chain_end 7 "dirty tree; commit, revert or name those paths in checkpoint.md (a name with no '/' or '.' in backticks), then run again"
 }
 
 chain_run() {
