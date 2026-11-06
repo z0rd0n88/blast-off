@@ -26,8 +26,12 @@ other worktrees: <path · branch · HEAD, or none>
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
   hex word in the cell, so replace an older sha, never append a second. Add `PR #<n>` after it.
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- An uncommitted path at a child's end must be named here, whole; a name with no '/' and no '.'
-  (`Makefile`) counts only in backticks. An unnamed one stops the chain (exit 7).
+- `PR #<n>` or a /pull/<n> link anywhere here means this job's own PR: at done the runner wants a CI
+  record for each (exit 10). Name any other PR by its branch or as `other PR <n>`, no '#'.
+- An uncommitted path at a child's end must be named here, whole: each file `git status --porcelain
+  -uall` lists, from the repo root or the workdir, never absolute, no leading ./ (a directory does not
+  name the files in it). A name with no '/' and no '.' (`<bare-name>`) counts only in backticks. An
+  unnamed one stops the chain (exit 7).
 - Over 150 lines the runner warns before each child: keep counts and pointers here, detail in phases/. -->
 
 ## Current phase: <n> — <name>
@@ -43,14 +47,10 @@ other worktrees: <path · branch · HEAD, or none>
   review rounds, closed clean or at cap, open finding IDs; PR #<n>; CI conclusion read>. Hand-backs:
   <child at which step boundary, and the reason, or none>. Ledger `phases/phase-<n>.md`.
 
-## Decisions (append only; source each)
-| Decision | Why | Source |
-|---|---|---|
-
 ## Open or blocked (append only)
 - <item needing the owner, with the question and your recommendation; or a blocked part and its patch in phases/>
 
-## Pointers
+## Pointers (in the job dir, beside this file)
 - Phase reports and review ledgers: `phases/phase-<n>.md`
 - Gate logs and receipts: `gate-logs/phase-<n>.log`, `gate-logs/phase-<n>.json`; CI reads `gate-logs/ci-pr-<n>.json`
-- Decision log: `decisions.tsv`
+- Decision log: `<job-dir>/decisions.tsv`

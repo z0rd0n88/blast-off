@@ -1,7 +1,9 @@
 # Job brief: <title> (<repo> <issue refs>)
 
 You are a fresh Claude Code session running an owner-authorized job under blast-off. Everything you
-need is in this file and in `checkpoint.md` beside it. Do not ask the owner for feedback after you
+need is in this file and in `checkpoint.md` beside it. This file's directory is the job dir (`<job-dir>`
+below): `phases/`, `gate-logs/` and `decisions.tsv`, wherever named, are in the job dir, never in the
+workdir. Do not ask the owner for feedback after you
 start: make the best supported, reversible choice and record it. If a new mandatory approval, a file
 outside the target set, or an undecided safety or product policy appears, leave that part blocked,
 finish the independent work, and record it under "Open or blocked".
@@ -38,7 +40,9 @@ dated claims and inference marked as such.
 - <spec says X, code does Y> → D<n>
 
 ## 4. Preflight and authorization
-- Worktree and branches: <path>, `<branch per phase>`, base `<branch>` at `<sha>`.
+- Worktree and branches: <path>, `<branch per phase>`, base `<base>` at `<sha>`: the job's base (e.g.
+  `main`), which §4 and §9 count and merge against as `origin/<base>`; a phase PR's `--base` is the
+  previous phase's branch (§8).
 - **Target-set construction** (done at scoping): for every deliverable name its wiring file, its
   test dir, the build file, and every file a gate or CI check reads, one line each:
   | Deliverable | Its files | Wiring file (composition root, registry, router) | Test dir | Build file | Files a gate or CI check reads |
@@ -57,7 +61,7 @@ dated claims and inference marked as such.
 - **Gate command**: `<exact command>`; its last non-empty output line is `GATE: PASS` or `GATE: FAIL`.
 - **Open PRs and base at launch**: `gh pr list --state open --json number,title,headRefName,files`
   filtered to the target set: <none, or each PR and why it does not duplicate this job>;
-  `git rev-list --count HEAD..origin/<base>` = <n>.
+  `git fetch origin <base>`, then `git rev-list --count HEAD..origin/<base>` = <n>.
 - Outside the repo, allowed: <units, sessions, paths, or none>. Never touch: <paths>.
 - Safety defaults that stay on: no merge, no deploy, no live submit, no new dependency, no invented
   fee, limit, tolerance or policy, no attribution lines.
@@ -115,37 +119,49 @@ Every session in this job follows this, in order:
 2. **Start a phase.** Write its "Will happen" list into `Current phase` (numbered `step → verify:
    check` lines, a time estimate, the skill picked per slice) and print it as your reply's first lines:
    `Phase N of M: <name>`. Then list open PRs touching the target set (`gh pr list --state open
-   --json number,title,headRefName,files`) and count `git rev-list --count HEAD..origin/<base>`; a
-   duplicate PR is recorded under "Open or blocked" before any code.
+   --json number,title,headRefName,files`) and count `git rev-list --count HEAD..origin/<base>` after
+   `git fetch origin <base>`; a
+   duplicate PR is recorded under "Open or blocked" before any code, named the way the checkpoint's
+   rules comment says for a PR this job does not own.
 3. **Checkpoint as you go.** After every landed step, test run, review round and commit, update
-   `step:`, `updated:` and `Progress`; append decisions to `Decisions`. Ledgers, finding IDs and
-   dispositions go to `phases/phase-<n>.md`. Keep the checkpoint under 150 lines: counts, pointers,
-   and only items that block a later phase (the runner warns in run.log past 150).
-4. **Close the phase**, in this order: merge the base in before the gate; commit; run the gate on the
+   `step:`, `updated:` and `Progress`. Decisions go to `decisions.tsv`, one row each with its source;
+   ledgers, finding IDs and dispositions go to `phases/phase-<n>.md`. Keep the checkpoint under 150
+   lines: counts, pointers, and only items that block a later phase (the runner warns in run.log
+   past 150).
+4. **Close the phase**, in this order: merge the base in before the gate (`git fetch origin <base>`,
+   then `git merge origin/<base>`); commit; run the gate on the
    committed tree into `gate-logs/phase-<n>.log`; `blast-off receipt <job-dir> <n>`; push and open the
    draft PR; `blast-off ci-wait <job-dir> <pr>` after the last push to it (one blocking `gh run watch`
-   per run; absent checks are not a pass, and a red one means fix, commit, gate, receipt again). Then
+   per run; absent checks are not a pass, and a red one means fix, commit, gate, receipt again). Run
+   the gate and ci-wait in the foreground with the Bash tool's longest timeout. If the tool cuts one
+   off, stop any copy it left running. Run ci-wait again until it returns: each call reads the head's
+   runs anew, and `gh run watch` returns at once for a run already complete. Run a cut-off gate again
+   as `nohup <gate command> > <job-dir>/gate-logs/phase-<n>.log 2>&1 & echo $!` and wait with
+   foreground calls of `timeout 590 tail --pid=<that pid> -f /dev/null` until that pid is gone (step
+   8); a log with no final `GATE:` line is refused by the receipt. Then
    set the row's Status to `done (<sha>) · PR #<n>`, <sha> = the receipt's commit: the runner reads
    the first 7 to 40 character hex word in the cell, so replace, not append. No code commit after
    the receipt (the runner refuses with exit 9). Move the phase to `Completed phases` (children,
    hand-backs and their reasons, clean or cap close), set `phase:` and `Next action`, end your turn.
 5. **Hand back at a step boundary, never on an estimate.** Boundaries: after the doubt pass, after
-   each review round, after the gate. Hand back early only on a measurable signal (the usage hook's
-   message, a tool's context warning): finish the step, checkpoint, set `Next action` to the exact
+   each review round, after the gate. Hand back early only on a measurable signal (step 6's usage
+   stop, a tool's context warning): finish the step, checkpoint, set `Next action` to the exact
    next step, record the reason in `Progress`, end your turn.
-6. **Usage limits.** Obey `usage-checkpoint` (the hook in `~/.claude/hooks`): at its first warning,
-   save a checkpoint and continue; at its second, or on a limit error, write `Next action`, leave the
-   status as it is and end your turn. The runner reads the usage record when you end and writes
-   `paused-limit` itself, then resumes after the reset. Do not try to exit 75: that code is reserved
-   for a child process the runner sees die on a limit, and an interactive session cannot produce it.
+6. **Usage limits.** Obey `usage-checkpoint` (the hook in `~/.claude/hooks`); its message names a
+   window and its percent. Below the runner's pause percent (`echo "${JOB_USAGE_PAUSE:-95}"`), save a
+   checkpoint and continue: ending the turn there only launches another child. At or above it, write
+   `Next action`, leave the status as it is and end your turn. A limit error ends your turn by itself.
+   The runner reads the usage record when you end and writes `paused-limit` itself, then resumes after
+   the reset. Do not try to exit 75: that code is reserved for a child process the runner sees die on
+   a limit, and an interactive session cannot produce it.
 7. **Status words.** Write only running, done or blocked in the `status:` line. `paused-cap` and
    `paused-limit` belong to the runner; a child that writes them gets another child launched.
 8. **Background work dies with the window.** Never end a turn with a background task, subagent,
    workflow or probe running, even when a harness notice says to wait for its notification: the
    runner kills the window when your turn ends. Wait in the foreground or stop it first. Mutation
    probes restore the file in a trap on EXIT, TERM and INT. Before the turn ends, `git status
-   --porcelain` is clean or every path in it is named in the checkpoint, whole; a name with no '/'
-   and no '.' counts only in backticks (`Makefile`). An unnamed path stops the chain (exit 7).
+   --porcelain -uall` is clean or every path it lists is named in the checkpoint, the way its rules
+   comment says. An unnamed path stops the chain (exit 7).
 9. **Blocked parts do not stop the job.** Record each under "Open or blocked" with the question and
    your recommendation, leave any patch in `phases/`, and continue the independent work. Set
    `status: blocked` only when nothing independent is left.
