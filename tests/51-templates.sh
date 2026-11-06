@@ -25,7 +25,7 @@ sed -i '0,/^\(| 0 |.*| \)pending |$/s//\1done (abc1234) · PR #7 |/' "$JOB/check
 [ "$(cp_done_rows)" = 0 ] || fail "done row as the template writes it not read: $(grep '^| 0 ' "$JOB/checkpoint.md")"
 [ "$(cp_row_sha 0)" = abc1234 ] || fail "row sha: '$(cp_row_sha 0)', want abc1234"
 for s in 'done (<sha>)' 'PR #<n>' 'replace' '· usage' 'paused-' 'backticks' 'phases/phase-<n>.md' \
-         'gate-logs/phase-<n>' 'hand-back' 'children'; do
+         'gate-logs/phase-<n>' 'Hand-backs' 'children <a>-<b>'; do
   has "$t" "$s"
 done
 echo ok
