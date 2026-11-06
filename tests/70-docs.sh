@@ -12,16 +12,20 @@ grep -qx 'name: blast-off' <<<"$front" || fail "SKILL.md frontmatter name is not
 desc="$(sed -n 's/^description: //p' <<<"$front")"
 [[ $desc =~ ^[A-Za-z] ]] || fail "SKILL.md description is not one plain line: $desc"
 (( ${#desc} <= 1024 )) || fail "SKILL.md description is ${#desc} chars, over 1024"
-# Line-anchored: the mode bullets, step 3, and the hand-over block (3-space indent) under step 7.
+# Line-anchored: the mode bullets, step 3, and the hand-over blocks (3-space indent) under step 7.
 for s in '^- \*\*Prompt-only\*\*' '^- \*\*Run\*\*' '^3\. \*\*Confirm the Target set\*\* .*own question' \
   '^   export GH_TOKEN CLAUDE_FLAGS=' '^   blast-off start <job-dir>( |$)' '^   blast-off status <job-dir>( |$)' \
   '^   tmux -L blast-off-<name> attach -t job-<name>( |$)' '^   blast-off stop <job-dir>( |$)'; do
   grep -qE "$s" "$skill" || fail "SKILL.md has no line matching '$s'"
 done
 for s in "blast-off preflight <job-dir>" "\`CLAUDE_FLAGS\` is the owner's string, verbatim" "Type it bare, \`blast-off start <job-dir>\`" \
-  "! CLAUDE_FLAGS='<owner flags>' blast-off start <job-dir>"; do
+  "! CLAUDE_FLAGS='<owner flags>' blast-off start <job-dir>" "step 7's export and start lines in a terminal"; do
   grep -qF "$s" "$skill" || fail "SKILL.md does not say '$s'"
 done
+# The fenced block holding the start line holds no stop line: pasted whole, it would stop the job it started.
+startblock="$(awk '/^ *```/ {if (f && b ~ /blast-off start <job-dir>/) print b; f = !f; b = ""; next} f {b = b $0 "\n"}' "$skill")"
+[[ -n $startblock ]] || fail "SKILL.md has no fenced block holding 'blast-off start <job-dir>'"
+! grep -q 'blast-off stop' <<<"$startblock" || fail "SKILL.md's start block also runs blast-off stop: $startblock"
 ! grep -qE '^ +systemctl --user start' "$skill" || fail "SKILL.md hands over a systemctl line, not blast-off start"
 
 # --- README: every subcommand, every exit code the CLI prints, the big-next-job note ---

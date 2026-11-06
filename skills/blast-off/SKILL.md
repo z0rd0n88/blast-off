@@ -47,11 +47,15 @@ resume; `templates/` holds the brief and checkpoint you fill.
 6. **Preflight**: `CLAUDE_FLAGS='<owner flags>' blast-off preflight <job-dir>`. Fix what a
    `preflight: refused` line names before going on; a usage estimate over what the 7-day window has
    left is the owner's call: report it and stop.
-7. **Hand over** this block, filled in, then the phase table and the first phase's plan:
+7. **Hand over** these two blocks, filled in, then the phase table and the first phase's plan. The
+   first starts the job; the second's lines are for later, one at a time:
 
    ```bash
    export GH_TOKEN CLAUDE_FLAGS='<owner flags>'
    blast-off start <job-dir>          # transient unit blast-off-<name>.service
+   ```
+
+   ```bash
    blast-off status <job-dir>
    tmux -L blast-off-<name> attach -t job-<name>   # watch the live child
    blast-off stop <job-dir>
@@ -67,7 +71,7 @@ or the absolute-path form if that is how you call it. Type it bare, `blast-off s
 does not match past a `CLAUDE_FLAGS=...` prefix, so `GH_TOKEN` and `CLAUDE_FLAGS` must already be in
 your environment (exported before `claude` started, or `CLAUDE_FLAGS` in that settings file's `env`). When the auto-mode classifier denies it, that is
 final: the owner runs it with `! CLAUDE_FLAGS='<owner flags>' blast-off start <job-dir>`
-(`GH_TOKEN` exported) or the step 7 block in a terminal. Hand over `blast-off start`, not
+(`GH_TOKEN` exported) or step 7's export and start lines in a terminal. Hand over `blast-off start`, not
 `systemctl --user start blast-off@...`: a template instance gets no `CLAUDE_FLAGS` and exits 1.
 
 ## Common mistakes
