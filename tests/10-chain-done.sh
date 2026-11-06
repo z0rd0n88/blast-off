@@ -32,6 +32,7 @@ gone_dirs() {
   done <<< "$(sed -n 's/^settings=//p' "$JOB/fake-marker")"
 }
 gone_dirs ok
+grep -qx 'prev_dir=gone' "$JOB/fake-marker" || fail "child 1's dir still there when child 2 launched: $(cat "$JOB/fake-marker")"
 
 # running -> blocked
 new_job blocked blocked
