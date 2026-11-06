@@ -80,16 +80,41 @@ chain_dirty() {
   chain_end 7 "dirty tree; commit, revert or name those paths in checkpoint.md (a name with no '/' or '.' in backticks), then run again"
 }
 
-chain_run() {
-  [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
-  local b; for b in claude tmux python3 jq systemd-run systemctl git realpath; do command -v "$b" >/dev/null || die "$b not on PATH"; done
-  test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
-  test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
-  TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before after rows w maxc soft=1 why v limited back=
+# What the runner needs on PATH (preflight checks the same list, and gh).
+DEPS="claude tmux python3 jq systemd-run systemctl git realpath"
+
+# chain_nums: exit 1 on a JOB_* count that is not a whole number.
+chain_nums() {
+  local v
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF; do
     [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
   done
+}
+
+# chain_cap: MAXC, CAP_WHY and CAP_SOFT (empty for the hard cap). The soft cap (F2): the checkpoint's
+# phase count times JOB_CAP_FACTOR, or JOB_MAX_CHILDREN. Reaching it pauses the job (paused-cap, exit 6)
+# and a re-run continues. With no Phase plan table there is no phase count, the soft cap is disabled,
+# and the cap is the hard one of phase 1 (exit 4, status kept).
+chain_cap() {
+  local phases; phases="$(cp_phases)"
+  CAP_SOFT=1
+  if [ -n "${JOB_MAX_CHILDREN:-}" ] && [ "$phases" -gt 0 ]; then
+    MAXC="$JOB_MAX_CHILDREN" CAP_WHY="soft: JOB_MAX_CHILDREN"
+  elif [ "$phases" -gt 0 ]; then
+    MAXC=$((phases * ${JOB_CAP_FACTOR:-3})) CAP_WHY="soft: $phases Phase plan rows x JOB_CAP_FACTOR ${JOB_CAP_FACTOR:-3}"
+  else
+    MAXC="${JOB_MAX_CHILDREN:-12}" CAP_WHY="hard: no Phase plan table in checkpoint.md" CAP_SOFT=
+  fi
+}
+
+chain_run() {
+  [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
+  local b; for b in $DEPS; do command -v "$b" >/dev/null || die "$b not on PATH"; done
+  test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
+  test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
+  TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
+  local n=0 stalls=0 s before after rows w limited back=
+  chain_nums
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
   # constant and the chain never depends on a hand-written handoff.
@@ -105,18 +130,8 @@ chain_run() {
   trap 'exit 130' INT
   child_server
 
-  # The soft cap (F2): the checkpoint's phase count times JOB_CAP_FACTOR, or JOB_MAX_CHILDREN. Reaching
-  # it pauses the job (paused-cap, exit 6) and a re-run continues. With no Phase plan table there is no
-  # phase count, the soft cap is disabled, and the cap is the hard one of phase 1 (exit 4, status kept).
-  local phases; phases="$(cp_phases)"
-  if [ -n "${JOB_MAX_CHILDREN:-}" ] && [ "$phases" -gt 0 ]; then
-    maxc="$JOB_MAX_CHILDREN" why="soft: JOB_MAX_CHILDREN"
-  elif [ "$phases" -gt 0 ]; then
-    maxc=$((phases * ${JOB_CAP_FACTOR:-3})) why="soft: $phases Phase plan rows x JOB_CAP_FACTOR ${JOB_CAP_FACTOR:-3}"
-  else
-    maxc="${JOB_MAX_CHILDREN:-12}" why="hard: no Phase plan table in checkpoint.md" soft=
-  fi
-  log "child cap $maxc ($why)"
+  chain_cap
+  log "child cap $MAXC ($CAP_WHY)"
   # Only "not a git repository" turns the dirty-tree check off; any other git failure (dubious
   # ownership, a broken repo) is an error, not a reason to skip it.
   if ! TOP="$(LC_ALL=C git -C "$WORKDIR" rev-parse --show-toplevel 2>&1)"; then
@@ -145,9 +160,9 @@ chain_run() {
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((n+1))
-    if [ "$n" -gt "$maxc" ]; then
-      [ -n "$soft" ] || chain_end 4 "child cap $maxc reached"
-      cp_set_status paused-cap; chain_end 6 "soft cap $maxc reached; status paused-cap; run again to continue"
+    if [ "$n" -gt "$MAXC" ]; then
+      [ -n "$CAP_SOFT" ] || chain_end 4 "child cap $MAXC reached"
+      cp_set_status paused-cap; chain_end 6 "soft cap $MAXC reached; status paused-cap; run again to continue"
     fi
     # after the exits above, so no state waits on it; `& wait` lets a signal through at once
     if [ -n "$back" ]; then sleep "$back" & wait $!; back=; fi

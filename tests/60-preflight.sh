@@ -7,6 +7,7 @@
 # window or a launch would refuse (CLAUDE_FLAGS empty); no estimate or no usage record never refuses.
 source "$REPO/tests/lib.sh"
 use_fakes
+unset JOB_CHILD_TIMEOUT JOB_CAP_FACTOR JOB_MAX_CHILDREN JOB_BASE JOB_JEV BLAST_OFF_ESTIMATE_FROM
 export CLAUDE_FLAGS="--model fake --effort low --foo bar" OPENROUTER_API_KEY=sk-or-dummy GH_TOKEN=dummy-not-a-token
 export FAKE_JEV="$PWD/jev" FAKE_GH="$PWD/gh" BLAST_OFF_STATE_DIR="$PWD/state"
 mkdir -p "$FAKE_JEV" "$FAKE_GH" "$BLAST_OFF_STATE_DIR"; echo deep > "$FAKE_JEV/answer"
@@ -96,4 +97,4 @@ rc=0; env -u OPENROUTER_API_KEY -u GH_TOKEN CLAUDE_FLAGS= "$bo" preflight "$JOB"
 has '^level: phase 2: static CLAUDE_FLAGS \(no OPENROUTER_API_KEY in the runner environment\)$' p5.out
 has '^GH_TOKEN: unset \(start refuses\)$' p5.out
 has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p5.out
-has '^open PRs on the target set: 4 \(no \*\*Target set\*\* line in brief\.md; every open PR\)$' p5.out
+has '^open PRs on the target set: 4 \(no Target set bullet in brief\.md; every open PR\)$' p5.out

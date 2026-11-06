@@ -7,6 +7,7 @@
 # PATH, jev failing, an answer that is not a level, no open row.
 source "$REPO/tests/lib.sh"
 use_fakes
+unset JOB_JEV
 export CLAUDE_FLAGS="--model fake --effort low --foo bar" JOB_CHILD_TIMEOUT=30 FAKE_JEV
 bo="$REPO/bin/blast-off"
 plan() { printf '\n## Phase plan\n| # | Phase | Done when | Status |\n|---|---|---|---|\n%s\n## Decisions\n' "$1" >> "$JOB/checkpoint.md"; }
@@ -36,7 +37,7 @@ awk -F'\t' 'NF != 6 { exit 1 }' "$JOB/decisions.tsv" || fail "decisions.tsv rows
 # --- fallbacks: CLAUDE_FLAGS unchanged, reason logged ---
 fallback() { # <suffix> <want reason> <want jev calls> [env...]
   local s="$1" why="$2" calls="$3"; shift 3
-  new_job "$s" done; plan '| 1 | Only | x | pending |'
+  new_job "$s" close; plan '| 1 | Only | x | pending |'
   FAKE_JEV="$PWD/jev-$s"; mkdir -p "$FAKE_JEV"; [ ! -e "$PWD/jev-setup-$s" ] || cp -r "$PWD/jev-setup-$s/." "$FAKE_JEV/"
   rc=0; env "$@" "$bo" run "$JOB" > "$s.out" 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || fail "$s run exit $rc: $(cat "$s.out")"
