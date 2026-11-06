@@ -18,7 +18,8 @@ for s in '^- \*\*Prompt-only\*\*' '^- \*\*Run\*\*' '^3\. \*\*Confirm the Target 
   '^   tmux -L blast-off-<name> attach -t job-<name>( |$)' '^   blast-off stop <job-dir>( |$)'; do
   grep -qE "$s" "$skill" || fail "SKILL.md has no line matching '$s'"
 done
-for s in "blast-off preflight <job-dir>" "\`CLAUDE_FLAGS\` is the owner's string, verbatim"; do
+for s in "blast-off preflight <job-dir>" "\`CLAUDE_FLAGS\` is the owner's string, verbatim" "Type it bare, \`blast-off start <job-dir>\`" \
+  "! CLAUDE_FLAGS='<owner flags>' blast-off start <job-dir>"; do
   grep -qF "$s" "$skill" || fail "SKILL.md does not say '$s'"
 done
 ! grep -qE '^ +systemctl --user start' "$skill" || fail "SKILL.md hands over a systemctl line, not blast-off start"
@@ -35,6 +36,11 @@ for e in $codes; do
   grep -qE "^\| *$e *\|" "$readme" || fail "README exit-code table has no row for $e"
 done
 grep -q 'big-next-job' "$readme" || fail "README does not say how big-next-job can call blast-off"
+for s in "types the bare line" "! CLAUDE_FLAGS='<flags>' blast-off start <job-dir>"; do
+  grep -qF "$s" "$readme" || fail "README does not say '$s'"
+done
+# A '!' start line without CLAUDE_FLAGS exits 1 (lib/units.sh unit_check).
+! grep -qF '! blast-off start' "$skill" "$readme" || fail "SKILL.md or README hands over '! blast-off start' with no CLAUDE_FLAGS"
 
 # --- deviations: one row per guide §5 directive, a disposition and a filled verified cell ---
 # Every directive of the systemd guide's §5 template .
