@@ -11,14 +11,6 @@ unset OPENROUTER_API_KEY TYPESAFE_API_KEY JEV_BASE_URL
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# Every directive of the systemd guide's §5 template (spec §5, docs/systemd-guide-deviations.md).
-# shellcheck disable=SC2034  # read by tests 00 and 70
-GUIDE_DIRECTIVES=(Description Documentation After Wants Type User Group NoNewPrivileges WorkingDirectory
-  EnvironmentFile ExecStart Restart RestartSec StartLimitIntervalSec StartLimitBurst
-  TimeoutStartSec TimeoutStopSec CPUQuota CPUSchedulingPolicy Nice MemoryHigh MemoryMax
-  MemorySwapMax TasksMax LimitNOFILE PrivateTmp ProtectSystem ProtectHome ReadWritePaths
-  StandardOutput StandardError SyslogIdentifier KillMode KillSignal FinalKillSignal WantedBy)
-
 # Fakes first on PATH. They reach a child only through the runner's own tmux server (spec §4).
 use_fakes() { PATH="$REPO/tests/fakes:$PATH"; export PATH; }
 

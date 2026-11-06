@@ -29,6 +29,12 @@ done
 grep -q 'big-next-job' "$readme" || fail "README does not say how big-next-job can call blast-off"
 
 # --- deviations: one row per guide §5 directive, a disposition and a filled verified cell ---
+# Every directive of the systemd guide's §5 template .
+GUIDE_DIRECTIVES=(Description Documentation After Wants Type User Group NoNewPrivileges WorkingDirectory
+  EnvironmentFile ExecStart Restart RestartSec StartLimitIntervalSec StartLimitBurst
+  TimeoutStartSec TimeoutStopSec CPUQuota CPUSchedulingPolicy Nice MemoryHigh MemoryMax
+  MemorySwapMax TasksMax LimitNOFILE PrivateTmp ProtectSystem ProtectHome ReadWritePaths
+  StandardOutput StandardError SyslogIdentifier KillMode KillSignal FinalKillSignal WantedBy)
 dev="$REPO/docs/systemd-guide-deviations.md"
 [[ -f $dev ]] || fail "missing docs/systemd-guide-deviations.md"
 cell='[^|]*[^ |][^|]*\|'

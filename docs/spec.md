@@ -196,47 +196,10 @@ check uses the fingerprint taken before that edit.
 
 ## 5. systemd guide §5 directives
 
-Every directive of the guide's §5 template. Disposition and why are the phase 0 design; phase 7
-completes `docs/systemd-guide-deviations.md` from this table and fills the verified column on this box.
-
-| Directive | Disposition | Why | Verified on this box |
-|---|---|---|---|
-| `Description=` | adopted | names the job instance (`blast-off job %i`) | pending |
-| `Documentation=` | changed | points at the repo README, not an internal URL | pending |
-| `After=` | changed | `network-online.target` is a system-scope unit; user scope has no ordering need beyond `default.target`, dropped unless phase 1 shows one | pending |
-| `Wants=` | dropped | same reason as `After=`; `time-sync.target` is system scope | pending |
-| `Type=` | adopted | `exec`: start fails if `bin/blast-off` cannot be executed | pending |
-| `User=` | dropped | user-scope manager runs as the owner already; `claude` needs the owner's auth | pending |
-| `Group=` | dropped | same as `User=` | pending |
-| `NoNewPrivileges=` | dropped | prompt §8: conflicts with `claude` and its tools; test before claiming otherwise | pending |
-| `WorkingDirectory=` | adopted | the job's workdir (worktree) | pending |
-| `EnvironmentFile=` | dropped | no secrets in files (D14); non-secrets use `Environment=`, secrets pass by name; systemd's stored copy of a `--setenv` value is open (§2) | pending |
-| `ExecStart=` | changed | absolute path of the checkout's `bin/blast-off run <job-dir>` | pending |
-| `Restart=` | dropped | non-zero exits 3 to 10 are states; a restart would relaunch a blocked, capped or paused chain; resume is explicit (`blast-off resume` or the phase 3 timer) | pending |
-| `RestartSec=` | dropped | no `Restart=` | pending |
-| `StartLimitIntervalSec=` | dropped | no `Restart=`; manual starts need no rate limit | pending |
-| `StartLimitBurst=` | dropped | same as `StartLimitIntervalSec=` | pending |
-| `TimeoutStartSec=` | changed | `Type=exec` start is immediate; systemd default kept | pending |
-| `TimeoutStopSec=` | adopted | bounds the stop so the runner's trap can kill the tmux session and log | pending |
-| `CPUQuota=` | changed | on the slice, `1600%` of 20 cores, not per service `400%` | pending |
-| `CPUSchedulingPolicy=` | dropped | `other` is the default | pending |
-| `Nice=` | adopted | `5`, so the owner's interactive work wins | pending |
-| `MemoryHigh=` | changed | on the slice, `14G`, sized to this box not 28G | pending |
-| `MemoryMax=` | changed | on the slice, `18G`, sized to this box not 30G | pending |
-| `MemorySwapMax=` | dropped | WSL2 has 12 GB swap; `0B` would OOM-kill a child on a build spike instead of throttling | pending |
-| `TasksMax=` | changed | on the slice, `4096`; children run gradle and subagents | pending |
-| `LimitNOFILE=` | dropped | user-scope default is enough unless a phase shows otherwise | pending |
-| `PrivateTmp=` | dropped | hides the tmux socket under `/tmp/tmux-1000/` from the owner's `tmux attach` | pending |
-| `ProtectSystem=` | dropped | `strict` conflicts with `claude` writing the worktree, `~/.gradle`, the Docker socket; test before claiming otherwise | pending |
-| `ProtectHome=` | dropped | `claude` reads `~/.claude` and writes under the home dir | pending |
-| `ReadWritePaths=` | dropped | only meaningful with `ProtectSystem=strict` | pending |
-| `StandardOutput=` | adopted | `journal`; `run.log` stays the chain's own record | pending |
-| `StandardError=` | adopted | `journal` | pending |
-| `SyslogIdentifier=` | adopted | `blast-off` | pending |
-| `KillMode=` | adopted | `control-group`: a stop kills the runner and its tmux calls; children run in their own `<unit>-child-<n>` scopes (§4), which the runner's TERM trap stops, and `blast-off stop` stops any it left | pending |
-| `KillSignal=` | adopted | `SIGTERM`; the runner's trap logs and kills its tmux session | pending |
-| `FinalKillSignal=` | adopted | `SIGKILL` after `TimeoutStopSec=` | pending |
-| `WantedBy=` | dropped | no `[Install]`; a job runner is not a boot-time service and nothing is enabled (D6) | pending |
+[`systemd-guide-deviations.md`](systemd-guide-deviations.md) lists every directive of the guide's §5
+template as adopted, changed or dropped, why, and what was verified on the build box. It records the
+units as built (phase 7); the phase 0 design table that stood here is retired so the dispositions live
+in one place (test 70 pins one filled row per directive).
 
 ## 6. Tests
 
@@ -249,7 +212,7 @@ the marker records whether the child saw it set (the name, never a value):
 
 | Scenario | Behavior | Phase |
 |---|---|---|
-| `00-harness` | gate verdicts; phase 0 scaffold and this spec's tables | 0 |
+| `00-harness` | gate verdicts; phase 0 scaffold and this spec's §1 to §3 tables | 0 |
 | `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3); a fake child that hangs past `JOB_CHILD_TIMEOUT=2` is logged as timed out in `run.log` and the next child launches; two children in a row that leave `checkpoint.md` unchanged give exit 5 and `two stalls; stopping` in `run.log`, and progress resets that count; `JOB_MAX_CHILDREN=1` gives exit 4 (the phase 1 hard cap; phase 2 decides its fate beside the soft cap); the runner's tmux server and child scopes end on every exit and on SIGHUP; a stale scope of the same job is stopped before child 1; a slowly written Stop payload is read whole; the trust dialog is answered only in a child's first `BLAST_OFF_TRUST_SECONDS`; SIGHUP is logged as `runner exit 129 without a state`; a second signal while the runner stops its child scopes is ignored (exit stays 129, tmux server still ends); a runner abort (a `python3` that exits 4) exits 1 with `runner exit 4 without a state` last in `run.log`; each child's dir `$XDG_RUNTIME_DIR/<unit>-child.XXXXXX` is gone after it ends and after SIGHUP, and a re-run removes one an earlier (SIGKILLed) run left (P2-L1, phase 3) | 1, 3 |
 | `11-unit-smoke` | `start` runs the same job from a workdir named `test-<pid>-job` (`<pid>` as in `$TEST_ID`), so the runner unit is `blast-off-test-<pid>-job.service`, in `blast-off.slice` by `systemctl --user show -p Slice,MemoryCurrent`; the template instance for the escaped absolute path of the temp job dir is only loaded by `systemctl --user show -p ExecStart`, never started, and shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope, and its parent is its pane's shell (a `#{pane_pid}`), so tmux's pane move never lands on it; after a second run whose fake child blocks, `blast-off stop` leaves the runner unit and its `-child-<n>` scope inactive or not-found by `systemctl --user show -p ActiveState`, and the fake child's pid gone | 1 |
 | `12-start-env` | `start` with `CLAUDE_FLAGS` unset, then with `GH_TOKEN` empty, exits 1 and creates no unit; `run` with `CLAUDE_FLAGS` unset exits 1 and launches no child (every other scenario that drives `run` exports a dummy `CLAUDE_FLAGS`) | 1 |
@@ -266,3 +229,4 @@ the marker records whether the child saw it set (the name, never a value):
 | `51-templates` | `templates/checkpoint.md` read by `lib/checkpoint.sh` as a fresh job: status `running`, every Phase plan row open with a digit key, no warning, a `done (<sha>) · PR #<n>` cell read back as done at that sha; `templates/brief.md` has a Child protocol section and one phrase per keep and fix item it carries (F1, F3 to F6, F9 to F11, the receipt and CI close order), and no hand-back on an estimate | 5 |
 | `60-preflight` | every preflight line with fakes (flags, model, effort, level as `start` gives them: static `CLAUDE_FLAGS`, P6Q1, though the fake `jev` would pick deep; soft cap 9; timeout; account; usage from the newest of two records; estimate 40% from a previous job's 10, 30, 50 then reset rows, 50% left; slice; scope stop timeout; PRs #11 and #13 on the Target set by prefix and glob, #12 and the near misses #14 not; behind 1 after fetch), `preflight: ok`, no `jev` call, job dir unchanged; 7d at 70% refuses (exit 1, every line printed); a reset already past leaves 100%; no record, a missing state dir and no estimate source print and pass; static fallback, `GH_TOKEN` unset, empty `CLAUDE_FLAGS` refused, no Target set bullet lists every PR | 6 |
 | `61-jev-pick` | Jev asked once per first open Phase plan row (4 children, 2 calls), row text on stdin not argv, `TYPESAFE_API_KEY` and `JEV_BASE_URL` dropped, OpenRouter key kept; the level's flags replace `--model`/`--effort` and keep the rest; a child with no open row gets static flags; picks in `run.log` and 6-column `decisions.tsv` rows; fallbacks with their logged reason and call count: `JOB_JEV=0`, no key, a non-`sk-or-` key, `jev` failing, `other`, `jev` not on `PATH` | 6 |
+| `70-docs` | `skills/blast-off/SKILL.md` frontmatter (name, description at most 1024 chars) and its hand-over commands; README shows every subcommand and has a row per exit code `bin/blast-off`'s header lists; `systemd-guide-deviations.md` has one row per guide §5 directive with a disposition, a why and a verified cell that is not `pending` | 7 |

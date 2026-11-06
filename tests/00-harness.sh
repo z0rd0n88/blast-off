@@ -41,7 +41,7 @@ done
 # --- per-repo job notes name the gate ---
 grep -q 'tests/run' "$REPO/.claude/big-next-job.md" 2>/dev/null || fail ".claude/big-next-job.md missing or does not name tests/run"
 
-# --- the spec maps every keep/fix item, CLI verb, exit code and guide §5 directive ---
+# --- the spec maps every keep/fix item, CLI verb and exit code (guide §5 directives: test 70) ---
 spec="$REPO/docs/spec.md"
 [[ -f $spec ]] || fail "missing docs/spec.md"
 cell='[^|]*[^ |][^|]*\|'
@@ -50,6 +50,3 @@ for i in $(seq 1 10); do row "K$i" "$cell$cell$cell"; done
 for i in $(seq 1 11); do row "F$i" "$cell$cell$cell"; done
 for c in run start status stop logs resume install preflight receipt ci-wait; do row "\`$c\`" "$cell$cell"; done
 for e in 0 3 4 5 6 7 8 9 10; do row "$e" "$cell$cell$cell"; done
-for d in "${GUIDE_DIRECTIVES[@]}"; do
-  row "\`$d=\`" " *(adopted|changed|dropped) *\|$cell$cell"
-done
