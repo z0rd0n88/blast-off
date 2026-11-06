@@ -52,9 +52,39 @@ echo x > "$w/orig-qz.txt"
 git -C "$w" add orig-qz.txt && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m old
 mv "$w/orig-qz.txt" "$w/moved.txt" && git -C "$w" add -N moved.txt
 git -C "$w" status --porcelain | command grep -qx ' R orig-qz.txt -> moved.txt' || fail "setup: not a work-tree rename: $(git -C "$w" status --porcelain)"
+rc=0; "$bo" run "$JOB" > rename0.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] && grep -q 'does not name moved.txt' "$JOB/run.log" || fail "unnamed work-tree rename passed: run exit $rc: $(cat "$JOB/run.log")"
 echo '- moved.txt renamed, left uncommitted' >> "$JOB/checkpoint.md"
+# the entry after a rename's old-name field is checked again (P2R3-1)
+echo x > "$w/zz.txt"
+rc=0; "$bo" run "$JOB" > rename2.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] && grep -q 'does not name zz.txt;' "$JOB/run.log" || fail "path after a rename skipped: run exit $rc, want 7 with zz.txt the only unnamed path: $(cat "$JOB/run.log")"
+rm "$w/zz.txt"
 rc=0; "$bo" run "$JOB" > rename.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "named work-tree rename run exit $rc: $(cat rename.out; cat "$JOB/run.log")"
+
+# a staged rename (git mv; porcelain `R  new<NUL>old<NUL>`, X column R) whose new name is named passes
+new_job staged 'done'
+repo
+w="$(dirname "$JOB")"
+echo x > "$w/orig-qz.txt"
+git -C "$w" add orig-qz.txt && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m old
+git -C "$w" mv orig-qz.txt moved.txt
+echo '- moved.txt renamed, left uncommitted' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > staged.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "named staged rename run exit $rc: $(cat staged.out; cat "$JOB/run.log")"
+
+# a name's regex characters are literal, and a path character before it breaks the match (P2R3-2)
+new_job dot 'done'
+repo
+echo x > "$(dirname "$JOB")/a.c"; echo '- edited abc' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > dot.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || fail "a.c named by abc: run exit $rc, want 7: $(cat "$JOB/run.log")"
+new_job before 'done'
+repo
+echo x > "$(dirname "$JOB")/foo.txt"; echo '- edited sub/foo.txt' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > before.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || fail "foo.txt named by sub/foo.txt: run exit $rc, want 7: $(cat "$JOB/run.log")"
 
 # "named" means the whole path, not a substring: doc/README is not named by doc/README.md (D2-5)
 new_job token 'done'

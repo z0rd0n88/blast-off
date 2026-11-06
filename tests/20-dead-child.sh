@@ -72,6 +72,7 @@ wait_stub() { # wait_stub <name> <read that writes done.json, 0 = none> <outputs
     rc=0; child_wait || rc=$?; echo "$rc" )
 }
 [ "$(wait_stub transient 2 '' 0)" = 0 ] || fail "one failed pane_dead read counted as a death"
+[ "$(wait_stub flaky 4 '' 0 '' 0)" = 0 ] || fail "two failed pane_dead reads with a good read between counted as a death"
 [ "$(wait_stub gone 0 '')" = 2 ] || fail "pane_dead reads that keep failing (window gone) not seen as a death"
 [ "$(wait_stub racedone 1 1)" = 0 ] || fail "Stop hook done just before the dead-pane read counted as a death"
 echo ok
