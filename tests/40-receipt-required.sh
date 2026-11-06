@@ -73,7 +73,7 @@ rc=0; "$bo" run "$JOB" > c3.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q 'phase row 2 receipt .* verdict FAIL' "$log" || fail "FAIL receipt: exit $rc: $(cat "$log")"
 
 # a receipt for another commit is refused
-git -C "$w" -c user.name=t -c user.email=t@t commit -q --allow-empty -m later
+echo y > "$w/code.txt"; git -C "$w" add code.txt; git -C "$w" -c user.name=t -c user.email=t@t commit -q -m later  # code: row 1 (done before) differs from HEAD
 gate 2 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 2 > /dev/null
 rc=0; "$bo" run "$JOB" > c4.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q "phase row 2 receipt is for $(git -C "$w" rev-parse HEAD), not" "$log" || fail "stale receipt: exit $rc: $(cat "$log")"
