@@ -12,8 +12,10 @@ child_server() {
   local scrub
   scrub=$(env | command grep -o '^CLAUDE[A-Z_]*=' | sed 's/=$//; s/^/-u /' || true)
   child_stop_all
+  # -f /dev/null: the owner's tmux.conf (hooks such as pane-died kill-pane, renumber-windows) never
+  # reaches the job's server, so a dead child's pane and screen stay where child_wait looks (D2-2).
   # shellcheck disable=SC2086
-  env $scrub tmux -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
+  env $scrub tmux -f /dev/null -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
   # A child's pane outlives its claude (tmux(1) remain-on-exit), so child_wait sees the death as
   # #{pane_dead} and the last screen, the only record of why it died, is still there to log.
   tmux -L "$UNIT" set-option -g remain-on-exit on
@@ -30,14 +32,15 @@ child_stop_all() {
 # blast-off.slice under a name the runner and `blast-off stop` can stop (spec §4). tmux moves only the
 # pane's own pid, after fork and without waiting, so '; exit' makes the shell fork systemd-run rather
 # than exec it: a late tmux move lands on the shell, never on claude (else claude ends in a tmux-spawn
-# scope the runner cannot name).
+# scope the runner cannot name). CHILD_WIN is the pane id (%N): an index target (session:1.0) of a
+# closed window resolves to another window on tmux 3.4 and would hide the death (D2-1).
 child_launch() {
   local n="$1" q
   CHILD_DIR="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/blast-off.XXXXXX")"
   sed "s|@DIR@|$CHILD_DIR|g" "$BLAST_OFF_HOME/templates/settings.child.json" > "$CHILD_DIR/settings.json"
   q="'$(printf '%s' "$PROMPT" | sed "s/'/'\\\\''/g")'"
   CHILD_SCOPE="$UNIT-child-$n.scope"
-  CHILD_WIN=$(tmux -L "$UNIT" new-window -dP -t "$SESSION" -c "$WORKDIR" -e JOB_DIR="$JOB" -e JOB_CHILD="$n" \
+  CHILD_WIN=$(tmux -L "$UNIT" new-window -dP -F '#{pane_id}' -t "$SESSION" -c "$WORKDIR" -e JOB_DIR="$JOB" -e JOB_CHILD="$n" \
     "systemd-run --user --scope --quiet --collect --slice=blast-off.slice --unit=$CHILD_SCOPE claude $CLAUDE_FLAGS --settings $CHILD_DIR/settings.json $q; exit")
   log "child $n launched  window=$CHILD_WIN  (watch: tmux -L $UNIT attach -t $SESSION)"
 }

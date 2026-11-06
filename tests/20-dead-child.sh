@@ -21,6 +21,25 @@ grep -q 'child 2 launched' "$log" || fail "next child not launched after a death
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "dead child 1 still alive at child 2: $(cat "$JOB/fake-marker")"
 grep -q 'timed out' "$log" && fail "death reported as a timeout: $(cat "$log")"
 
+# the owner's tmux config must not reach the job's server: a pane-died hook that closes the window
+# would lose the dead child's screen (D2-2)
+mkdir -p xdg/tmux; echo 'set-hook -g pane-died kill-pane' > xdg/tmux/tmux.conf
+new_job ownconf die 'done'
+rc=0; XDG_CONFIG_HOME="$PWD/xdg" "$bo" run "$JOB" > ownconf.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "owner-config run exit $rc: $(cat ownconf.out)"
+grep -q 'fake child 1: API Error: fake death' "$JOB/run.log" || fail "owner's tmux config closed the dead child's window: $(cat "$JOB/run.log")"
+
+# a child whose window is closed (owner kills it, or a tmux hook does) is dead and seen within 10 s.
+# Addressed by window index, a closed window's target fell back to the idle window 0 (pane_dead 0),
+# so the death waited for the timeout; a pane id stops resolving (D2-1).
+new_job winkill hang 'done'
+"$bo" run "$JOB" > winkill.out 2>&1 & runner=$!
+wait_until 20 grep -q '^child=1 ' "$JOB/fake-marker" || fail "winkill child never ran: $(cat winkill.out)"
+tmux -L "$TEST_ID-winkill" kill-window -t "job-test-$$-winkill:1"
+seen=0; wait_until 10 grep -q 'child 1 exited without its Stop hook' "$JOB/run.log" || seen=$?
+kill -TERM "$runner" 2>/dev/null; wait "$runner" || true
+[ "$seen" -eq 0 ] || fail "closed child window not seen as a death within 10 s: $(cat "$JOB/run.log")"
+
 # a child that exits straight after its Stop hook finished, it did not die
 new_job hookexit done-exit
 rc=0; "$bo" run "$JOB" > hookexit.out 2>&1 || rc=$?
