@@ -84,6 +84,17 @@ for s in 'commit; run the gate' 'blast-off receipt <job-dir> <n>' 'draft PR' 'bl
   x="${S4%%"$s"*}"; [ "${#x}" -gt "$last" ] || fail "Close the phase: '$s' comes before the step it must follow"
   last="${#x}"
 done
+# the cut-off gate re-run line, filled with a shell-list gate holding quotes and a job dir with a space,
+# saves the gate's whole output to the log, ending in the verdict the receipt reads (P5R2-1)
+# shellcheck source=../lib/receipt.sh
+source "$REPO/lib/receipt.sh"
+rr="${S9#*'Run a cut-off gate again as `'}"; [ "$rr" != "$S9" ] || fail "brief section 9 has no cut-off gate re-run line"
+rr="${rr%%'`'*}"; gd="$PWD/re run"; mkdir -p "$gd/gate-logs"
+gc="echo out; echo err >&2 && echo 'GATE: PASS' || echo 'GATE: FAIL'"; rr="${rr//"<gate command>"/"$gc"}"
+rr="${rr//"<job-dir>"/"$gd"}"; pid="$(eval "${rr//"<n>"/9}")"; gl="$gd/gate-logs/phase-9.log"
+timeout 20 tail --pid="$pid" -f /dev/null || fail "re-run gate line gave no pid to wait on: $pid"
+[ "$(receipt_verdict "$gl")" = 'GATE: PASS' ] && grep -qx out "$gl" && grep -qx err "$gl" ||
+  fail "re-run gate line lost the gate's output or verdict: $(cat "$gl" 2>&1)"
 [ "$(grep -c 'git fetch origin <base>' "$b")" -ge 3 ] || fail "brief fetches origin/<base> on fewer than 3 lines (launch count, phase-start count, merge; F9)"
 ! grep -qi 'about a third' "$b" || fail "brief hands back on an estimate ('about a third'); F3 wants step boundaries"
 has "$b" '`decisions.tsv`, wherever named, are in the job dir'

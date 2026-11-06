@@ -134,11 +134,12 @@ Every session in this job follows this, in order:
    draft PR; `blast-off ci-wait <job-dir> <pr>` after the last push to it (one blocking `gh run watch`
    per run; absent checks are not a pass, and a red one means fix, commit, gate, receipt again). Run
    the gate and ci-wait in the foreground with the Bash tool's longest timeout. If the tool cuts one
-   off, stop any copy it left running. Run ci-wait again until it returns: each call reads the head's
-   runs anew, and `gh run watch` returns at once for a run already complete. Run a cut-off gate again
-   as `nohup <gate command> > <job-dir>/gate-logs/phase-<n>.log 2>&1 & echo $!` and wait with
-   foreground calls of `timeout 590 tail --pid=<that pid> -f /dev/null` until that pid is gone (step
-   8); a log with no final `GATE:` line is refused by the receipt. Then
+   off, stop any copy it left running, run that step again as below, and go on from the step after
+   it. Run ci-wait again until it returns: each call reads the head's runs anew, and `gh run watch`
+   returns at once for a run already complete. Run a cut-off gate again as
+   `( trap '' HUP; <gate command> ) > "<job-dir>/gate-logs/phase-<n>.log" 2>&1 < /dev/null & echo $!`
+   and wait with foreground calls of `timeout 590 tail --pid=<that pid> -f /dev/null` until that pid
+   is gone (step 8); a log with no final `GATE:` line is refused by the receipt. After ci-wait,
    set the row's Status to `done (<sha>) · PR #<n>`, <sha> = the receipt's commit: the runner reads
    the first 7 to 40 character hex word in the cell, so replace, not append. No code commit after
    the receipt (the runner refuses with exit 9). Move the phase to `Completed phases` (children,
