@@ -24,3 +24,21 @@ cp_names() {
   local esc; esc="$(printf '%s' "$1" | sed 's#[][\.*^$+?(){}|]#\\&#g')"
   command grep -qE -- "(^|[^[:alnum:]_./-])$esc([^[:alnum:]_./-]|\.([^[:alnum:]_]|$)|$)" "$JOB/checkpoint.md"
 }
+
+# cp_done_rows: first cells of the Phase plan rows whose Status cell (the last) starts with "done".
+cp_done_rows() {
+  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+    awk -F'|' '{ k = $2; st = $(NF-1); gsub(/[ \t]/, "", k); sub(/^[ \t]+/, "", st)
+                 if (st ~ /^done/ && k ~ /^[0-9A-Za-z_-]+$/) print k }'
+}
+
+# cp_mark_usage <rows done before the child> <usage>: each Phase plan row done now and not before gets
+# " · usage <usage>" at the end of its Status cell, the account's usage at the close of that phase (F10).
+cp_mark_usage() {
+  local k
+  for k in $(cp_done_rows); do
+    [[ " $1 " != *" $k "* ]] || continue
+    sed -i "/^## Phase plan/,/^## /{/^| *$k *|/{/ · usage /!s/[[:space:]]*|[[:space:]]*\$/ · usage $2 |/}}" "$JOB/checkpoint.md"
+    log "phase row $k done; usage $2"
+  done
+}

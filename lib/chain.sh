@@ -86,7 +86,7 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before w maxc soft=1 why v limited
+  local n=0 stalls=0 s before after rows w maxc soft=1 why v limited
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN; do
     [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
   done
@@ -147,7 +147,7 @@ chain_run() {
       [ -n "$soft" ] || chain_end 4 "child cap $maxc reached"
       cp_set_status paused-cap; chain_end 6 "soft cap $maxc reached; status paused-cap; run again to continue"
     fi
-    before="$(cp_fingerprint)"
+    before="$(cp_fingerprint)" rows="$(cp_done_rows | tr '\n' ' ')"
 
     child_launch "$n"
     w=0 limited=; child_wait || w=$?
@@ -165,13 +165,15 @@ chain_run() {
     usage_read "$(child_field session_id)"
     log "child $n usage: $USAGE"
     child_clean
+    after="$(cp_fingerprint)"  # before the runner's own edit below, which is not the child's progress
+    cp_mark_usage "$rows" "$USAGE"
     chain_dirty "after child $n"
     # A limit pauses the chain (F10) unless the child finished it: done and blocked are final.
     if [ -n "$limited$USAGE_OVER" ] && [[ ! $(cp_status) =~ ^(done|blocked)$ ]]; then
       usage_pause "${USAGE_OVER:-$USAGE_5H}" "${limited:+child $n hit a usage limit ($limited); }usage $USAGE${USAGE_OVER:+, at or above JOB_USAGE_PAUSE ${JOB_USAGE_PAUSE:-95}%}"
     fi
 
-    if [ "$(cp_fingerprint)" = "$before" ]; then
+    if [ "$after" = "$before" ]; then
       stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2$([ "$w" != 2 ] || echo '; it died'))"
       [ "$stalls" -lt 2 ] || chain_end 5 "two stalls; stopping"
     else

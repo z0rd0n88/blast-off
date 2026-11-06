@@ -12,8 +12,9 @@
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
 #        ratelimit / apierr (step; then the StopFailure hook with error rate_limit / overloaded, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
-# With $JOB_DIR/fake-usage present, its content is this session's status-line usage record:
-# $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, the file ~/.claude/hooks/usage-limit-tee.sh writes.
+#        close (mark the first pending Phase plan row done; with none pending, status done)
+# With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
+# status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
 set -euo pipefail
 settings=
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
@@ -33,9 +34,10 @@ echo "status_at_start=$(sed -n 's/^status: *//p' "$cp" | head -n 1)" >> "$JOB_DI
 echo "settings=$settings" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
-if [ -e "$JOB_DIR/fake-usage" ]; then
+u="$JOB_DIR/fake-usage-$JOB_CHILD"; [ -e "$u" ] || u="$JOB_DIR/fake-usage"
+if [ -e "$u" ]; then
   : "${BLAST_OFF_STATE_DIR:?fake-usage needs BLAST_OFF_STATE_DIR}"
-  cp "$JOB_DIR/fake-usage" "$BLAST_OFF_STATE_DIR/usage-limits-fake-$JOB_CHILD.json"
+  cp "$u" "$BLAST_OFF_STATE_DIR/usage-limits-fake-$JOB_CHILD.json"
 fi
 case "$mode" in
   step|ratelimit|apierr) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
@@ -45,6 +47,8 @@ case "$mode" in
     printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;
   slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
+  close) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then sed -i '0,/^\(| [0-9]* |.*| \)pending |$/s//\1done |/' "$cp"
+         else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
   noop) ;;
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
   slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
