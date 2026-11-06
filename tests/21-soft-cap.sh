@@ -29,6 +29,7 @@ printf 'done\n' > "$JOB/fake-mode"
 rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > rerun.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "re-run after paused-cap exit $rc: $(cat rerun.out; cat "$log")"
 grep -q 'status paused-cap -> running; the chain continues' "$log" || fail "re-run did not log the resume: $(cat "$log")"
+[ "$(sed -n 's/^status_at_start=//p' "$JOB/fake-marker" | tail -n 1)" = running ] || fail "status at re-run start not running: $(cat "$JOB/fake-marker")"
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "re-run did not finish the job"
 
 # default factor 3 over one phase row: cap 3
