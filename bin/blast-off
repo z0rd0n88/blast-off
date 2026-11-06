@@ -52,6 +52,7 @@ job_init() {
 case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
   start|status|stop|logs|resume) job_init "${2:-}"; "unit_$1" ;;
+  receipt) job_init "${2:-}"; receipt_write "${3:-}" ;;
   install) units_install ;;
   -h|--help|"") sed -n '2,26p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;

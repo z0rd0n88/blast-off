@@ -32,6 +32,14 @@ cp_done_rows() {
                  if (st ~ /^done/ && k ~ /^[0-9A-Za-z_-]+$/) print k }'
 }
 
+# cp_row_sha <key>: the first 7 to 40 character lower-case hex word in that Phase plan row's Status cell.
+cp_row_sha() {
+  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+    awk -F'|' -v k="$1" '{ key = $2; gsub(/[ \t]/, "", key); if (key != k) next
+      n = split($(NF-1), w, /[^0-9A-Za-z]+/)
+      for (i = 1; i <= n; i++) if (w[i] ~ /^[0-9a-f]+$/ && length(w[i]) >= 7 && length(w[i]) <= 40) { print w[i]; exit } }'
+}
+
 # cp_mark_usage <rows done before the child> <usage>: each Phase plan row done now and not before gets
 # " · usage <usage>" at the end of its Status cell, the account's usage at the close of that phase (F10).
 cp_mark_usage() {

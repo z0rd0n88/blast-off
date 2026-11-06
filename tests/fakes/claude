@@ -13,6 +13,7 @@
 #        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
 #        close (mark the first pending Phase plan row done; with none pending, status done)
+#        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>)`)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
 # status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
 set -euo pipefail
@@ -51,6 +52,10 @@ case "$mode" in
   slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
   close) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then sed -i '0,/^\(| [0-9]* |.*| \)pending |$/s//\1done |/' "$cp"
          else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
+  close-sha) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then
+             sha="$(git -C "$(dirname "$JOB_DIR")" rev-parse --short HEAD)"
+             sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($sha) |/" "$cp"
+           else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
   noop) ;;
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
   slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
