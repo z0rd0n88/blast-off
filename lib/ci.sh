@@ -7,8 +7,9 @@
 # wait for runs to exist, not a poll for them to finish. Exit 0 green (success, skipped or neutral),
 # 10 red or no runs: absent checks are not a pass.
 ci_wait() {
-  local pr="${1:-}" sha ids='' id i=0 v r="$JOB/gate-logs/ci-pr-${1:-}.json"
+  local pr="${1:-}" sha ids='' id i=0 v r
   [[ $pr =~ ^[1-9][0-9]*$ ]] || die "PR '$pr' must be a PR number"
+  r="$JOB/gate-logs/ci-pr-$pr.json"
   cd "$WORKDIR" || die "no workdir $WORKDIR"  # gh reads the repo from the workdir's remote
   sha="$(gh pr view "$pr" --json headRefOid | jq -r .headRefOid)" || die "gh pr view $pr failed"
   while ids="$(gh run list --commit "$sha" --limit 100 --json databaseId | jq -r '.[].databaseId')" || die "gh run list failed"
