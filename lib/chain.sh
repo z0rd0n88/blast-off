@@ -51,16 +51,26 @@ pid_start() {
 # to the repo root (git-status(1)); -z keeps odd names whole. A rename or copy, in the index (X) or the
 # work tree (Y, `git add -N`), is followed by a field holding its old name, which is skipped.
 # -uall lists untracked files one by one, so the job dir's own files (run.log) are skipped by prefix.
+# A path counts as named when checkpoint.md holds it whole (cp_names), from the repo root or from the
+# workdir. The porcelain goes to a file first: a failing git status must not read as a clean tree.
+# ponytail: one grep per uncommitted path; an unignored cache dir of 100k files is slow and floods run.log.
 chain_dirty() {
   [ -n "$TOP" ] || return 0
-  local e p skip='' unnamed=() named=()
+  local e p skip='' unnamed=() named=() st
+  st="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/blast-off-status.XXXXXX")"
+  git -C "$WORKDIR" status --porcelain -z -uall > "$st" || { rm -f "$st"; die "git status failed in $WORKDIR"; }
   while IFS= read -r -d '' e; do
     if [ -n "$skip" ]; then skip=; continue; fi
     [[ ${e:0:2} != *[RC]* ]] || skip=1
     p="${e:3}"
     [[ -n $JOBREL && $p == "$JOBREL"/* ]] && continue
-    if command grep -qF -- "$p" "$JOB/checkpoint.md"; then named+=("$p"); else unnamed+=("$p"); fi
-  done < <(git -C "$WORKDIR" status --porcelain -z -uall)
+    if cp_names "$p" || { [ "$WORKREL" != . ] && [[ $p == "$WORKREL"/* ]] && cp_names "${p#"$WORKREL"/}"; }; then
+      named+=("$p")
+    else
+      unnamed+=("$p")
+    fi
+  done < "$st"
+  rm -f "$st"
   if [ "${#unnamed[@]}" -eq 0 ]; then
     [ "${#named[@]}" -eq 0 ] || log "tree $1: uncommitted, named in checkpoint.md: ${named[*]}"
     return 0
@@ -72,7 +82,7 @@ chain_dirty() {
 
 chain_run() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
-  local b; for b in claude tmux python3 systemd-run systemctl; do command -v "$b" >/dev/null || die "$b not on PATH"; done
+  local b; for b in claude tmux python3 systemd-run systemctl git realpath; do command -v "$b" >/dev/null || die "$b not on PATH"; done
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
@@ -107,10 +117,15 @@ chain_run() {
     maxc="${JOB_MAX_CHILDREN:-12}" why="hard: no Phase plan table in checkpoint.md" soft=
   fi
   log "child cap $maxc ($why)"
-  TOP="$(git -C "$WORKDIR" rev-parse --show-toplevel 2>/dev/null)" || TOP=
+  # Only "not a git repository" turns the dirty-tree check off; any other git failure (dubious
+  # ownership, a broken repo) is an error, not a reason to skip it.
+  if ! TOP="$(LC_ALL=C git -C "$WORKDIR" rev-parse --show-toplevel 2>&1)"; then
+    [[ $TOP == *"not a git repository"* ]] || die "git rev-parse in $WORKDIR failed: $TOP"
+    TOP=; log "workdir $WORKDIR is not in a git repo; dirty-tree check off"
+  fi
   JOBREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$JOB")"
   [[ $JOBREL != ..* ]] || JOBREL=
-  [ -n "$TOP" ] || log "workdir $WORKDIR is not in a git repo; dirty-tree check off"
+  WORKREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$WORKDIR")"
   if [ "$(cp_status)" = paused-cap ]; then
     cp_set_status running; log "status paused-cap -> running; the chain continues"
   fi
@@ -141,7 +156,7 @@ chain_run() {
     chain_dirty "after child $n"
 
     if [ "$(cp_fingerprint)" = "$before" ]; then
-      stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2)"
+      stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2$([ "$w" != 2 ] || echo '; it died'))"
       [ "$stalls" -lt 2 ] || chain_end 5 "two stalls; stopping"
     else
       stalls=0

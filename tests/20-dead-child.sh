@@ -18,6 +18,7 @@ secs="$(sed 's/.* after \([0-9]*\)s.*/\1/' <<<"$line")"
 [ "$took" -lt 40 ] || fail "run took ${took}s; death waited for the 60 s timeout"
 grep -q 'fake child 1: API Error: fake death' "$log" || fail "dead child's screen not in run.log: $(cat "$log")"
 grep -q 'child 2 launched' "$log" || fail "next child not launched after a death"
+grep -q 'child 1 left checkpoint.md unchanged (stall 1/2; it died)' "$log" || fail "a death's stall not labelled: $(cat "$log")"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "dead child 1 still alive at child 2: $(cat "$JOB/fake-marker")"
 grep -q 'timed out' "$log" && fail "death reported as a timeout: $(cat "$log")"
 

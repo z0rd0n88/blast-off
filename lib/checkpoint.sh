@@ -12,3 +12,10 @@ cp_phases() { sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md
 
 # cp_set_status <word>: rewrite the first `status:` line, the one cp_status reads.
 cp_set_status() { sed -i "0,/^status:.*/s//status: $1/" "$JOB/checkpoint.md"; }
+
+# cp_names <path>: checkpoint.md holds the path whole, with no path character touching either end
+# (README is not named by README.md); a trailing '.' that ends a sentence still counts (D2-5).
+cp_names() {
+  local esc; esc="$(printf '%s' "$1" | sed 's#[][\.*^$+?(){}|]#\\&#g')"
+  command grep -qE -- "(^|[^[:alnum:]_./-])$esc([^[:alnum:]_./-]|\.([^[:alnum:]_]|$)|$)" "$JOB/checkpoint.md"
+}

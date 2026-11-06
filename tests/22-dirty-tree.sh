@@ -56,6 +56,31 @@ echo '- moved.txt renamed, left uncommitted' >> "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > rename.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "named work-tree rename run exit $rc: $(cat rename.out; cat "$JOB/run.log")"
 
+# "named" means the whole path, not a substring: README is not named by README.md (D2-5)
+new_job token 'done'
+repo
+echo x > "$(dirname "$JOB")/README"
+echo '- README.md updated' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > token.out 2>&1 || rc=$?
+[ "$rc" -eq 7 ] || fail "README named only by README.md: run exit $rc, want 7: $(cat token.out; cat "$JOB/run.log")"
+
+# a path at the end of a sentence is named; so is a path spelled relative to the workdir (D2-5)
+new_job sentence 'done'
+repo
+w="$(dirname "$JOB")"; mkdir -p "$w/sub"
+echo x > "$w/a.c"; echo x > "$w/sub/rel.txt"
+printf -- '- edited a.c.\n- left rel.txt for the next child\n' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" "$w/sub" > sentence.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "sentence-end or workdir-relative name not taken: run exit $rc: $(cat sentence.out; cat "$JOB/run.log")"
+
+# a git status that fails is not a clean tree (D2-6)
+new_job gitfail 'done'
+repo
+echo garbage > "$(dirname "$JOB")/.git/index"
+rc=0; "$bo" run "$JOB" > gitfail.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "failing git status run exit $rc, want 1: $(cat gitfail.out; cat "$JOB/run.log")"
+[ ! -e "$JOB/fake-marker" ] || fail "a child ran after git status failed"
+
 # a workdir outside git is not checked
 new_job nogit dirty 'done'
 rc=0; "$bo" run "$JOB" > nogit.out 2>&1 || rc=$?

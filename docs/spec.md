@@ -86,12 +86,12 @@ nothing outside `~/.config/systemd/user/`. A `~/.local/bin/blast-off` symlink is
 | Code | Meaning | Checkpoint status written | Phase |
 |---|---|---|---|
 | 0 | job done | `done` (by the child) | 1 |
-| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty, `run` while another live runner holds the job's lock, a `JOB_*` count that is not a whole number), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
+| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty, `run` while another live runner holds the job's lock, a `JOB_*` count that is not a whole number, `git rev-parse` failing for a reason other than "not a git repository", `git status` failing), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
 | 3 | blocked, needs the owner | `blocked` (by the child) | 1 |
 | 4 | hard child cap reached (only when the soft cap is disabled: `checkpoint.md` has no `## Phase plan` table, so no phase count) | unchanged | 1, 2 |
 | 5 | two children in a row left the checkpoint unchanged | unchanged | 1 |
 | 6 | soft cap reached; resumable: a re-run of `run` sets `paused-cap` back to `running` and continues with a fresh child count | `paused-cap` | 2 |
-| 7 | dirty tree the checkpoint does not name, after a child or before child 1 (the job dir's own files excepted; a workdir outside git is not checked); `git status --porcelain -uall` in `run.log` | unchanged | 2 |
+| 7 | dirty tree the checkpoint does not name, after a child or before child 1 (named = the path whole, spelled from the repo root or the workdir; the job dir's own files excepted; a workdir outside git is not checked); `git status --porcelain -uall` in `run.log` | unchanged | 2 |
 | 8 | paused on a usage limit; reset time recorded | `paused-limit` | 3 |
 | 9 | a done phase row has no receipt, or its sha differs from the phase commit | unchanged | 4 |
 | 10 | `done` refused while a PR's CI is red or unread | unchanged | 4 |
