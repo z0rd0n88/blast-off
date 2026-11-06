@@ -23,6 +23,7 @@ model level. Linux with a user systemd instance; on WSL2, `loginctl enable-linge
 git clone git@github.com:z0rd0n88/blast-off.git ~/blast-off
 ~/blast-off/bin/blast-off install          # writes blast-off@.service and blast-off.slice, daemon-reload
 ln -s ~/blast-off/bin/blast-off ~/.local/bin/blast-off   # optional
+ln -s ~/blast-off/skills/blast-off ~/.claude/skills/blast-off   # optional: the Claude Code skill
 ```
 
 `install` writes only `~/.config/systemd/user/blast-off@.service` and `blast-off.slice` and reloads the

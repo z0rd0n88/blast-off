@@ -27,7 +27,7 @@ build job. "Not verified" says so.
 | `User=` | dropped | a user manager cannot switch identity; "the only valid setting is the same user" (systemd.exec(5)); `claude` needs the owner's auth | yes: `User=` empty, runner cgroup under `user@1000.service` |
 | `Group=` | dropped | same as `User=` | yes: `Group=` empty |
 | `NoNewPrivileges=` | dropped | not built; brief §3.3 expected it to break `claude`, but on this box `claude --version` and `git` run under it; adoption is open (owner question P7Q1): it blocks any setuid tool a child calls | partly: probe unit shows `NoNewPrivs: 1`, `2.1.316 (Claude Code)`, `git version 2.43.0`; a full child under it not run |
-| `WorkingDirectory=` | changed | `start` passes `--working-directory=<workdir>`; the template leaves the manager default, harmless because `run` gets the absolute job dir and takes its parent as workdir | yes: instance shows the manager default (`$HOME`); `start` path covered by test 11 |
+| `WorkingDirectory=` | changed | `start` passes `--working-directory=<workdir>`; the template leaves the manager default, harmless because `run` gets the absolute job dir and takes its parent as workdir | partly: instance shows the manager default (`$HOME`); `start` passes `--working-directory` (`lib/units.sh`), no test asserts the runner's cwd |
 | `EnvironmentFile=` | dropped | no secrets in files (D14); `start` passes names with `--setenv=NAME`; systemd's stored copy of `GH_TOKEN` in the transient unit file is accepted (D21) | yes: instance has no environment file |
 | `ExecStart=` | changed | absolute path of the checkout's `bin/blast-off run %f`; `%f` restores the leading `/` the path escaping drops | yes: instance shows `argv[]=/home/alex/.../bin/blast-off run /home/alex/.../.big-next-job` |
 | `Restart=` | dropped | exits 3 to 10 are states (blocked, capped, paused, refused), not failures; a restart would relaunch them. Resume is explicit: `blast-off resume` or the usage timer | yes: `Restart=no` |
@@ -64,7 +64,7 @@ build job. "Not verified" says so.
 | `ManagedOOMPreference=avoid` | template, `start` | under memory pressure oomd picks a child before the runner | yes: runner cgroup xattr `user.oomd_avoid=1`; systemd.resource-control(5): honoured when the cgroup and the monitored ancestor share an owner (both uid 1000 here) |
 | `MemoryAccounting=yes`, `CPUAccounting=yes` | slice | the limits and `MemoryCurrent` need them | yes: both `yes` |
 | `ManagedOOMMemoryPressure=kill`, `ManagedOOMMemoryPressureLimit=65%` | slice | oomd kills the heaviest child when the slice stalls on memory (guide §3, §4) | yes: `oomctl dump` lists `.../blast-off.slice` under Memory Pressure Monitored, limit 65.00% |
-| `--collect`, `--setenv=NAME` | `start` (transient unit) | a failed unit is unloaded, not left `failed`; values come from the caller's environment, never the command line (D14) | yes: test 11 and 12 |
+| `--collect`, `--setenv=NAME` | `start` (transient unit) | a failed unit is unloaded, not left `failed`; values come from the caller's environment, never the command line (D14) | yes: the `blast-off-test-<pid>-*` probe units, run with `--collect`, were gone from `systemctl --user list-units --all` afterwards |
 
 The cgroup path shows `blast.slice` above `blast-off.slice`: a `-` in a slice name nests it
 (systemd.slice(5)). `blast.slice` is implicit and carries no limits, so it changes nothing.
