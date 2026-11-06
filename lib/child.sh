@@ -21,13 +21,14 @@ child_server() {
   tmux -L "$UNIT" set-option -g remain-on-exit on
 }
 
-# Every child scope of this job and the job's tmux server.
+# Every child scope of this job, the job's tmux server and its child dirs (one a SIGKILLed runner left too).
 child_stop_all() {
   systemctl --user stop "$UNIT-child-*.scope" 2>/dev/null || true
   tmux -L "$UNIT" kill-server 2>/dev/null || true
+  rm -rf "${XDG_RUNTIME_DIR:-/tmp}/$UNIT-child."*
 }
 
-# child_launch <n>: CHILD_DIR (settings + done.json), CHILD_WIN, CHILD_SCOPE. tmux 3.4 moves each pane
+# child_launch <n>: CHILD_DIR (settings + done.json; named for the job, removed by child_clean), CHILD_WIN, CHILD_SCOPE. tmux 3.4 moves each pane
 # into a tmux-spawn scope outside the runner's unit; systemd-run --scope moves claude again, into
 # blast-off.slice under a name the runner and `blast-off stop` can stop (spec §4). tmux moves only the
 # pane's own pid, after fork and without waiting, so '; exit' makes the shell fork systemd-run rather
@@ -36,7 +37,7 @@ child_stop_all() {
 # closed window resolves to another window on tmux 3.4 and would hide the death (D2-1).
 child_launch() {
   local n="$1" q
-  CHILD_DIR="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/blast-off.XXXXXX")"
+  CHILD_DIR="$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/$UNIT-child.XXXXXX")"
   sed "s|@DIR@|$CHILD_DIR|g" "$BLAST_OFF_HOME/templates/settings.child.json" > "$CHILD_DIR/settings.json"
   q="'$(printf '%s' "$PROMPT" | sed "s/'/'\\\\''/g")'"
   CHILD_SCOPE="$UNIT-child-$n.scope"
@@ -102,6 +103,13 @@ print(ev.get("last_assistant_message") or "(none)")
 print("---")
 PY
   sed -n "/^child $1 session=/,/^---$/p" "$LOG" | tail -n 40
+}
+
+# child_clean: remove the child's dir from the /run/user tmpfs (P2-L1: every child left one). A kept
+# window's claude still reads its settings there, so JOB_KEEP_WINDOWS keeps it.
+child_clean() {
+  [ -z "${JOB_KEEP_WINDOWS:-}" ] && [ -n "${CHILD_DIR:-}" ] || return 0
+  rm -rf "$CHILD_DIR"; CHILD_DIR=
 }
 
 # Stop the child's scope (claude and anything it started) and close its window. JOB_KEEP_WINDOWS

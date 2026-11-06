@@ -25,6 +25,8 @@ gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB_DIR/fake-marker" | tail -n 1
 [ -z "$gc" ] || echo "prev_gc_alive=$(kill -0 "$gc" 2>/dev/null && echo yes || echo no)" >> "$JOB_DIR/fake-marker"
 # status_at_start: the checkpoint status this child was launched under
 echo "status_at_start=$(sed -n 's/^status: *//p' "$cp" | head -n 1)" >> "$JOB_DIR/fake-marker"
+# settings: the per-child dir the runner made (P2-L1: it must be gone after the child ends)
+echo "settings=$settings" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
 case "$mode" in

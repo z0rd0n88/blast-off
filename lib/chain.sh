@@ -153,6 +153,7 @@ chain_run() {
       *) log "child $n exited without its Stop hook after ${CHILD_AGE}s; its screen follows, next child resumes from checkpoint"
          child_screen; child_stop force ;;
     esac
+    child_clean
     chain_dirty "after child $n"
 
     if [ "$(cp_fingerprint)" = "$before" ]; then

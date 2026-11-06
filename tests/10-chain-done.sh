@@ -23,6 +23,15 @@ grep -q 'job done$' "$log" || fail "no 'job done' line"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "finished child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
 grep -qx 'prev_gc_alive=no' "$JOB/fake-marker" || fail "finished child 1's HUP-ignoring grandchild alive when child 2 launched (scope not stopped): $(cat "$JOB/fake-marker")"
 ! tmux -L "$TEST_ID-ok" has-session 2>/dev/null || fail "runner left its tmux server running after exit"
+# each child's settings dir is named for the job and removed once the child ends (P2-L1)
+gone_dirs() {
+  local d; d="$(sed -n 's/^settings=//p' "$JOB/fake-marker")"; [ -n "$d" ] || fail "no settings line: $(cat "$JOB/fake-marker")"
+  while IFS= read -r d; do
+    [[ $(basename "$(dirname "$d")") == "$TEST_ID-$1-child."* ]] || fail "child dir $d not named $TEST_ID-$1-child.*"
+    [ ! -e "$(dirname "$d")" ] || fail "child dir $(dirname "$d") left after the run"
+  done <<< "$(sed -n 's/^settings=//p' "$JOB/fake-marker")"
+}
+gone_dirs ok
 
 # running -> blocked
 new_job blocked blocked
@@ -77,9 +86,11 @@ grep -q '^fake child 1 did slow-hook$' "$JOB/run.log" || fail "slow payload not 
 systemd-run --user --scope --quiet --collect --unit="$TEST_ID-stray-child-1.scope" sleep 600 & stray=$!
 wait_until 5 is_active "$TEST_ID-stray-child-1.scope" || fail "stray scope never started"
 new_job stray 'done'
+stale="${XDG_RUNTIME_DIR:-/tmp}/$TEST_ID-stray-child.stale"; mkdir -p "$stale"  # a SIGKILLed runner's dir
 rc=0; "$bo" run "$JOB" > stray.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] && grep -q '^child=1 .*mode=done' "$JOB/fake-marker" || fail "run beside a stale scope: exit $rc: $(cat "$JOB/run.log")"
 grep -q 'child 2 launched' "$JOB/run.log" && fail "child 1 failed to start beside a stale scope: $(cat "$JOB/run.log")"
+[ ! -e "$stale" ] || fail "an earlier run's child dir $stale left after a re-run"
 wait_until 5 eval "! kill -0 $stray 2>/dev/null" || fail "stale scope's process $stray still alive"
 
 # SIGHUP (terminal closed) on a foreground runner: child, grandchild and tmux server all end
@@ -93,6 +104,7 @@ kill -HUP "$runner"; rc=0; wait "$runner" || rc=$?
 grep -q 'runner exit 129 without a state' "$JOB/run.log" || fail "SIGHUP not logged: $(cat "$JOB/run.log")"
 wait_until 5 eval "! kill -0 $hung 2>/dev/null && ! kill -0 $gc 2>/dev/null" || fail "child $hung or grandchild $gc alive after runner SIGHUP"
 ! tmux -L "$TEST_ID-hup" has-session 2>/dev/null || fail "tmux server alive after runner SIGHUP"
+gone_dirs hup
 
 # a runner abort is logged and never reads as a state: a python3 that exits 4 fails child_report
 # with the cap's code under set -e; the runner exits 1 and run.log ends with the abort line
