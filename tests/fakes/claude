@@ -9,6 +9,7 @@
 #        trust-early / trust-late (print the trust dialog's text at once / after 3 s, record whether keys arrived, done)
 #        die (print an error and exit 3 with no Stop hook, like claude dying on an API error)
 #        done-exit (done; exit right after the Stop hook, no idle) · bad-payload (done; a non-JSON Stop payload)
+#        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
 set -euo pipefail
 settings=
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
@@ -26,6 +27,8 @@ gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB_DIR/fake-marker" | tail -n 1
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
 case "$mode" in
   step) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  dirty) echo x > "$(dirname "$JOB_DIR")/stray.txt"; printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
     printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;

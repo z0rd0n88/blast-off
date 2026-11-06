@@ -20,6 +20,29 @@ chain_exit() {
   [ "$rc" -ge 128 ] || exit 1
 }
 
+# chain_dirty <when>: exit 7 when the workdir's repo has uncommitted paths checkpoint.md does not name
+# (F5: a child's unexplained edits must not become the next child's). Porcelain v1 paths are relative
+# to the repo root (git-status(1)); -z keeps odd names whole, a rename's second field is its old name.
+# -uall lists untracked files one by one, so the job dir's own files (run.log) are skipped by prefix.
+chain_dirty() {
+  [ -n "$TOP" ] || return 0
+  local e p skip='' unnamed=() named=()
+  while IFS= read -r -d '' e; do
+    if [ -n "$skip" ]; then skip=; continue; fi
+    [[ $e != [RC]* ]] || skip=1
+    p="${e:3}"
+    [[ -n $JOBREL && $p == "$JOBREL"/* ]] && continue
+    if command grep -qF -- "$p" "$JOB/checkpoint.md"; then named+=("$p"); else unnamed+=("$p"); fi
+  done < <(git -C "$WORKDIR" status --porcelain -z -uall)
+  if [ "${#unnamed[@]}" -eq 0 ]; then
+    [ "${#named[@]}" -eq 0 ] || log "tree $1: uncommitted, named in checkpoint.md: ${named[*]}"
+    return 0
+  fi
+  log "dirty tree $1: checkpoint.md does not name ${unnamed[*]}; git status --porcelain:"
+  git -C "$WORKDIR" status --porcelain -uall >> "$LOG"
+  chain_end 7 "dirty tree; commit, revert or name those paths in checkpoint.md, then run again"
+}
+
 chain_run() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
   local b; for b in claude tmux python3 systemd-run systemctl; do command -v "$b" >/dev/null || die "$b not on PATH"; done
@@ -56,10 +79,15 @@ chain_run() {
     maxc="${JOB_MAX_CHILDREN:-12}" why="hard: no Phase plan table in checkpoint.md" soft=
   fi
   log "child cap $maxc ($why)"
+  TOP="$(git -C "$WORKDIR" rev-parse --show-toplevel 2>/dev/null)" || TOP=
+  JOBREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$JOB")"
+  [[ $JOBREL != ..* ]] || JOBREL=
+  [ -n "$TOP" ] || log "workdir $WORKDIR is not in a git repo; dirty-tree check off"
   if [ "$(cp_status)" = paused-cap ]; then
     cp_set_status running; log "status paused-cap -> running; the chain continues"
   fi
 
+  chain_dirty "before child 1"
   while :; do
     s="$(cp_status)"
     case "$s" in
@@ -82,6 +110,7 @@ chain_run() {
       *) log "child $n exited without its Stop hook after ${CHILD_AGE}s; its screen follows, next child resumes from checkpoint"
          child_screen; child_stop force ;;
     esac
+    chain_dirty "after child $n"
 
     if [ "$(cp_fingerprint)" = "$before" ]; then
       stalls=$((stalls+1)); log "child $n left checkpoint.md unchanged (stall $stalls/2)"
