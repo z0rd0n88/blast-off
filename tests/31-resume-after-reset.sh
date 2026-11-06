@@ -74,14 +74,14 @@ printf '{"five_hour":{"used_percentage":99,"resets_at":%s}}\n' $(( $(date +%s) +
 rc=0; "$bo" run "$JOB" > fire.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "fire run exit $rc, want 8: $(cat fire.out "$JOB/run.log")"
 rm -f "$JOB/fake-usage"; echo 'done' > "$JOB/fake-mode"
-wait_until 40 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "timer never resumed the job: $(cat "$JOB/run.log"; journalctl --user -u "$TEST_ID-fire-resume.service" -n 20 --no-pager)"
+wait_until 40 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "timer never resumed the job: $(cat "$JOB/run.log"; journalctl --user -u "$TEST_ID-fire.resume.service" -n 20 --no-pager)"
 grep -q "resume: starting $TEST_ID-fire.service" "$JOB/run.log" || fail "timer's resume not logged: $(cat "$JOB/run.log")"
 wait_until 10 not_active "$TEST_ID-fire.service" || fail "resumed runner unit still active"
 # `stop` ends a pending resume timer: a stopped job does not start again at its reset
 new_job stop step
 printf '{"five_hour":{"used_percentage":99,"resets_at":%s}}\n' $(( $(date +%s) + 3600 )) > "$JOB/fake-usage"
 rc=0; "$bo" run "$JOB" > stop.out 2>&1 || rc=$?
-[ "$rc" -eq 8 ] && is_active "$TEST_ID-stop-resume.timer" || fail "stop setup: exit $rc, timer $(unit_state "$TEST_ID-stop-resume.timer")"
+[ "$rc" -eq 8 ] && is_active "$TEST_ID-stop.resume.timer" || fail "stop setup: exit $rc, timer $(unit_state "$TEST_ID-stop.resume.timer")"
 "$bo" stop "$JOB" > stopped.out 2>&1 || fail "stop: $(cat stopped.out)"
-not_active "$TEST_ID-stop-resume.timer" || fail "resume timer $(unit_state "$TEST_ID-stop-resume.timer") after stop"
+not_active "$TEST_ID-stop.resume.timer" || fail "resume timer $(unit_state "$TEST_ID-stop.resume.timer") after stop"
 echo ok

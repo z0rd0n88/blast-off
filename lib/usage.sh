@@ -8,13 +8,15 @@
 # shellcheck disable=SC2034  # LIMIT_EXIT: read by chain_run
 LIMIT_EXIT=75  # the child exit code reserved for a usage-limit error (sysexits.h EX_TEMPFAIL)
 
-# usage_read <session>: USAGE ("5h 96% 7d 40%", or "unknown"), USAGE_OVER (latest reset of the windows
-# at or above JOB_USAGE_PAUSE whose reset is still ahead; empty when none) and USAGE_5H (the five_hour
-# window's reset while ahead: what a rate-limited child waits for when no window is over).
-# A window whose reset is past has already refilled and never pauses. Non-numeric fields are ignored.
+# usage_read <session>: USAGE ("5h 96% 7d 40%"; "unknown" with no record or an empty one; "unreadable"
+# when the record is there but no window reads), USAGE_OVER (latest reset of the windows at or above
+# JOB_USAGE_PAUSE whose reset is still ahead; empty when none) and USAGE_5H (the five_hour window's
+# reset while ahead: what a rate-limited child waits for when no window is over). A record that is not
+# JSON, or a five_hour/seven_day key in another shape, logs the record's first 200 bytes (P3R2-1).
+# A window whose reset is past has already refilled and never pauses. A non-numeric resets_at is ignored.
 usage_read() {
   USAGE=unknown USAGE_OVER='' USAGE_5H=''
-  local f="${BLAST_OFF_STATE_DIR:-$HOME/.claude/state}/usage-limits-$1.json" out u o h
+  local f="${BLAST_OFF_STATE_DIR:-$HOME/.claude/state}/usage-limits-$1.json" out u o h b
   [ -n "$1" ] && [ -s "$f" ] || return 0
   out="$(jq -r --argjson now "$(date +%s)" --argjson th "${JOB_USAGE_PAUSE:-95}" '
     [ ["five_hour","5h"], ["seven_day","7d"] ] as $names
@@ -22,8 +24,13 @@ usage_read() {
         | {k: $k, l: $l, u: .used_percentage, r: (if (.resets_at | type) == "number" then .resets_at else null end)} ] as $w
     | ($w | map("\(.l) \(.u | floor)%") | join(" ")),
       ([ $w[] | select(.r != null and .r > $now and .u >= $th) | .r ] | max // ""),
-      ([ $w[] | select(.k == "five_hour" and .r != null and .r > $now) | .r ] | first // "")' "$f" 2>/dev/null)" || return 0
-  { read -r u; read -r o; read -r h; } <<< "$out" || true  # $(...) drops trailing empty lines
+      ([ $w[] | select(.k == "five_hour" and .r != null and .r > $now) | .r ] | first // ""),
+      (if ($w == [] and any(.[]; . != null))
+          or any(.five_hour, .seven_day; . != null and (type != "object" or (.used_percentage | type) != "number"))
+       then "unreadable" else "" end)' "$f" 2>/dev/null)" || out=$'\n\n\nunreadable'
+  { read -r u; read -r o; read -r h; read -r b; } <<< "$out" || true  # $(...) drops trailing empty lines
+  # a record there but not read (not JSON, another shape) must not pass for no record (P3R2-1)
+  [ -z "$b" ] || { u="${u:-unreadable}"; log "usage file $f present but unreadable or unrecognized: $(head -c 200 "$f" | tr '\n' ' ')"; }
   # shellcheck disable=SC2034  # read by chain_run
   USAGE="${u:-unknown}" USAGE_OVER="${o%.*}" USAGE_5H="${h%.*}"
 }
@@ -42,7 +49,7 @@ usage_pause() {
   chain_end 8 "$why; status paused-limit until $until; blast-off resume $JOB after that (the timer does it)"
 }
 
-# usage_arm <epoch>: a transient timer <unit>-resume that runs `blast-off resume <job-dir>` at that
+# usage_arm <epoch>: a transient timer <unit>.resume that runs `blast-off resume <job-dir>` at that
 # wall-clock time. OnCalendar, not OnActiveSec: a calendar timer that elapses while the host sleeps
 # fires on wake, a monotonic one pauses with the host (systemd.timer(5)). The user manager has no
 # CLAUDE_FLAGS or GH_TOKEN, so the timer's service gets the same --setenv names as `start` (D21).
@@ -55,11 +62,12 @@ usage_arm() {
   if [ -z "${GH_TOKEN:-}" ]; then
     log "no resume timer: GH_TOKEN is unset, so its start would refuse; run blast-off resume $JOB after $cal"; return 0
   fi
-  systemctl --user stop "$UNIT-resume.timer" "$UNIT-resume.service" 2>/dev/null || true
+  # '.', not '-': NAME holds no '.', so this never names another job's runner (job <name>-resume)
+  systemctl --user stop "$UNIT.resume.timer" "$UNIT.resume.service" 2>/dev/null || true
   unit_env
-  if systemd-run --user --quiet --collect --unit="$UNIT-resume" --on-calendar="$cal" --timer-property=AccuracySec=1s \
+  if systemd-run --user --quiet --collect --unit="$UNIT.resume" --on-calendar="$cal" --timer-property=AccuracySec=1s \
        "${UNIT_ENV[@]}" "$BLAST_OFF_HOME/bin/blast-off" resume "$JOB" 2>> "$LOG"; then
-    log "resume timer $UNIT-resume.timer armed for $cal"
+    log "resume timer $UNIT.resume.timer armed for $cal"
   else
     log "resume timer not armed (systemd-run failed, above); run blast-off resume $JOB after $cal"
   fi

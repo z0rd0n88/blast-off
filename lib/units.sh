@@ -18,7 +18,7 @@ units_install() {
 unit_env() {
   UNIT_ENV=(--setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS); local v
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS \
-           JOB_USAGE_PAUSE JOB_RESUME_MARGIN BLAST_OFF_STATE_DIR; do
+           JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF BLAST_OFF_STATE_DIR; do
     [ -z "${!v+x}" ] || UNIT_ENV+=(--setenv="$v")
   done
 }
@@ -55,26 +55,30 @@ unit_resume() {
   case "$s" in paused-cap|paused-limit) ;; *) die "status is '$s'; resume acts only on paused-cap or paused-limit" ;; esac
   until="$([ "$s" != paused-limit ] || usage_until)"
   if [ -n "$until" ] && [ "$until" -gt "$(date +%s)" ]; then
-    echo "blast-off: paused-limit until $(date -u -d "@$until" +%FT%TZ); resume then ($UNIT-resume.timer does it)" >&2; exit 8
+    echo "blast-off: paused-limit until $(date -u -d "@$until" +%FT%TZ); resume then ($UNIT.resume.timer does it)" >&2; exit 8
   fi
   unit_check
   local i; for ((i = 0; i < 90; i++)); do
     [ "$(systemctl --user show "$UNIT.service" -p ActiveState --value)" != inactive ] || break; sleep 1
   done
   log "resume: starting $UNIT.service (status $s)"
-  unit_start || { log "resume: start of $UNIT.service failed, status kept; why: stderr above, or journalctl --user -u $UNIT-resume.service when the timer ran it"; exit 1; }
-  systemctl --user stop "$UNIT-resume.timer" 2>/dev/null || true
+  unit_start || { log "resume: start of $UNIT.service failed, status kept; why: stderr above, or journalctl --user -u $UNIT.resume.service when the timer ran it"; exit 1; }
+  systemctl --user stop "$UNIT.resume.timer" 2>/dev/null || true
 }
 
 unit_status() {
   sed -n '1,/^## /p' "$JOB/checkpoint.md" | sed '$d'
   systemctl --user show "$UNIT.service" -p ActiveState
+  # the resume timer is transient: a reboot or user-manager exit deletes it and nothing resumes (spec §4)
+  local t u; t="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value)"; u="$(usage_until)"
+  echo "resume timer: $t"
+  [ -z "$u" ] || [ "$t" = active ] || echo "no resume timer: run blast-off resume $JOB after $(date -u -d "@$u" +%FT%TZ)"
 }
 
 # Stopping the runner fires its TERM trap; the child scopes sit outside its cgroup, so stop them too.
 unit_stop() {
   # the resume timer too: a stopped job must not start again at its reset
-  systemctl --user stop "$UNIT.service" "$UNIT-child-*.scope" "$UNIT-resume.timer" || true # not loaded = already stopped
+  systemctl --user stop "$UNIT.service" "$UNIT-child-*.scope" "$UNIT.resume.timer" || true # not loaded = already stopped
   local s; s="$(systemctl --user show "$UNIT.service" -p ActiveState --value)"
   [ "$s" != active ] || die "$UNIT.service still active"
   echo "stopped $UNIT.service ($s); the next start resumes from the checkpoint"

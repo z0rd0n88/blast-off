@@ -10,7 +10,7 @@
 #        die (print an error and exit 3 with no Stop hook, like claude dying on an API error)
 #        done-exit (done; exit right after the Stop hook, no idle) · bad-payload (done; a non-JSON Stop payload)
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
-#        ratelimit / apierr (step; then the StopFailure hook with error rate_limit / overloaded, no Stop hook)
+#        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
 #        close (mark the first pending Phase plan row done; with none pending, status done)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
@@ -42,7 +42,7 @@ if [ -e "$u" ]; then
   cp "$u" "$BLAST_OFF_STATE_DIR/usage-limits-fake-$JOB_CHILD.json"
 fi
 case "$mode" in
-  step|ratelimit|apierr) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  step|ratelimit|apierr|authfail) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty) echo x > "$(dirname "$JOB_DIR")/stray.txt"; printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
@@ -63,9 +63,9 @@ case "$mode" in
     sed -i 's/^status: .*/status: done/' "$cp" ;;
   *) echo "fake claude: unknown mode $mode" >&2; exit 1 ;;
 esac
-if [ "$mode" = ratelimit ] || [ "$mode" = apierr ]; then
+if [ "$mode" = ratelimit ] || [ "$mode" = apierr ] || [ "$mode" = authfail ]; then
   # StopFailure fires instead of Stop when an API error ends the turn (claude 2.1.316 hook registry)
-  err=rate_limit; [ "$mode" = ratelimit ] || err=overloaded
+  case "$mode" in ratelimit) err=rate_limit ;; apierr) err=overloaded ;; *) err=authentication_failed ;; esac
   hook="$(jq -r '.hooks.StopFailure[0].hooks[0].command' "$settings")"
   printf '{"session_id":"fake-%s","transcript_path":"/dev/null","hook_event_name":"StopFailure","error":"%s","last_assistant_message":"fake child %s hit %s"}\n' \
     "$JOB_CHILD" "$err" "$JOB_CHILD" "$err" | bash -c "$hook"

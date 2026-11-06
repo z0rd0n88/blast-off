@@ -48,10 +48,10 @@ to the job dir's parent (as in `run-job`).
 |---|---|---|
 | `run` | `blast-off run <job-dir> [workdir]`: the chain loop in the foreground; what the unit's `ExecStart` calls; exits 1 before the first child when `CLAUDE_FLAGS` is unset or empty, so every entry point refuses a child with no `--model` or `--effort` (K8, D8). Before child 1 it takes the job's runner lock (`$XDG_RUNTIME_DIR/<unit>.lock`, exit 1 while another live runner holds it), logs the child cap and its source, sets `paused-cap` back to `running`, and runs the dirty-tree check (exit 7); the same check runs after every child (§3) | 1, 2 |
 | `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name and `BLAST_OFF_TRUST_SECONDS`, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the shape of the MoonPay launch line, which passed `HOME`, `PATH`, `CLAUDE_FLAGS` and `JOB_MAX_CHILDREN`; `HOME` is left out because the user manager already holds it, and `GH_TOKEN` through the unit is new); names only, never values; exits 1 before launching when `GH_TOKEN` or `CLAUDE_FLAGS` is unset or empty in the caller, because `--setenv=NAME` turns an unset name into an empty value in the unit; prints the resolved launch first | 1 |
-| `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service` | 1 |
+| `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service`, then `resume timer: <ActiveState of <unit>.resume.timer>`; a `paused-limit` job whose timer is not active (lost to a reboot, never armed, or stopped) adds `no resume timer: run blast-off resume <job-dir> after <until>` (P3R2-4) | 1, 3 |
 | `stop` | `blast-off stop <job-dir>`: `systemctl --user stop blast-off-<name>.service`; the next child resumes from the checkpoint | 1 |
 | `logs` | `blast-off logs <job-dir>`: `run.log` tail and `journalctl --user -u blast-off-<name>.service` | 1 |
-| `resume` | `blast-off resume <job-dir>`: runs `start` for a `paused-cap` job, or a `paused-limit` one once its `until` time has passed; before that time it exits 8 and changes nothing; with `CLAUDE_FLAGS` or `GH_TOKEN` unset it exits 1. It never writes the status: the started runner clears the pause once it holds the job's lock, so a failed start leaves the job paused (D3-1). It first waits up to 90 s for a stopping `blast-off-<name>.service` (the timer can fire during the old runner's exit), and stops a pending `<unit>-resume.timer` after a successful start. What the resume timer runs; no timer is armed for a job run with a workdir other than the job dir's parent, since `resume` takes only the job dir (D3-2) | 3 |
+| `resume` | `blast-off resume <job-dir>`: runs `start` for a `paused-cap` job, or a `paused-limit` one once its `until` time has passed; before that time it exits 8 and changes nothing; with `CLAUDE_FLAGS` or `GH_TOKEN` unset it exits 1. It never writes the status: the started runner clears the pause once it holds the job's lock, so a failed start leaves the job paused (D3-1). It first waits up to 90 s for a stopping `blast-off-<name>.service` (the timer can fire during the old runner's exit), and stops a pending `<unit>.resume.timer` after a successful start. What the resume timer runs; no timer is armed for a job run with a workdir other than the job dir's parent, since `resume` takes only the job dir (D3-2) | 3 |
 | `install` | `blast-off install`: writes `blast-off@.service`, `blast-off.slice` (and the resume timer if used) to `~/.config/systemd/user/`, `daemon-reload`; never `enable` | 1 |
 | `preflight` | `blast-off preflight <job-dir>`: resolved model, effort, flags, cap, timeout, account, usage percent, usage estimate from a previous job's phase rows (refuses with exit 1 when the `seven_day` window left cannot cover it; see F10), open PRs on the target set, behind-base count | 6 |
 | `receipt` | `blast-off receipt <job-dir> <phase>`: writes `gate-logs/phase-<n>.json` | 4 |
@@ -59,7 +59,7 @@ to the job dir's parent (as in `run-job`).
 
 Environment (non-secret, passed by name through the unit): `PATH`, `CLAUDE_FLAGS`, `JOB_MAX_CHILDREN`
 (override of the derived cap; with no Phase plan table, the hard cap, default 12), `JOB_CAP_FACTOR` (default 3; the soft cap is the number of `## Phase plan` table rows whose first cell is a number, times this factor; checkpoints number phases from 0, so `phase: N of M` is not used), `JOB_CHILD_TIMEOUT` (default 7200),
-`JOB_SESSION`, `JOB_KEEP_WINDOWS` (leave finished children and, at exit, the server, scopes and child dirs for inspection), `BLAST_OFF_TRUST_SECONDS` (default 60: the trust-dialog scrape runs only while a child starts), `JOB_USAGE_PAUSE` (default 95: the percent at or above which a usage window pauses the job), `JOB_RESUME_MARGIN` (default 60: seconds after a reset that the resume timer fires), `BLAST_OFF_STATE_DIR` (default `~/.claude/state`: where `usage-limit-tee.sh` writes each session's `usage-limits-<session_id>.json`). D14 reads "No secrets in any file;
+`JOB_SESSION`, `JOB_KEEP_WINDOWS` (leave finished children and, at exit, the server, scopes and child dirs for inspection), `BLAST_OFF_TRUST_SECONDS` (default 60: the trust-dialog scrape runs only while a child starts), `JOB_USAGE_PAUSE` (default 95: the percent at or above which a usage window pauses the job), `JOB_RESUME_MARGIN` (default 60: seconds after a reset that the resume timer fires), `JOB_API_BACKOFF` (default 600: seconds the runner waits before the next child after a StopFailure `overloaded`, `server_error` or `unknown`; section 4), `BLAST_OFF_STATE_DIR` (default `~/.claude/state`: where `usage-limit-tee.sh` writes each session's `usage-limits-<session_id>.json`). D14 reads "No secrets in any file;
 launch lines pass env var names, never values." blast-off writes no secret (`GH_TOKEN`) to any file,
 and the launch line names them without values: `start` passes each as `--setenv=NAME`, so
 `systemd-run` reads the value from the caller's environment. systemd itself then stores the resolved
@@ -149,7 +149,9 @@ and `status`, `stop` and `logs` act on that name. Phase 1 builds and verifies bo
 `usage-limits-<session_id>.json` (session id from the Stop or StopFailure payload; written by
 `~/.claude/hooks/usage-limit-tee.sh` from the status line's `rate_limits`, shape
 `{"five_hour":{"used_percentage":N,"resets_at":<epoch>},"seven_day":{...}}`, either key may be
-absent), logs `child <n> usage: 5h N% 7d M%` (or `unknown`) and pauses the job when any window is at
+absent), logs `child <n> usage: 5h N% 7d M%` (`unknown` with no record or an empty one; `unreadable` when
+the record is there but no window reads, after a line with its first 200 bytes, logged too for a
+`five_hour` or `seven_day` key in another shape; neither pauses) and pauses the job when any window is at
 or above `JOB_USAGE_PAUSE` with its `resets_at` still ahead (a window past its reset has refilled), the
 child's turn ended on a StopFailure with `error` `rate_limit`, or the child exited 75 (sysexits
 `EX_TEMPFAIL`, the child code reserved for a limit error; read from tmux `#{pane_dead_status}`;
@@ -160,19 +162,32 @@ for a rate limit with none over it, the `five_hour` reset; with neither known, n
 instead of Stop when an API error (rate limit, auth failure, etc.) ended the turn", payload
 `error`, `error_details`, `last_assistant_message` beside the common fields (claude 2.1.316 hook
 registry, read from the installed binary; binary-verified, not doc-verified). Its hook in
-`templates/settings.child.json` writes `failed.json`; any other error is logged and handled as a
-death. An interactive child idles after one, so the runner does not wait out its timeout.
+`templates/settings.child.json` writes `failed.json`. An interactive child idles after one, so the
+runner does not wait out its timeout. `overloaded`, `server_error` and `unknown` clear on their own:
+logged, and the next child starts `JOB_API_BACKOFF` seconds (default 600) later, after every exit
+check, so a short outage does not spend two children into exit 5 (phase 2, with no StopFailure hook,
+waited such a child out to `JOB_CHILD_TIMEOUT`). A child with no progress still counts as a stall, so
+an outage longer than the wait still ends in exit 5. Any other error (`authentication_failed`,
+`billing_error`, `invalid_request`, `max_output_tokens`, the rest of the 2.1.316 list) is logged and
+handled as a death at once. That split is a build choice (P3R2-3, the smallest reversible one), not
+the owner's; owner question P3Q7 stays open.
 
-**Resume after a usage limit**: a transient timer, `systemd-run --user --collect --unit=<unit>-resume
+**Resume after a usage limit**: a transient timer, `systemd-run --user --collect --unit=<unit>.resume
 --on-calendar='<until> UTC' --timer-property=AccuracySec=1s` plus `start`'s `--setenv` names, running
-`blast-off resume <job-dir>`, armed at exit 8. Chosen over a `blast-off-resume@.timer` template (no
+`blast-off resume <job-dir>`, armed at exit 8. Its units are `<unit>.resume.timer` and `.service`: a
+workdir name holds no `.`, so they never name another job's runner, as `<unit>-resume` did for a
+job named `<name>-resume` (P3R2-2). Chosen over a `blast-off-resume@.timer` template (no
 installed file, one per job) and over `--on-active=` (monotonic): systemd.timer(5) says a calendar
 timer that elapses while the host sleeps fires on resume, while monotonic timers pause with it, so a
 suspended WSL2 host resumes the job on wake (owner question P2Q3). `AccuracySec` defaults to 1 min.
 The user manager has no `CLAUDE_FLAGS` or `GH_TOKEN`, so the timer's service carries the same names
 as `start`, and systemd stores the token in that transient unit's file as D21 accepts for `start`.
 With `GH_TOKEN` unset no timer is armed and `run.log` says when to run `resume`. `stop` stops the
-timer. Phase rows: when a child turns a `## Phase plan` row's Status cell to `done`, the runner
+timer. The timer is transient, its unit file on tmpfs: a reboot, `wsl --shutdown` or user-manager
+exit before `until` deletes it and nothing resumes the job; `status` then prints `no resume timer:
+run blast-off resume <job-dir> after <until>` for the owner to run (P3R2-4; a resume that survives a
+reboot without the owner is owner question P3Q8, open).
+Phase rows: when a child turns a `## Phase plan` row's Status cell to `done`, the runner
 appends ` · usage <figure>` to that cell (rows done before the child are left alone); the stall
 check uses the fingerprint taken before that edit.
 
@@ -239,7 +254,7 @@ the marker records whether the child saw it set (the name, never a value):
 | `21-soft-cap` | derived cap (Phase plan rows x `JOB_CAP_FACTOR`, default 3, other tables' rows not counted) reached; `paused-cap`, exit 6, the cap and its source in `run.log`; re-run continues to `done`; `JOB_MAX_CHILDREN` overrides and stays soft; a non-numeric factor exits 1 before any child; test 10 keeps the hard cap (no table, exit 4, status unchanged) | 2 |
 | `22-dirty-tree` | a child leaves an untracked file `checkpoint.md` does not name: exit 7, the unnamed paths and `git status --porcelain -uall` in `run.log`, status unchanged, no next child; a re-run on that tree refuses before child 1; a named path passes; a bare file `status` is not named by `status: running` (exit 7) but is by `` `status` `` (exit 0); the untracked job dir never counts; a workdir outside git is not checked (logged once) | 2 |
 | `23-runner-lock` | a second `run` of a job whose runner is alive exits 1 before it starts anything (the first runner's child lives on); the lock `$XDG_RUNTIME_DIR/blast-off-<name>.lock` holds the runner pid and its start time and is gone after exit; a lock whose pid is dead, or alive with another start time (a reused pid), is taken over (D1-6, D2-3) | 2 |
-| `30-paused-limit` | a five_hour or seven_day window at or above the threshold (`JOB_USAGE_PAUSE` moves it): `paused-limit until <reset + margin>`, exit 8, usage and reset in `run.log`, the resume timer's calendar, no next child; `run` before the reset exits 8 with no child; under the threshold, a reset already past, no record, or a child that set `done`: no pause; a StopFailure `rate_limit` pauses at once (not at the timeout) until the five_hour reset, or now + 5 h with none; another API error is a logged death; child exit 75 with no `GH_TOKEN` pauses with no timer; a non-numeric `JOB_USAGE_PAUSE` exits 1 before any child. State files and reset times are fakes relative to the real clock (the timer runs on systemd's clock, which a fake `date` cannot move) | 3 |
+| `30-paused-limit` | a five_hour or seven_day window at or above the threshold (`JOB_USAGE_PAUSE` moves it): `paused-limit until <reset + margin>`, exit 8, usage and reset in `run.log`, the resume timer's calendar, no next child; `run` before the reset exits 8 with no child; under the threshold, a reset already past, no record, or a child that set `done`: no pause; a record not JSON or with no window in a shape read here logs `usage: unreadable` and its first bytes, a renamed key beside a good window logs its bytes and keeps the good figure, `{}` stays `unknown`, none pauses; a StopFailure `rate_limit` pauses at once (not at the timeout) until the five_hour reset, or now + 5 h with none; a StopFailure `overloaded` is logged and the next child launches `JOB_API_BACKOFF` seconds later, an `authentication_failed` one is a logged death with no wait (P3R2-3); child exit 75 with no `GH_TOKEN` pauses with no timer and `status` prints `no resume timer`, while a pending timer shows `resume timer: active`; the pause leaves a running unit named `<unit>-resume` (job `<name>-resume`'s runner) up; a non-numeric `JOB_USAGE_PAUSE` exits 1 before any child. State files and reset times are fakes relative to the real clock (the timer runs on systemd's clock, which a fake `date` cannot move) | 3 |
 | `31-resume-after-reset` | `resume` before the reset exits 8, nothing changed; of a running job exits 1; with `GH_TOKEN` unset exits 1, status kept; after the reset (and for `paused-cap`) sets running, starts the unit, which finishes the job; `run` after the reset continues; the timer armed at exit 8 fires for real 4 s later and its resume finishes the job; `stop` ends a pending timer | 3 |
 | `32-usage-per-phase` | a row a child closes gets ` · usage 5h N% 7d M%` (floored) or `usage unknown`; a row done before the run and a child that closes none add nothing | 3 |
 | `40-receipt-required` | done phase without a matching receipt; exit 9 | 4 |

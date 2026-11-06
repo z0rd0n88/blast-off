@@ -86,8 +86,8 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before after rows w maxc soft=1 why v limited
-  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN; do
+  local n=0 stalls=0 s before after rows w maxc soft=1 why v limited back=
+  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF; do
     [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
   done
 
@@ -147,6 +147,8 @@ chain_run() {
       [ -n "$soft" ] || chain_end 4 "child cap $maxc reached"
       cp_set_status paused-cap; chain_end 6 "soft cap $maxc reached; status paused-cap; run again to continue"
     fi
+    # after the exits above, so no state waits on it; `& wait` lets a signal through at once
+    if [ -n "$back" ]; then sleep "$back" & wait $!; back=; fi
     before="$(cp_fingerprint)" rows="$(cp_done_rows | tr '\n' ' ')"
 
     child_launch "$n"
@@ -156,8 +158,13 @@ chain_run() {
       1) log "child $n timed out after ${TIMEOUT}s; killing it, next child resumes from checkpoint"
          child_stop force ;;
       3) child_report "$n" failed.json; child_stop force
-         if [ "$(child_field error)" = rate_limit ]; then limited="StopFailure rate_limit"
-         else log "child $n ended on API error $(child_field error); next child resumes from checkpoint"; fi ;;
+         case "$(child_field error)" in
+           rate_limit) limited="StopFailure rate_limit" ;;
+           # errors that clear on their own wait JOB_API_BACKOFF (P3R2-3, a build choice; owner question P3Q7)
+           overloaded|server_error|unknown) back="${JOB_API_BACKOFF:-600}"
+             log "child $n ended on API error $(child_field error); next child in ${back}s, from checkpoint" ;;
+           *) log "child $n ended on API error $(child_field error); next child resumes from checkpoint" ;;
+         esac ;;
       *) log "child $n exited without its Stop hook after ${CHILD_AGE}s (exit ${CHILD_RC:-?}); its screen follows, next child resumes from checkpoint"
          child_screen; child_stop force
          [ "${CHILD_RC:-}" != "$LIMIT_EXIT" ] || limited="exit $LIMIT_EXIT" ;;
