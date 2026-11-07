@@ -21,7 +21,7 @@ unit_start() {
   test -s "$JOB/brief.md" && test -s "$JOB/checkpoint.md" || die "missing $JOB/brief.md or checkpoint.md"
   local args=(--user --collect --unit="$UNIT" --working-directory="$WORKDIR"
     --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS) v p
-  for v in JOB_MAX_CHILDREN JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS; do
+  for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS; do
     [ -z "${!v+x}" ] || args+=(--setenv="$v")
   done
   while IFS= read -r p; do

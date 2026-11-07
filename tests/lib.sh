@@ -49,6 +49,8 @@ cleanup() {
   local s; for s in "${SUFFIXES[@]}"; do
     tmux -L "$TEST_ID-$s" kill-session -t "job-test-$$-$s" 2>/dev/null || true
     rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$TEST_ID-$s"
+    # a runner killed by SIGKILL (test 11) leaves its lock behind
+    rm -f "${XDG_RUNTIME_DIR:-/tmp}/$TEST_ID-$s.lock"
   done
   restore_units
 }
