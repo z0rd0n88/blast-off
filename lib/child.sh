@@ -14,8 +14,10 @@ child_server() {
   child_stop_all
   # -f /dev/null: the owner's tmux.conf (hooks such as pane-died kill-pane, renumber-windows) never
   # reaches the job's server, so a dead child's pane and screen stay where child_wait looks (D2-2).
+  # This checkout's bin/ (only blast-off) goes first on the server's PATH, so a child runs `blast-off
+  # receipt` and `blast-off ci-wait` by name whether or not the owner put it on PATH (P5Q6).
   # shellcheck disable=SC2086
-  env $scrub tmux -f /dev/null -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
+  env $scrub PATH="$BLAST_OFF_HOME/bin:$PATH" tmux -f /dev/null -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
   # A child's pane outlives its claude (tmux(1) remain-on-exit), so child_wait sees the death as
   # #{pane_dead} and the last screen, the only record of why it died, is still there to log.
   tmux -L "$UNIT" set-option -g remain-on-exit on

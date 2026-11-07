@@ -10,6 +10,13 @@ cp_fingerprint() { sha256sum "$JOB/checkpoint.md" | cut -c1-16; }
 # Rows of the `## Phase plan` table whose first cell is a number: the job's phase count (0 = no table).
 cp_phases() { sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" | wc -l; }
 
+# cp_size_warn: log when checkpoint.md is over 150 lines (F3: each child re-reads it whole; ledgers and
+# decision detail belong in phases/). Called before every launch, so it repeats while the file stays over.
+cp_size_warn() {
+  local n; n="$(wc -l < "$JOB/checkpoint.md")"
+  [ "$n" -le 150 ] || log "checkpoint.md is $n lines, over 150; move ledgers and detail to phases/, keep counts and pointers"
+}
+
 # cp_set_status <word>: rewrite the first `status:` line, the one cp_status reads.
 cp_set_status() { sed -i "0,/^status:.*/s//status: $1/" "$JOB/checkpoint.md"; }
 

@@ -152,6 +152,7 @@ chain_run() {
     # after the exits above, so no state waits on it; `& wait` lets a signal through at once
     if [ -n "$back" ]; then sleep "$back" & wait $!; back=; fi
     before="$(cp_fingerprint)" rows="$(cp_done_rows | tr '\n' ' ')"
+    cp_size_warn
 
     child_launch "$n"
     w=0 limited=; child_wait || w=$?

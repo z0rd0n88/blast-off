@@ -35,7 +35,7 @@ builds it.
 | F7 | Done without reading CI | `blast-off ci-wait <pr>`: one blocking `gh run watch <id> --exit-status` per run; `lib/chain.sh` refuses `status: done` while a PR lacks recorded conclusions (exit 10); absent checks are not a pass | 4 |
 | F8 | Receipts: machine-written gate evidence the next child checks | `blast-off receipt <job-dir> <phase>` writes `gate-logs/phase-<n>.json` from `templates/receipt.json`; runner refuses a done phase row whose receipt sha differs from the phase commit (exit 9) | 4 |
 | F9 | Stale or duplicate work: open PRs on the target set, behind-base count, merge base before the gate | `blast-off preflight` lists open PRs and `git rev-list --count HEAD..origin/main`; child protocol repeats both at phase start | 5, 6 |
-| F10 | Usage: limit pause with reset time, resume, per-phase usage record, per-commit plugin inventory; child limit exit; launch-time estimate and refusal | `lib/usage.sh`: `status: paused-limit` + reset time, exit 8, also on a StopFailure `rate_limit` and on child exit 75, the code reserved for a limit error (a child code, separate from the runner codes in §3; named in §4 Usage pause, phase 5 writes it into the child protocol); `blast-off resume` and a timer or transient unit after the reset; usage percent on each phase row; brief lists per-commit LLM plugins with the owner's opt-in or opt-out; `blast-off preflight` estimates the job's usage from a previous job's checkpoint phase rows and exits 1 when the estimate exceeds what is left of the `seven_day` window (the `five_hour` window is bridged by `paused-limit` and `resume`, never refused); no prior record prints `no estimate` and does not refuse | 3, 5, 6 |
+| F10 | Usage: limit pause with reset time, resume, per-phase usage record, per-commit plugin inventory; child limit exit; launch-time estimate and refusal | `lib/usage.sh`: `status: paused-limit` + reset time, exit 8, also on a StopFailure `rate_limit` and on child exit 75, the code reserved for a limit error (a child code, separate from the runner codes in §3; named in §4 Usage pause; an interactive child cannot produce it, so `templates/brief.md` tells children to checkpoint and end the turn on a limit and leaves the pause to the runner); `blast-off resume` and a timer or transient unit after the reset; usage percent on each phase row; brief lists per-commit LLM plugins with the owner's opt-in or opt-out; `blast-off preflight` estimates the job's usage from a previous job's checkpoint phase rows and exits 1 when the estimate exceeds what is left of the `seven_day` window (the `five_hour` window is bridged by `paused-limit` and `resume`, never refused); no prior record prints `no estimate` and does not refuse | 3, 5, 6 |
 | F11 | Codex lanes off by default; enabled per phase with the owner's quoted override | `templates/brief.md` lanes row defaults to off | 5 |
 
 ## 2. CLI
@@ -155,7 +155,7 @@ the record is there but no window reads, after a line with its first 200 bytes, 
 or above `JOB_USAGE_PAUSE` with its `resets_at` still ahead (a window past its reset has refilled), the
 child's turn ended on a StopFailure with `error` `rate_limit`, or the child exited 75 (sysexits
 `EX_TEMPFAIL`, the child code reserved for a limit error; read from tmux `#{pane_dead_status}`;
-phase 5 writes it into the child protocol). A child that set `done` or `blocked` is never paused. The
+an interactive child cannot produce it: the child protocol in `templates/brief.md` says checkpoint and end the turn, and children write only `running`, `done` or `blocked`). A child that set `done` or `blocked` is never paused. The
 pause writes `status: paused-limit until <ISO>`: the latest reset of the windows over the threshold;
 for a rate limit with none over it, the `five_hour` reset; with neither known, now plus five hours
 (the `five_hour` window's length); plus `JOB_RESUME_MARGIN`, at least 5 s ahead. StopFailure "fires
@@ -262,5 +262,6 @@ the marker records whether the child saw it set (the name, never a value):
 | `32-usage-per-phase` | a row a child closes gets ` · usage 5h N% 7d M%` (floored) or `usage unknown`; a row done before the run and a child that closes none add nothing | 3 |
 | `40-receipt-required` | done phase without a matching receipt; exit 9 | 4 |
 | `41-ci-wait` | `done` refused while a PR's CI is unread; exit 10 | 4 |
-| `50-checkpoint-size` | warning past 150 lines | 5 |
+| `50-checkpoint-size` | before each child launch, `checkpoint.md is N lines, over 150` in `run.log` when it is over 150 lines (at 150, none); a checkpoint a child grows past 150 is warned before the next child | 5 |
+| `51-templates` | `templates/checkpoint.md` read by `lib/checkpoint.sh` as a fresh job: status `running`, every Phase plan row open with a digit key, no warning, a `done (<sha>) · PR #<n>` cell read back as done at that sha; `templates/brief.md` has a Child protocol section and one phrase per keep and fix item it carries (F1, F3 to F6, F9 to F11, the receipt and CI close order), and no hand-back on an estimate | 5 |
 | `60-preflight` | preflight output; Jev pick and fallback | 6 |

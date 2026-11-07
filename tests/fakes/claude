@@ -9,6 +9,7 @@
 #        trust-early / trust-late (print the trust dialog's text at once / after 3 s, record whether keys arrived, done)
 #        die (print an error and exit 3 with no Stop hook, like claude dying on an API error)
 #        done-exit (done; exit right after the Stop hook, no idle) · bad-payload (done; a non-JSON Stop payload)
+#        step-pad (21 Progress lines: grows checkpoint.md)
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
 #        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
@@ -45,6 +46,7 @@ if [ -e "$u" ]; then
 fi
 case "$mode" in
   step|ratelimit|apierr|authfail) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  step-pad) for i in $(seq 0 20); do printf -- '- fake child %s step %s\n' "$JOB_CHILD" "$i"; done >> "$cp" ;;
   dirty) echo x > "$(dirname "$JOB_DIR")/stray.txt"; printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
