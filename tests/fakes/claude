@@ -10,6 +10,11 @@
 #        die (print an error and exit 3 with no Stop hook, like claude dying on an API error)
 #        done-exit (done; exit right after the Stop hook, no idle) · bad-payload (done; a non-JSON Stop payload)
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
+#        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
+#        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
+#        close (mark the first pending Phase plan row done; with none pending, status done)
+# With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
+# status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
 set -euo pipefail
 settings=
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; shift 2 ;; *) shift ;; esac; done
@@ -25,20 +30,32 @@ gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB_DIR/fake-marker" | tail -n 1
 [ -z "$gc" ] || echo "prev_gc_alive=$(kill -0 "$gc" 2>/dev/null && echo yes || echo no)" >> "$JOB_DIR/fake-marker"
 # status_at_start: the checkpoint status this child was launched under
 echo "status_at_start=$(sed -n 's/^status: *//p' "$cp" | head -n 1)" >> "$JOB_DIR/fake-marker"
+# settings: the per-child dir the runner made (P2-L1: it must be gone after the child ends)
+pd="$(sed -n 's/^settings=//p' "$JOB_DIR/fake-marker" | tail -n 1)"  # the previous child's, read before this one's line
+echo "settings=$settings" >> "$JOB_DIR/fake-marker"
+[ -z "$pd" ] || echo "prev_dir=$([ -e "$(dirname "$pd")" ] && echo left || echo gone)" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
+u="$JOB_DIR/fake-usage-$JOB_CHILD"; [ -e "$u" ] || u="$JOB_DIR/fake-usage"
+if [ -e "$u" ]; then
+  : "${BLAST_OFF_STATE_DIR:?fake-usage needs BLAST_OFF_STATE_DIR}"
+  cp "$u" "$BLAST_OFF_STATE_DIR/usage-limits-fake-$JOB_CHILD.json"
+fi
 case "$mode" in
-  step) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
+  step|ratelimit|apierr|authfail) printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty) echo x > "$(dirname "$JOB_DIR")/stray.txt"; printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
     printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
   done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;
   slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
+  close) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then sed -i '0,/^\(| [0-9]* |.*| \)pending |$/s//\1done |/' "$cp"
+         else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
   noop) ;;
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
   slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
   die) echo "fake child $JOB_CHILD: API Error: fake death"; exit 3 ;;
+  die75) echo "fake child $JOB_CHILD: usage limit"; exit 75 ;;
   trust-early|trust-late)
     [ "$mode" = trust-early ] || sleep 3
     echo "Yes, I trust this folder"
@@ -46,6 +63,14 @@ case "$mode" in
     sed -i 's/^status: .*/status: done/' "$cp" ;;
   *) echo "fake claude: unknown mode $mode" >&2; exit 1 ;;
 esac
+if [ "$mode" = ratelimit ] || [ "$mode" = apierr ] || [ "$mode" = authfail ]; then
+  # StopFailure fires instead of Stop when an API error ends the turn (claude 2.1.316 hook registry)
+  case "$mode" in ratelimit) err=rate_limit ;; apierr) err=overloaded ;; *) err=authentication_failed ;; esac
+  hook="$(jq -r '.hooks.StopFailure[0].hooks[0].command' "$settings")"
+  printf '{"session_id":"fake-%s","transcript_path":"/dev/null","hook_event_name":"StopFailure","error":"%s","last_assistant_message":"fake child %s hit %s"}\n' \
+    "$JOB_CHILD" "$err" "$JOB_CHILD" "$err" | bash -c "$hook"
+  exec sleep 600
+fi
 hook="$(jq -r '.hooks.Stop[0].hooks[0].command' "$settings")"
 payload() {
   [ "$mode" != bad-payload ] || { echo 'not json'; return; }

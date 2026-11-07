@@ -7,6 +7,7 @@
 # Usage: blast-off run <job-dir> [workdir]   the chain loop in the foreground (the unit's ExecStart)
 #        blast-off start <job-dir>            run it as transient unit blast-off-<name>.service
 #        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
+#        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: running, then start
 #        blast-off install                    write the template and slice to ~/.config/systemd/user
 #  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
 #        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
@@ -15,9 +16,14 @@
 #        JOB_SESSION=job-<name>    tmux session on the job's own server, tmux -L blast-off-<name>
 #        JOB_KEEP_WINDOWS=1        leave finished children's windows open
 #        BLAST_OFF_TRUST_SECONDS=60  seconds after a child starts that its trust dialog is answered
+#        JOB_USAGE_PAUSE=95        pause when a usage window is at or above this percent at a child's end
+#        JOB_RESUME_MARGIN=60      seconds after a usage reset that the resume timer fires
+#        JOB_API_BACKOFF=600       seconds before the next child after an API error that clears (overloaded, server_error, unknown)
+#        BLAST_OFF_STATE_DIR=~/.claude/state  where the status line records each session's usage
 # Exit:  0 done · 1 usage, dependency or runner error · 3 blocked (needs the owner) · 4 hard child cap reached
 #        5 two children in a row left checkpoint.md unchanged · 6 soft cap reached, status paused-cap (run again)
 #        7 uncommitted paths checkpoint.md does not name (after a child or before child 1)
+#        8 usage limit: status paused-limit until <time>; <unit>.resume.timer runs `blast-off resume` then
 set -euo pipefail
 
 BLAST_OFF_HOME="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
@@ -45,8 +51,8 @@ job_init() {
 
 case "${1:-}" in
   run) shift; job_init "$@"; chain_run ;;
-  start|status|stop|logs) job_init "${2:-}"; "unit_$1" ;;
+  start|status|stop|logs|resume) job_init "${2:-}"; "unit_$1" ;;
   install) units_install ;;
-  -h|--help|"") sed -n '2,20p' "$0" ;;
+  -h|--help|"") sed -n '2,26p' "$0" ;;
   *) die "unknown command '$1' (see blast-off --help)" ;;
 esac
