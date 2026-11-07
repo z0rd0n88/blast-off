@@ -3,8 +3,8 @@
 You are a fresh Claude Code session running an owner-authorized job under blast-off. Everything you
 need is in this file and in `checkpoint.md` beside it. This file's directory is the job dir (`<job-dir>`
 below): `phases/`, `gate-logs/` and `decisions.tsv`, wherever named, are in the job dir, never in the
-workdir. Do not ask the owner for feedback after you
-start: make the best supported, reversible choice and record it. If a new mandatory approval, a file
+workdir. `"$BLAST_OFF"` is the runner's own `blast-off`, set in every child's environment; the bare
+name may not be on the Bash tool's PATH. Do not ask the owner for feedback after you start: make the best supported, reversible choice and record it. If a new mandatory approval, a file
 outside the target set, or an undecided safety or product policy appears, leave that part blocked,
 finish the independent work, and record it under "Open or blocked".
 
@@ -130,8 +130,8 @@ Every session in this job follows this, in order:
    past 150).
 4. **Close the phase**, in this order: merge the base in before the gate (`git fetch origin <base>`,
    then `git merge origin/<base>`); commit; run the gate on the
-   committed tree into `gate-logs/phase-<n>.log`; `blast-off receipt <job-dir> <n>`; push and open the
-   draft PR; `blast-off ci-wait <job-dir> <pr>` after the last push to it (one blocking `gh run watch`
+   committed tree into `gate-logs/phase-<n>.log`; `"$BLAST_OFF" receipt <job-dir> <n>`; push and open the
+   draft PR; `"$BLAST_OFF" ci-wait <job-dir> <pr>` after the last push to it (one blocking `gh run watch`
    per run; absent checks are not a pass, and a red one means fix, commit, gate, receipt again). Run
    the gate and ci-wait in the foreground with the Bash tool's longest timeout. If the tool cuts one
    off, stop any copy it left running, run that step again as below, and go on from the step after

@@ -33,15 +33,19 @@ for s in 'done (<sha>)' 'PR #<n>' 'replace' '· usage' 'backticks' 'phases/phase
   has "$t" "$s"
 done
 
-# the brief's bare `blast-off receipt` and `ci-wait` resolve in a child: the job's tmux server, whose
-# environment every child inherits, has this checkout's bin/ first on PATH (P5Q6)
+# blast-off resolves in a child: the job's tmux server, whose environment every child inherits, has
+# this checkout's bin/ first on PATH (P5Q6) and BLAST_OFF set to its blast-off
 # shellcheck source=../lib/child.sh
 source "$REPO/lib/child.sh"
 # shellcheck disable=SC2034  # SESSION, WORKDIR, BLAST_OFF_HOME: read by child_server
 UNIT="$TEST_ID-path" SESSION="$TEST_ID-path" WORKDIR="$PWD" BLAST_OFF_HOME="$REPO"; SUFFIXES+=(path)  # cleanup removes its socket
 child_server
-cpath="$(tmux -L "$UNIT" show-environment -g PATH || true)"; tmux -L "$UNIT" kill-server
+cpath="$(tmux -L "$UNIT" show-environment -g PATH || true)"
+# Claude Code's Bash tool rebuilds PATH from the owner's profile (phase 8 smoke), so the brief names
+# blast-off by "$BLAST_OFF", which the server sets to this checkout's bin/blast-off.
+cbo="$(tmux -L "$UNIT" show-environment -g BLAST_OFF || true)"; tmux -L "$UNIT" kill-server
 [ "$( PATH="${cpath#PATH=}"; command -v blast-off || true )" = "$REPO/bin/blast-off" ] || fail "blast-off not on a child's PATH: $cpath"
+[ "$cbo" = "BLAST_OFF=$REPO/bin/blast-off" ] || fail "child server has no BLAST_OFF=$REPO/bin/blast-off: '$cbo'"
 
 # templates/brief.md carries the fixed child protocol (spec §1 K1-K10, F1-F11; phase 5 done-when)
 b="$REPO/templates/brief.md"
@@ -56,7 +60,7 @@ for s in \
   'no Edit, no Write, no process-starting Bash, no servers, no ports; read and grep only' \
   'Never end a turn with a background task' 'even when a harness notice' 'EXIT, TERM and INT' \
   'merge the base in before the gate' 'Per-commit LLM hooks and plugins' 'usage-checkpoint' \
-  'gate-logs/phase-<n>.log' 'blast-off receipt <job-dir> <n>' 'blast-off ci-wait <job-dir> <pr>' \
+  'gate-logs/phase-<n>.log' '"$BLAST_OFF" receipt <job-dir> <n>' '"$BLAST_OFF" ci-wait <job-dir> <pr>' \
   'replace, not append' 'PR #<n>' 'Unrun is not passed'; do
   has "$b" "$s"
 done
@@ -79,7 +83,7 @@ done
 # the close order the runner checks: commit, gate, receipt, PR, ci-wait, then the done cell
 S4="${S9#*"**Close the phase**"}"; [ "$S4" != "$S9" ] || fail "brief section 9 has no Close the phase step"
 last=-1
-for s in 'commit; run the gate' 'blast-off receipt <job-dir> <n>' 'draft PR' 'blast-off ci-wait <job-dir> <pr>' 'done (<sha>)'; do
+for s in 'commit; run the gate' '"$BLAST_OFF" receipt <job-dir> <n>' 'draft PR' '"$BLAST_OFF" ci-wait <job-dir> <pr>' 'done (<sha>)'; do
   [[ $S4 == *"$s"* ]] || fail "Close the phase lacks: $s"
   x="${S4%%"$s"*}"; [ "${#x}" -gt "$last" ] || fail "Close the phase: '$s' comes before the step it must follow"
   last="${#x}"
