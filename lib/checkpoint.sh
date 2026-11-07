@@ -25,11 +25,23 @@ cp_names() {
   command grep -qE -- "(^|[^[:alnum:]_./-])$esc([^[:alnum:]_./-]|\.([^[:alnum:]_]|$)|$)" "$JOB/checkpoint.md"
 }
 
-# cp_done_rows: first cells of the Phase plan rows whose Status cell (the last) starts with "done".
-cp_done_rows() {
+# cp_done_rows: first cells of the Phase plan rows whose Status cell (the last) starts with "done", any case.
+# cp_open_rows: the other rows' first cells, and done rows whose key is not letters, digits, '.', '-', '_'.
+cp_done_rows() { cp_plan_rows "done"; }
+cp_open_rows() { cp_plan_rows open; }
+cp_plan_rows() {
   sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
-    awk -F'|' '{ k = $2; st = $(NF-1); gsub(/[ \t]/, "", k); sub(/^[ \t]+/, "", st)
-                 if (st ~ /^done/ && k ~ /^[0-9A-Za-z_-]+$/) print k }'
+    awk -F'|' -v want="$1" '{ k = $2; st = $(NF-1); gsub(/[ \t]/, "", k); sub(/^[ \t]+/, "", st)
+                 d = tolower(st) ~ /^done/ && k ~ /^[0-9A-Za-z._-]+$/
+                 if ((want == "done") == d) print k }'
+}
+
+# cp_row_sha <key>: the first 7 to 40 character lower-case hex word in that Phase plan row's Status cell.
+cp_row_sha() {
+  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+    awk -F'|' -v k="$1" '{ key = $2; gsub(/[ \t]/, "", key); if (key != k) next
+      n = split($(NF-1), w, /[^0-9A-Za-z]+/)
+      for (i = 1; i <= n; i++) if (w[i] ~ /^[0-9a-f]+$/ && length(w[i]) >= 7 && length(w[i]) <= 40) { print w[i]; exit } }'
 }
 
 # cp_mark_usage <rows done before the child> <usage>: each Phase plan row done now and not before gets

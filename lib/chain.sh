@@ -121,7 +121,7 @@ chain_run() {
   # ownership, a broken repo) is an error, not a reason to skip it.
   if ! TOP="$(LC_ALL=C git -C "$WORKDIR" rev-parse --show-toplevel 2>&1)"; then
     [[ $TOP == *"not a git repository"* ]] || die "git rev-parse in $WORKDIR failed: $TOP"
-    TOP=; log "workdir $WORKDIR is not in a git repo; dirty-tree check off"
+    TOP=; log "workdir $WORKDIR is not in a git repo; dirty-tree check off, receipt check off"
   fi
   JOBREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$JOB")"
   [[ $JOBREL != ..* ]] || JOBREL=
@@ -136,10 +136,12 @@ chain_run() {
   esac
 
   chain_dirty "before child 1"
+  rows="$(cp_done_rows | tr '\n' ' ')"  # rows done before child 1 are not the last child's (receipt_check)
   while :; do
+    receipt_check "$rows"
     s="$(cp_status)"
     case "$s" in
-      done)    chain_end 0 "job done" ;;
+      done)    receipt_all_done; ci_check; chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((n+1))

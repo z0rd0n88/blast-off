@@ -1,0 +1,10 @@
+{
+  "phase": null,
+  "verdict": null,
+  "verdict_line": null,
+  "tally": {"passed": null, "failed": null, "shellcheck": null},
+  "gate_log": null,
+  "head_sha": null,
+  "utc": null,
+  "written_by": "blast-off receipt"
+}
