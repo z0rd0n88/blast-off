@@ -47,7 +47,7 @@ to the job dir's parent (as in `run-job`).
 | Command | What it does | Phase |
 |---|---|---|
 | `run` | `blast-off run <job-dir> [workdir]`: the chain loop in the foreground; what the unit's `ExecStart` calls; exits 1 before the first child when `CLAUDE_FLAGS` is unset or empty, so every entry point refuses a child with no `--model` or `--effort` (K8, D8) | 1 |
-| `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the shape of the MoonPay launch line, which passed `HOME`, `PATH`, `CLAUDE_FLAGS` and `JOB_MAX_CHILDREN`; `HOME` is left out because the user manager already holds it, and `GH_TOKEN` through the unit is new); names only, never values; exits 1 before launching when `GH_TOKEN` or `CLAUDE_FLAGS` is unset or empty in the caller, because `--setenv=NAME` turns an unset name into an empty value in the unit; prints the resolved launch first | 1 |
+| `start` | `blast-off start <job-dir>`: `systemd-run --user --collect --slice=blast-off.slice --unit=blast-off-<name> --working-directory=<workdir> --setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS`, a `--setenv=` per set `JOB_*` name and `BLAST_OFF_TRUST_SECONDS`, the template's directives as `-p` properties, then `<repo>/bin/blast-off run <job-dir>` (the shape of the MoonPay launch line, which passed `HOME`, `PATH`, `CLAUDE_FLAGS` and `JOB_MAX_CHILDREN`; `HOME` is left out because the user manager already holds it, and `GH_TOKEN` through the unit is new); names only, never values; exits 1 before launching when `GH_TOKEN` or `CLAUDE_FLAGS` is unset or empty in the caller, because `--setenv=NAME` turns an unset name into an empty value in the unit; prints the resolved launch first | 1 |
 | `status` | `blast-off status <job-dir>`: checkpoint header plus the `ActiveState` of `blast-off-<name>.service` | 1 |
 | `stop` | `blast-off stop <job-dir>`: `systemctl --user stop blast-off-<name>.service`; the next child resumes from the checkpoint | 1 |
 | `logs` | `blast-off logs <job-dir>`: `run.log` tail and `journalctl --user -u blast-off-<name>.service` | 1 |
@@ -59,7 +59,7 @@ to the job dir's parent (as in `run-job`).
 
 Environment (non-secret, passed by name through the unit): `PATH`, `CLAUDE_FLAGS`, `JOB_MAX_CHILDREN`
 (override of the derived cap), `JOB_CAP_FACTOR` (default 3), `JOB_CHILD_TIMEOUT` (default 7200),
-`JOB_SESSION`, `JOB_KEEP_WINDOWS`. D14 reads "No secrets in any file;
+`JOB_SESSION`, `JOB_KEEP_WINDOWS` (leave finished children and, at exit, the server and scopes for inspection), `BLAST_OFF_TRUST_SECONDS` (default 60: the trust-dialog scrape runs only while a child starts). D14 reads "No secrets in any file;
 launch lines pass env var names, never values." blast-off writes no secret (`GH_TOKEN`) to any file,
 and the launch line names them without values: `start` passes each as `--setenv=NAME`, so
 `systemd-run` reads the value from the caller's environment. systemd itself then stores the resolved
@@ -86,7 +86,7 @@ nothing outside `~/.config/systemd/user/`. A `~/.local/bin/blast-off` symlink is
 | Code | Meaning | Checkpoint status written | Phase |
 |---|---|---|---|
 | 0 | job done | `done` (by the child) | 1 |
-| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
+| 1 | usage or dependency error (missing tool, missing brief or checkpoint, `start` with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, `run` with `CLAUDE_FLAGS` unset or empty), a runner abort (a command failing under `set -e`: `run.log` ends with `runner exit <n> without a state` and the failing command's own status becomes 1, so it never reads as a state; a signal's 128+n stands), or `preflight` refusing a job the `seven_day` window left cannot cover | unchanged | 1, 6 |
 | 3 | blocked, needs the owner | `blocked` (by the child) | 1 |
 | 4 | hard child cap reached (only when the soft cap is disabled) | unchanged | 1 |
 | 5 | two children in a row left the checkpoint unchanged | unchanged | 1 |
@@ -113,7 +113,7 @@ command line (D14). The brief names no mechanism; this one is chosen because the
 `new-window -e NAME=value`, carries `PATH` but would put the token's value on a tmux command line. The
 socket stays under `/tmp/tmux-1000/` (no `PrivateTmp=`); the owner watches with
 `tmux -L <unit name> attach -t <session>`, and `run.log`'s watch line and the hand-over lines print
-exactly that. Test cleanup kills only the test's own sessions, never `kill-server`. Panes on a private
+exactly that. Test cleanup kills only the test's own sessions, never `kill-server`. The runner owns its socket: at start it stops what an earlier run of the job left (`<unit>-child-*.scope`, `kill-server` on `-L <unit name>`), and an EXIT trap does the same on every exit, signals included, unless `JOB_KEEP_WINDOWS` is set. Panes on a private
 server still land in `tmux-spawn` scopes, so the per-child scope below stays: `-L` fixes the
 environment, the scope fixes the cgroup, and `systemd-run --scope` runs `claude` as its own child, so
 the pane's environment flows through (systemd-run(1)). Phase 1 builds this in `lib/child.sh` and
@@ -122,7 +122,11 @@ verifies it in test 10 (§6).
 **`systemd/blast-off.slice`** groups every job's runner and children under shared limits. tmux 3.4 here
 links libsystemd and moves each new pane into its own `tmux-spawn-<uuid>.scope`, outside the runner's
 unit, so the unit alone does not hold the children. Each child command therefore runs inside its tmux
-window as `systemd-run --user --scope --slice=blast-off.slice --unit=<runner unit>-child-<n> claude ...`;
+window as `systemd-run --user --scope --slice=blast-off.slice --unit=<runner unit>-child-<n> claude ...; exit`.
+tmux moves only the pane's own pid, from the server after fork and without waiting for the move (tmux
+3.4 `spawn.c`, `systemd.c`), so the trailing `; exit` makes the pane shell fork `systemd-run` rather than
+exec it: tmux's move lands on the shell, never on `claude`, which would otherwise end up in a
+`tmux-spawn` scope the runner cannot name;
 the runner's TERM trap and `blast-off stop` stop those scopes. Phase 1 builds it in `lib/child.sh` and
 verifies it in test 11. Child scopes of the phase 8 smoke job (`blast-off-smoke-child-<n>`) are not
 named in brief §4 and need the owner's nod first. Defaults
@@ -201,8 +205,8 @@ the marker records whether the child saw it set (the name, never a value):
 | Scenario | Behavior | Phase |
 |---|---|---|
 | `00-harness` | gate verdicts; phase 0 scaffold and this spec's tables | 0 |
-| `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3); a fake child that hangs past `JOB_CHILD_TIMEOUT=2` is logged as timed out in `run.log` and the next child launches; two children in a row that leave `checkpoint.md` unchanged give exit 5 and `two stalls; stopping` in `run.log`. Exit 4 has no scenario: nothing disables the phase 2 soft cap, so phase 2 either names that switch or drops exit 4 as unreachable (open) | 1 |
-| `11-unit-smoke` | `start` runs the same job from a workdir named `test-<pid>-job` (`<pid>` as in `$TEST_ID`), so the runner unit is `blast-off-test-<pid>-job.service`, in `blast-off.slice` by `systemctl --user show -p Slice,MemoryCurrent`; the template instance for the escaped absolute path of the temp job dir is only loaded by `systemctl --user show -p ExecStart`, never started, and shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope; after a second run whose fake child blocks, `blast-off stop` leaves the runner unit and its `-child-<n>` scope inactive or not-found by `systemctl --user show -p ActiveState`, and the fake child's pid gone | 1 |
+| `10-chain-done` | fake child drives `running` to `done` (exit 0) and `blocked` (exit 3); a fake child that hangs past `JOB_CHILD_TIMEOUT=2` is logged as timed out in `run.log` and the next child launches; two children in a row that leave `checkpoint.md` unchanged give exit 5 and `two stalls; stopping` in `run.log`, and progress resets that count; `JOB_MAX_CHILDREN=1` gives exit 4 (the phase 1 hard cap; phase 2 decides its fate beside the soft cap); the runner's tmux server and child scopes end on every exit and on SIGHUP; a stale scope of the same job is stopped before child 1; a slowly written Stop payload is read whole; the trust dialog is answered only in a child's first `BLAST_OFF_TRUST_SECONDS`; SIGHUP is logged as `runner exit 129 without a state`; a second signal while the runner stops its child scopes is ignored (exit stays 129, tmux server still ends); a runner abort (a `python3` that exits 4) exits 1 with `runner exit 4 without a state` last in `run.log` | 1 |
+| `11-unit-smoke` | `start` runs the same job from a workdir named `test-<pid>-job` (`<pid>` as in `$TEST_ID`), so the runner unit is `blast-off-test-<pid>-job.service`, in `blast-off.slice` by `systemctl --user show -p Slice,MemoryCurrent`; the template instance for the escaped absolute path of the temp job dir is only loaded by `systemctl --user show -p ExecStart`, never started, and shows that absolute path; the child's `/proc/<pid>/cgroup` names `blast-off.slice` and its `-child-<n>` scope, and its parent is its pane's shell (a `#{pane_pid}`), so tmux's pane move never lands on it; after a second run whose fake child blocks, `blast-off stop` leaves the runner unit and its `-child-<n>` scope inactive or not-found by `systemctl --user show -p ActiveState`, and the fake child's pid gone | 1 |
 | `12-start-env` | `start` with `CLAUDE_FLAGS` unset, then with `GH_TOKEN` empty, exits 1 and creates no unit; `run` with `CLAUDE_FLAGS` unset exits 1 and launches no child (every other scenario that drives `run` exports a dummy `CLAUDE_FLAGS`) | 1 |
 | `20-dead-child` | child exits without the Stop hook; seen within 10 s | 2 |
 | `21-soft-cap` | derived cap reached; `paused-cap`, exit 6, re-run continues | 2 |
