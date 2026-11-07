@@ -43,6 +43,12 @@ cp_plan_rows() {
                  if ((want == "done") == d) print k }'
 }
 
+# cp_row <key>: that Phase plan row's whole line.
+cp_row() {
+  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+    awk -F'|' -v k="$1" '{ key = $2; gsub(/[ \t]/, "", key); if (key == k) { print; exit } }'
+}
+
 # cp_row_sha <key>: the first 7 to 40 character lower-case hex word in that Phase plan row's Status cell.
 cp_row_sha() {
   sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
