@@ -154,7 +154,7 @@ the record is there but no window reads, after a line with its first 200 bytes, 
 `five_hour` or `seven_day` key in another shape; neither pauses) and pauses the job when any window is at
 or above `JOB_USAGE_PAUSE` with its `resets_at` still ahead (a window past its reset has refilled), the
 child's turn ended on a StopFailure with `error` `rate_limit`, or the child exited 75 (sysexits
-`EX_TEMPFAIL`, the child code reserved for a limit error; read from tmux `#{pane_dead_status}`;
+`EX_TEMPFAIL`, the child code reserved for a limit error; read from the exit file the child's pane shell writes, else tmux `#{pane_dead_status}`;
 an interactive child cannot produce it: the child protocol in `templates/brief.md` says checkpoint and end the turn, and children write only `running`, `done` or `blocked`). A child that set `done` or `blocked` is never paused. The
 pause writes `status: paused-limit until <ISO>`: the latest reset of the windows over the threshold;
 for a rate limit with none over it, the `five_hour` reset; with neither known, now plus five hours

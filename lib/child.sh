@@ -51,14 +51,14 @@ child_launch() {
 }
 
 # Wait for the child: 0 when its Stop hook wrote done.json, 1 past TIMEOUT seconds, 2 when it exited
-# first (CHILD_AGE = seconds it lived, CHILD_RC = its exit status: the pane shell's exit file, else
-# #{pane_dead_status}; on CI runners tmux sometimes never reaps a fast-dying pane, leaving the shell a
-# zombie and that format empty, so the shell records the status itself), 3 when its
+# first (CHILD_AGE = seconds it lived, CHILD_RC = its exit status), 3 when its
 # StopFailure hook wrote failed.json: an API error (a rate limit among them) ended its turn, and an
 # interactive claude then idles at its prompt, so waiting longer would only run out the timeout. Polled once a second: a dead pane (`1`) is seen in about 1 s; a
 # failed read (window or server gone, or a transient tmux error) counts only on the second in a row, so
 # one bad read never stops a working child. done.json is read again after a death: the hook's mv ends
 # before claude exits.
+# CHILD_RC is the pane shell's exit file, else #{pane_dead_status}: on CI runners tmux sometimes never
+# reaps a fast-dying pane, leaving its shell a zombie and that format empty (issue #29).
 # Time is $SECONDS, not loop turns: capture-pane and the trust keys' sleep stretch a turn (P1R2-4).
 # A folder Claude has not seen shows a trust dialog; the job's worktrees are owner-created, so every
 # trust dialog is answered (owner decision 2026-10-28). The dialog appears only as claude starts, so the
@@ -77,7 +77,7 @@ child_wait() {
       [ -s "$CHILD_DIR/done.json" ] && return 0
       [ -s "$CHILD_DIR/failed.json" ] && return 3
       # shellcheck disable=SC2034  # CHILD_AGE, CHILD_RC: read by chain_run
-      CHILD_AGE=$el CHILD_RC=$(cat "$CHILD_DIR/exit" 2>/dev/null || tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead_status}' 2>/dev/null) || CHILD_RC=
+      CHILD_AGE=$el CHILD_RC=$(if [ -s "$CHILD_DIR/exit" ]; then cat "$CHILD_DIR/exit"; else tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead_status}'; fi 2>/dev/null) || CHILD_RC=
       return 2
     fi
     [ "$el" -le "$TIMEOUT" ] || return 1

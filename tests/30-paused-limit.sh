@@ -147,6 +147,15 @@ not_active "$TEST_ID-x75.resume.timer" || fail "timer armed with no GH_TOKEN"
 ! grep -q 'the timer does it' "$JOB/run.log" || fail "pause line claims a timer: $(cat "$JOB/run.log")"
 "$bo" status "$JOB" > x75st.out 2>&1 || fail "status: $(cat x75st.out)"
 grep -q "^no resume timer: run blast-off resume $JOB after " x75st.out || fail "status hides the missing timer: $(cat x75st.out)"
+# issue #29: a CI runner's tmux may never reap a fast-dying pane, so #{pane_dead_status} stays empty;
+# the exit 75 pause must not need it. This tmux answers that one read with nothing.
+mkdir -p nostat
+printf '#!/usr/bin/env bash\n[[ $* != *pane_dead_status* ]] || exit 0\nexec %q "$@"\n' "$(command -v tmux)" > nostat/tmux
+chmod +x nostat/tmux
+fresh nostat die75
+rc=0; PATH="$PWD/nostat:$PATH" env -u GH_TOKEN "$bo" run "$JOB" > nostat.out 2>&1 || rc=$?
+[ "$rc" -eq 8 ] || fail "exit 75 with no pane_dead_status exit $rc, want 8: $(cat nostat.out "$JOB/run.log")"
+grep -q 'child 1 hit a usage limit (exit 75)' "$JOB/run.log" || fail "exit 75 not read from the exit file: $(cat "$JOB/run.log")"
 # D3-2: a job run with its own workdir arms no timer: resume takes only the job dir and would pick
 # another workdir and unit name
 fresh own step
