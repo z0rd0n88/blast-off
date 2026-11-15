@@ -76,8 +76,12 @@ child_wait() {
     if [ "$miss" -ge 2 ]; then
       [ -s "$CHILD_DIR/done.json" ] && return 0
       [ -s "$CHILD_DIR/failed.json" ] && return 3
-      # shellcheck disable=SC2034  # CHILD_AGE, CHILD_RC: read by chain_run
+      # shellcheck disable=SC2034  # CHILD_AGE, CHILD_RC, CHILD_NOSTATUS: read by chain_run
       CHILD_AGE=$el CHILD_RC=$(if [ -s "$CHILD_DIR/exit" ]; then cat "$CHILD_DIR/exit"; else tmux -L "$UNIT" display -p -t "$CHILD_WIN" '#{pane_dead_status}'; fi 2>/dev/null) || CHILD_RC=
+      # CHILD_NOSTATUS: the pane is dead and neither its shell nor tmux gave a status (issue #29); chain_run logs it
+      CHILD_NOSTATUS=
+      # shellcheck disable=SC2034
+      if [ -z "$CHILD_RC" ] && [ "$d" = 1 ]; then CHILD_NOSTATUS=1; fi
       return 2
     fi
     [ "$el" -le "$TIMEOUT" ] || return 1

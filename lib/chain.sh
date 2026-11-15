@@ -184,7 +184,7 @@ chain_run() {
              log "child $n ended on API error $(child_field error); next child in ${back}s, from checkpoint" ;;
            *) log "child $n ended on API error $(child_field error); next child resumes from checkpoint" ;;
          esac ;;
-      *) log "child $n exited without its Stop hook after ${CHILD_AGE}s (exit ${CHILD_RC:-?}); its screen follows, next child resumes from checkpoint"
+      *) log "child $n exited without its Stop hook after ${CHILD_AGE}s (exit ${CHILD_RC:-?}${CHILD_NOSTATUS:+; its pane is dead but neither its shell nor tmux gave a status, tmux may not have reaped it, issue #29}); its screen follows, next child resumes from checkpoint"
          child_screen; child_stop force
          [ "${CHILD_RC:-}" != "$LIMIT_EXIT" ] || limited="exit $LIMIT_EXIT" ;;
     esac

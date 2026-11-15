@@ -75,4 +75,20 @@ wait_stub() { # wait_stub <name> <read that writes done.json, 0 = none> <outputs
 [ "$(wait_stub flaky 4 '' 0 '' 0)" = 0 ] || fail "two failed pane_dead reads with a good read between counted as a death"
 [ "$(wait_stub gone 0 '')" = 2 ] || fail "pane_dead reads that keep failing (window gone) not seen as a death"
 [ "$(wait_stub racedone 1 1)" = 0 ] || fail "Stop hook done just before the dead-pane read counted as a death"
+
+# a dead pane with no exit file and no tmux status sets CHILD_NOSTATUS (issue #29); a status from either
+# source, or a window that is simply gone, does not
+nostatus_stub() { # nostatus_stub <name> <exit file content, "" = none> <tmux reads...>
+  ( source "$REPO/lib/child.sh"
+    CHILD_DIR="$PWD/stub-$1"; mkdir -p "$CHILD_DIR"; [ -z "$2" ] || echo "$2" > "$CHILD_DIR/exit"
+    UNIT=stub CHILD_WIN=stub TIMEOUT=8 BLAST_OFF_TRUST_SECONDS=0
+    reads=("${@:3}"); echo 0 > "$CHILD_DIR/n"  # a counter file: $(tmux) is a subshell
+    tmux() { local n; n=$(cat "$CHILD_DIR/n"); echo $((n+1)) > "$CHILD_DIR/n"
+      local out="${reads[$((n < ${#reads[@]} ? n : ${#reads[@]} - 1))]}"; [ -n "$out" ] || return 1; echo "$out"; }
+    rc=0; child_wait || rc=$?; echo "$rc rc=${CHILD_RC:-} nostatus=${CHILD_NOSTATUS:-}" )
+}
+[ "$(nostatus_stub zombie '' 1 '')" = "2 rc= nostatus=1" ] || fail "dead pane with no status not flagged: $(nostatus_stub zombie '' 1 '')"
+[ "$(nostatus_stub exitfile 75 1 '')" = "2 rc=75 nostatus=" ] || fail "exit file not read: $(nostatus_stub exitfile 75 1 '')"
+[ "$(nostatus_stub tmuxstatus '' 1 3)" = "2 rc=3 nostatus=" ] || fail "tmux status not read: $(nostatus_stub tmuxstatus '' 1 3)"
+[ "$(nostatus_stub gone '' '')" = "2 rc= nostatus=" ] || fail "a gone window flagged as an unreaped pane: $(nostatus_stub gone '' '')"
 echo ok
