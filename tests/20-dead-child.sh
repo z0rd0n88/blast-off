@@ -91,4 +91,12 @@ nostatus_stub() { # nostatus_stub <name> <exit file content, "" = none> <tmux re
 [ "$(nostatus_stub exitfile 75 1 '')" = "2 rc=75 nostatus=" ] || fail "exit file not read: $(nostatus_stub exitfile 75 1 '')"
 [ "$(nostatus_stub tmuxstatus '' 1 3)" = "2 rc=3 nostatus=" ] || fail "tmux status not read: $(nostatus_stub tmuxstatus '' 1 3)"
 [ "$(nostatus_stub gone '' '')" = "2 rc= nostatus=" ] || fail "a gone window flagged as an unreaped pane: $(nostatus_stub gone '' '')"
+# the flag is reset per child: a no-status death followed by a death with a status leaves it empty
+reset="$( source "$REPO/lib/child.sh"
+  CHILD_DIR="$PWD/stub-reset"; mkdir -p "$CHILD_DIR"
+  UNIT=stub CHILD_WIN=stub TIMEOUT=8 BLAST_OFF_TRUST_SECONDS=0
+  tmux() { [ "$*" = "${*%pane_dead\}}" ] || echo 1; }  # pane_dead reads 1, the status read is empty
+  child_wait || true; first="${CHILD_NOSTATUS:-}"; echo 75 > "$CHILD_DIR/exit"
+  child_wait || true; echo "first=$first rc=${CHILD_RC:-} nostatus=${CHILD_NOSTATUS:-}" )"
+[ "$reset" = "first=1 rc=75 nostatus=" ] || fail "CHILD_NOSTATUS not reset for the next child: $reset"
 echo ok
