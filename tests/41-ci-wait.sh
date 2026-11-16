@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# 41-ci-wait: `blast-off ci-wait <job-dir> <pr>` watches every run of the PR's head commit with one
-# blocking `gh run watch <id> --exit-status` each and records the conclusions in
-# gate-logs/ci-pr-<pr>.json; exit 0 green, 10 red or no runs (absent is not a pass) (F7). At
-# `status: done` the runner exits 10, status unchanged, while a PR the checkpoint names has no record
-# or a red one; an absent record lets done through, logged as not a pass.
+# 41-ci-wait: `blast-off ci-wait <job-dir> <pr>` watches every run of the PR's head commit, bar the
+# workflow_dispatch ones, with one blocking `gh run watch <id> --exit-status` each and records the
+# conclusions in gate-logs/ci-pr-<pr>.json; exit 0 green, 10 red or no runs (absent is not a pass) (F7).
+# At `status: done` the runner exits 10, status unchanged, while a PR a Phase plan Status cell names has
+# no record, a red one, or an absent one where HEAD has a workflow file; an absent record lets done
+# through, logged as not a pass, only where HEAD has none (issue 26).
 source "$REPO/tests/lib.sh"
 use_fakes
 export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token JOB_CHILD_TIMEOUT=30
@@ -23,6 +24,12 @@ h12=7777777777777777777777777777777777777777; echo "$h12" > "$FAKE_GH/pr-12-head
 echo 42 > "$FAKE_GH/appear-$h12"; echo success > "$FAKE_GH/run-42"
 h13=8888888888888888888888888888888888888888; echo "$h13" > "$FAKE_GH/pr-13-head"; echo 51 > "$FAKE_GH/runs-$h13"
 echo success > "$FAKE_GH/run-51"; echo 30 > "$FAKE_GH/hang-run-51"
+# P2R1-1: 61 is a green workflow_dispatch run on a head with no other run; 72 and 73 (listed late) are red ones
+h14=9999999999999999999999999999999999999999; echo "$h14" > "$FAKE_GH/pr-14-head"; echo 61 > "$FAKE_GH/runs-$h14"
+echo success > "$FAKE_GH/run-61"; echo workflow_dispatch > "$FAKE_GH/event-61"
+h15=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; echo "$h15" > "$FAKE_GH/pr-15-head"; printf '71\n72\n' > "$FAKE_GH/runs-$h15"
+echo 73 > "$FAKE_GH/later-$h15"; echo success > "$FAKE_GH/run-71"
+for i in 72 73; do echo failure > "$FAKE_GH/run-$i"; echo workflow_dispatch > "$FAKE_GH/event-$i"; done
 
 # --- ci-wait command ---
 new_job cmd noop
@@ -58,13 +65,25 @@ SECONDS=0; rc=0; BLAST_OFF_CI_WATCH=1 "$bo" ci-wait "$JOB" 13 > w13.out 2>&1 || 
 [ "$rc" -eq 10 ] && [ "$SECONDS" -lt 10 ] || fail "stuck run: exit $rc after $SECONDS s: $(cat w13.out)"
 jq -e '.verdict == "failure" and ([.runs[] | "\(.id) \(.conclusion)"] == ["51 "])' "$JOB/gate-logs/ci-pr-13.json" > /dev/null || fail "stuck run record: $(cat "$JOB/gate-logs/ci-pr-13.json" 2>&1)"
 grep -q 'ci PR #13: run 51 watch timed out after 1 s' "$JOB/run.log" && [ "$(grep -c '^run watch 51 ' "$FAKE_GH/calls")" -eq 1 ] || fail "stuck run not logged once: $(cat "$JOB/run.log")"
+# P2R1-1: a workflow_dispatch run (a diagnostic; with ci.yml's `only` input, maybe one scenario) is not the
+# PR's CI: a green one alone leaves the record absent, a red one beside a green pull_request run leaves it
+# success; neither is watched or recorded
+rc=0; "$bo" ci-wait "$JOB" 14 > w14.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && jq -e '.verdict == "absent" and .runs == []' "$JOB/gate-logs/ci-pr-14.json" > /dev/null || fail "green dispatch run counted: exit $rc: $(cat "$JOB/gate-logs/ci-pr-14.json" w14.out 2>&1)"
+rc=0; "$bo" ci-wait "$JOB" 15 > w15.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] && jq -e '.verdict == "success" and ([.runs[].id] == [71])' "$JOB/gate-logs/ci-pr-15.json" > /dev/null || fail "red dispatch runs counted: exit $rc: $(cat "$JOB/gate-logs/ci-pr-15.json" w15.out 2>&1)"
+! grep -qE '^run (watch|view) (61|72|73) ' "$FAKE_GH/calls" || fail "a dispatch run was watched or viewed: $(grep -E '^run (watch|view)' "$FAKE_GH/calls")"
 # D4-7: ci-wait [workdir]: gh runs in that workdir, whose remote names the repo
 wd="$PWD/wd"; mkdir -p "$wd"
 "$bo" ci-wait "$JOB" 8 "$wd" > /dev/null 2>&1 && grep -qx "cwd=$wd" "$FAKE_GH/calls" || fail "ci-wait did not run gh in its workdir $wd"
 
 # --- runner: exit 10 at done ---
 new_job fin 'done'
-printf -- '- phase 0 delivered as pr#07\n- phase 1: https://github.com/o/r/pull/9\n' >> "$JOB/checkpoint.md"  # D4-5, D4-17: any case, no space, leading 0
+# D4-5, D4-17: any case, no space, leading 0. Issue 26: only a Status cell names this job's PRs; PR #98
+# (another cell) and PR #99 (prose, say another repo's) have no record and must not hold done back
+printf '%s\n' '' '## Phase plan' '| # | Phase | Done when | Status |' '|---|---|---|---|' \
+  '| 0 | a | b | done (abc1234) · pr#07 |' '| 1 | port of PR #98 | b | done (abc1234) https://github.com/o/r/pull/9 |' \
+  '## Decisions' '- copied from o/other PR #99, see https://github.com/o/other/pull/99' >> "$JOB/checkpoint.md"
 log="$JOB/run.log"
 rc=0; "$bo" run "$JOB" > d1.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #7 CI unread' "$log" || fail "done with unread CI: exit $rc: $(cat d1.out "$log")"
@@ -93,11 +112,29 @@ rc=0; "$bo" run "$JOB" > d3d.out 2>&1 || rc=$?
 echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
 rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "green and absent records: exit $rc: $(cat d4.out "$log")"
-grep -q 'PR #9: no CI runs (absent, not a pass)' "$log" || fail "absent not logged: $(cat "$log")"
+! grep -qE 'PR #9[89]' "$log" || fail "a PR named outside a Status cell was read: $(grep -E 'PR #9[89]' "$log")"
+grep -q 'PR #9: no CI runs and no workflow file at HEAD (absent, not a pass)' "$log" || fail "absent not logged: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "a child ran after done: $(cat "$JOB/fake-marker")"
 # P4R2-2: a gh pr view past BLAST_OFF_CI_HEAD is a failed call: unread, exit 10, status unchanged, fast
 echo 30 > "$FAKE_GH/hang-pr-7"
 SECONDS=0; rc=0; BLAST_OFF_CI_HEAD=1 "$bo" run "$JOB" > d5.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && [ "$SECONDS" -lt 10 ] && grep -q 'PR #7 CI unread for head unknown (gh pr view 7 failed)' "$log" || fail "stalled gh pr view: exit $rc after $SECONDS s: $(cat d5.out "$log")"
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "a stalled gh pr view changed the status"
+
+# --- issue 26: an absent record passes only where HEAD has no workflow file ---
+new_job wf 'done'
+w="$(dirname "$JOB")"; log="$JOB/run.log"
+git -C "$w" init -q && git -C "$w" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+printf '%s\n' '' '## Phase plan' '| # | Phase | Done when | Status |' '|---|---|---|---|' \
+  "| 1 | a | b | done ($(git -C "$w" rev-parse --short HEAD)) · PR #9 |" '## Decisions' >> "$JOB/checkpoint.md"
+mkdir -p "$JOB/gate-logs"; echo 'GATE: PASS passed=1 failed=0 shellcheck=ok' > "$JOB/gate-logs/phase-1.log"
+"$bo" receipt "$JOB" 1 > /dev/null 2>&1 || fail "fixture receipt refused"  # a done row in a git workdir needs one (exit 9)
+cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-9.json" "$JOB/gate-logs/"
+rc=0; "$bo" run "$JOB" > a1.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] && grep -q 'PR #9: no CI runs and no workflow file at HEAD (absent, not a pass)' "$log" || fail "absent CI, no workflow at HEAD: exit $rc: $(cat a1.out "$log")"
+mkdir -p "$w/.github/workflows"; echo 'on: pull_request' > "$w/.github/workflows/ci.yml"
+git -C "$w" add .github && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m workflow
+rc=0; "$bo" run "$JOB" > a2.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && grep -q 'PR #9 CI absent: no runs, but HEAD has a workflow file (.github/workflows/ci.yml)' "$log" || fail "absent CI with a workflow at HEAD: exit $rc: $(cat a2.out "$log")"
+grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 10 on absent CI changed the status"
 echo ok

@@ -9,6 +9,7 @@
 # still unwatched then is recorded as it stands. Each watch ends after BLAST_OFF_CI_WATCH (3600) s: a run
 # that never completes (a runner label nobody serves, an approval) is logged and recorded as it stands, not
 # success (P4R2-3). Exit 0 green (success, skipped or neutral), 10 red or no runs: absent checks are not a pass.
+# workflow_dispatch runs are left out throughout (ci_runs).
 ci_wait() {
   local pr="${1:-}" sha all new seen=' ' id i=0 round v r
   [[ $pr =~ ^[1-9][0-9]*$ ]] || die "PR '$pr' must be a PR number"
@@ -16,7 +17,7 @@ ci_wait() {
   cd "$WORKDIR" || die "no workdir $WORKDIR"  # gh reads the repo from the workdir's remote
   sha="$(gh pr view "$pr" --json headRefOid | jq -r .headRefOid)" || die "gh pr view $pr failed"
   [[ $sha =~ ^[0-9a-f]{40}$ ]] || die "gh pr view $pr gave head '$sha', not a commit sha"
-  while new="$(gh run list --commit "$sha" --limit 100 --json databaseId | jq -r '.[].databaseId')" || die "gh run list failed"
+  while new="$(ci_runs "$sha")" || die "gh run list failed"
         [ -z "$new" ] && [ "$i" -lt "${BLAST_OFF_CI_APPEAR:-60}" ]; do
     sleep 5; i=$((i+5))
   done
@@ -26,7 +27,7 @@ ci_wait() {
         log "ci PR #$pr: run $id watch timed out after ${BLAST_OFF_CI_WATCH:-3600} s; recorded as it stands"
       seen+="$id "
     done
-    all="$(gh run list --commit "$sha" --limit 100 --json databaseId | jq -r '.[].databaseId')" || die "gh run list failed"
+    all="$(ci_runs "$sha")" || die "gh run list failed"
     new=; for id in $all; do [[ $seen == *" $id "* ]] || new+="$id "; done
     [ -n "$new" ] || break
   done
@@ -45,18 +46,33 @@ ci_wait() {
   [ "$v" = success ] || exit 10
 }
 
-# ci_check: at status done, exit 10 while a PR the checkpoint names (`PR #N` in any case, `PR#N`, or
-# `/pull/N`; leading zeros dropped) has no ci-wait record for that PR, a red one, or one of an older head
-# than the PR's now (ci_head). An absent record (no runs) of the current head passes, logged as not a
-# pass: a repo with no workflow never gets runs, and refusing done there forever helps nobody (owner
-# question P4Q1).
+# ci_runs <sha>: ids of that commit's runs, less the workflow_dispatch ones. A dispatch is a person's
+# diagnostic (ci.yml's `only` input can make it one scenario), not the PR's CI: a green one is no pass and
+# a red one no failure, so it is neither watched nor recorded (P2R1-1).
+ci_runs() {
+  gh run list --commit "$1" --limit 100 --json databaseId,event |
+    jq -r '.[] | select(.event != "workflow_dispatch") | .databaseId'
+}
+
+# ci_check: at status done, exit 10 while a PR this job's Phase plan names in a Status cell (`PR #N` in
+# any case, `PR#N`, or `/pull/N`; leading zeros dropped) has no ci-wait record for that PR, a red one, or
+# one of an older head than the PR's now (ci_head). A PR named anywhere else in the checkpoint (prose,
+# another cell) may be another repo's and is not read (issue 26). An absent record (no runs) of the
+# current head is refused too while HEAD has a file under .github/workflows: runs were due, so absent
+# is not a pass (D18). With no workflow file it passes, logged as not a pass: such a repo never gets
+# runs, and refusing done there forever helps nobody (owner question P4Q1).
 ci_check() {
-  local pr v
-  for pr in $({ command grep -oiE 'PR ?#[0-9]+|/pull/[0-9]+' "$JOB/checkpoint.md" || true; } | sed 's/.*[#/]//; s/^0*//; /^$/d' | sort -un); do
+  local pr v wf
+  for pr in $(sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" | awk -F'|' '{ print $(NF-1) }' |
+              { command grep -oiE 'PR ?#[0-9]+|/pull/[0-9]+' || true; } | sed 's/.*[#/]//; s/^0*//; /^$/d' | sort -un); do
     v="$(jq -r --argjson n "$pr" 'if .pr == $n then .verdict // "" else "" end' "$JOB/gate-logs/ci-pr-$pr.json" 2>/dev/null || true)"
     case "$v" in
       success) ci_head "$pr" ;;
-      absent) log "PR #$pr: no CI runs (absent, not a pass)"; ci_head "$pr" ;;
+      absent) ci_head "$pr"
+        # read failing is not "no workflow": only no git repo at all (TOP empty, chain.sh) skips the read
+        wf="$([ -z "$TOP" ] || git -C "$TOP" ls-tree -r --name-only HEAD -- .github/workflows)" || die "git ls-tree HEAD failed in $TOP"
+        [ -z "$wf" ] || chain_end 10 "PR #$pr CI absent: no runs, but HEAD has a workflow file (${wf%%$'\n'*}); get the PR a run that is not a workflow_dispatch (push, or re-run it), then blast-off ci-wait <job-dir> $pr, then run again; done refused, status unchanged"
+        log "PR #$pr: no CI runs and no workflow file at HEAD (absent, not a pass)" ;;
       failure) chain_end 10 "PR #$pr CI red or unfinished at $(jq -r '.head_sha // "?"' "$JOB/gate-logs/ci-pr-$pr.json") (gate-logs/ci-pr-$pr.json); fix and push if red, then blast-off ci-wait <job-dir> $pr (once its runs finish, if one was only unfinished), then run again; done refused, status unchanged" ;;
       *) chain_end 10 "PR #$pr CI unread: no readable record for PR $pr in gate-logs/ci-pr-$pr.json; blast-off ci-wait <job-dir> $pr, then run again" ;;
     esac
