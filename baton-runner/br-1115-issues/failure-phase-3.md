@@ -20,3 +20,6 @@ Each round closed one way past a fail-closed gate built on a loose Markdown pars
 
 ## Logs
 Gate: gate-phase-3-iter-3/. Report: review-phase-3-iter-3.md. Review baton: baton-phase-3-review-3.md (14 MEDIUM, 23 LOW listed there).
+
+## Owner choice (2026-11-16): guide & resume
+Direction: at `status: done`, refuse (exit 10, naming the line) any table line in the Phase plan section that is not the header, the separator or a parsed row, and any second `## Phase plan` heading; turn tests/41-ci-wait.sh lines 97 and 132 into refusal cases. Review counter resets (rounds 4-6 allowed).

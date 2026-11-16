@@ -39,3 +39,5 @@
 - 2026-11-16 phase 3/8 · commit d43324d (fix iter2)
 - 2026-11-16 phase 3/8 · REVIEW iter3 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 14 MEDIUM / 23 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-3.md · units 14/75
 - 2026-11-16 PAUSE: phase 3 review cap reached without CLEAN; failure baton baton-runner/br-1115-issues/failure-phase-3.md; owner to pick guide-resume / waive / abandon
+- 2026-11-16 RESUME: owner chose guide & resume for phase 3; review counter reset
+- 2026-11-16 phase 3/8 · FIX iter3 (guided) spawn · units 15/75
