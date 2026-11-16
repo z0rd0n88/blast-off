@@ -1,0 +1,10 @@
+PASS 70-docs
+
+In /home/alex/blast-off/.claude/worktrees/pending-items-53932d/lib/chain.sh line 160:
+    [ "$s" = done ] || { u="$(cp_unread)"; [ -z "$u" ] || log "checkpoint.md $u; the Phase plan rows from there on are not read, and done is refused, until it is fixed"; }
+             ^-- SC1010 (warning): Use semicolon or linefeed before 'done' (or quote to make it literal).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1010 -- Use semicolon or linefeed before ...
+FAIL shellcheck
+GATE-ONLY: FAIL passed=1 failed=1 shellcheck=fail only=70-docs

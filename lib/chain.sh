@@ -114,7 +114,7 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before after rows w limited back=
+  local n=0 stalls=0 s u before after rows w limited back=
   chain_nums
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
@@ -156,6 +156,8 @@ chain_run() {
   while :; do
     receipt_check "$rows"
     s="$(cp_status)"
+    # P3R5-13: mid-run a line done would refuse silently stops the rows after it being read; say so each pass
+    [ "$s" = "done" ] || { u="$(cp_unread)"; [ -z "$u" ] || log "checkpoint.md $u; the Phase plan rows from there on are not read, and done is refused, until it is fixed"; }
     case "$s" in
       done)    ci_plan; receipt_all_done; ci_check; chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;

@@ -1,9 +1,9 @@
 # zord-baton-runner run br-1115-issues
 status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 3 of 8  unit: FIX  review_iter: 2 of 3 (reset after guide & resume; files use iter5)
-current_baton: baton-runner/br-1115-issues/baton-phase-3-review-5.md
-units_used: 19
+phase: 3 of 8  unit: REVIEW  review_iter: 3 of 3 (reset after guide & resume; files use iter6)
+current_baton: baton-runner/br-1115-issues/baton-phase-3-fix-5.md
+units_used: 20
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33

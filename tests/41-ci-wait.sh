@@ -227,9 +227,12 @@ for l in "  | 1 | a | b | $r7" $'\t'"| 1 | a | b | $r7" "1 | a | b | $r7" "| **1
   ur 13 "$l" "$(printf '%b' "$l")"
 done
 l='| 1 | a | b | done (abc1234) · PR #7 \| done (abc1234) · no PR |'; ur 13 "$l" "$l"
-# under the table, after a blank line: a row, a second table, a '|' in a note, an HTML table, a code fence (R4)
-for l in "| 1 | a | b | $r7" '| # | Phase | Done when | Status |' 'see a | b' \
-  '<table><tr><td>1</td><td>done (abc1234) · PR #7</td></tr></table>' '```'; do
+# P3R5-9: an escaped pipe in any cell is refused by name, not as "no phase row"
+done_job "ur$((++i))" "${plan[@]}" '| 0 | a | `x \| y` | done (abc1234) · no PR |'
+refused 'holds `\|`' "escaped pipe in a cell (P3R5-9)"
+# under the table, after a blank line: a row, a second table, a '|' in a note, a code fence (R4). Raw HTML
+# there is out of scope (owner ruling 3) and no longer refused: it is how honest notes write `<sha>`
+for l in "| 1 | a | b | $r7" '| # | Phase | Done when | Status |' 'see a | b' '```'; do
   ur 14 "$l" '' "$l"
 done
 ur 14 "| P1 | a | b | $r7" '### detail' "| P1 | a | b | $r7"  # a row after a sub-heading (P3R4-27)
@@ -243,6 +246,16 @@ done_job "ur$((++i))" '## Phase plan' "${plan[1]}" '|---|---|---|' '| 0 | a | b 
 refused "checkpoint.md line 11 '|---|---|---|'" "separator with a cell short"
 done_job "ur$((++i))" "${plan[@]::2}" '### detail' 'Rows below.' '| 0 | a | b | done (abc1234) · PR #8 |'
 rec 8; refused "checkpoint.md line 11 '### detail'" "no separator under the header (P3R4-31)"
+# P3R5-11: a second Status column: only the last is read, so a header with two is refused
+done_job "ur$((++i))" '## Phase plan' '| # | Phase | Status | Status |' '|---|---|---|---|' '| 0 | a | done (abc1234) · PR #7 | done (abc1234) · no PR |'
+rec 7; refused "checkpoint.md line 10 '| # | Phase | Status | Status |' is the Phase plan header and has more than one Status cell" "two Status cells (P3R5-11)"
+# P3R5-13: mid-run a line done would refuse is logged at each pass, without refusing (here blocked: exit 3)
+done_job "ur$((++i))" "${plan[@]}" '| 0 | a | b | pending |' '1 | a | b | pending |'; sed -i 's/^status: done$/status: blocked/' "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?
+[ "$rc" -eq 3 ] && grep -qF "checkpoint.md line 13 '1 | a | b | pending |' " "$log" || fail "mid-run unread line not logged: exit $rc: $(cat r.out "$log")"
+# P3R5-12: inline code opened by three backticks (a backtick after the opener) is no fence; the plan under it is read
+done_job "ur$((++i))" '```blast-off ci-wait <job-dir> 8``` after each push' '' "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |'
+rec 8; passes "inline code with three backticks before the plan (P3R5-12)"
 # the first cell is the key, whatever it holds: such a row is read, so its red PR refuses done (no key filter)
 for l in "| P1 | a | b | $r7" $'|\t'"1 | a | b | $r7" "| 1 a | a | b | $r7"; do
   done_job "uk$((++i))" "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' "$l"
@@ -268,7 +281,7 @@ refused "checkpoint.md line 14 'x\\r## Phase plan'" "a lone CR splitting a line 
 # section, code and prose that only start like a Phase plan heading (P3R4-6)
 done_job ok '## Phase plan' '| # | Phase | Done when (2026) | Issue | Status |' '|:--|---|:-:|---|--:|' \
   '| 0 | a | b | c | done (abc1234) · PR #8 |' $'| 1 | a | b | c | done (abc1234) · no PR |\r' '' '### detail' \
-  'Rows above are phases 0 and 1.' '<!-- a | b -->' '## Decisions' '```' '# phase plan check' '```' '#phase plan' \
+  'Rows above are phases 0 and 1.' 'Closed as `done (<sha>)` after `blast-off ci-wait <job-dir> 8`; x<y.' '<!-- a | b -->' '## Decisions' '```' '# phase plan check' '```' '#phase plan' \
   '## Phase planning notes' '####### Phase plan'
 rec 8
 passes "a Phase plan of header, separator and rows, then notes"
@@ -289,6 +302,12 @@ for c in 'PR #8, #7' 'PRs #7, #8' 'PR 7' '#7' 'PR: #7' 'PR  #7' 'no PR (#7 dropp
   done_job "sp$((++i))" "${plan[@]}" "| 0 | a | b | done (abc1234) · $c |"
   rec 8
   refused 'phase row 0 ' "Status cell '$c'"
+done
+# P3R5-8: the template names `PR #<n>` only; a link, autolink or URL with a fragment is refused, saying so
+for c in '[PR #8](https://github.com/o/r/pull/8)' '<https://github.com/o/r/pull/8>' 'https://github.com/o/r/pull/8#issuecomment-1'; do
+  done_job "sp$((++i))" "${plan[@]}" "| 0 | a | b | done (abc1234) · $c |"
+  rec 8
+  refused "each of the phase's PRs as \`PR #<n>\`" "link form '$c' (P3R5-8)"
 done
 done_job sx "${plan[@]}" '| 0 | a | b | done (PR7) · PR #8 |'  # P3R4-17: the sha slot holds hex only
 rec 8; refused 'phase row 0 ' "sha slot '(PR7)'"

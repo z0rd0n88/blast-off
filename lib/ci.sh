@@ -64,7 +64,8 @@ ci_plan() {
 }
 
 # ci_check: at status done (after ci_plan), exit 10 unless every done Phase plan row's Status cell names the
-# phase's PRs (`PR #N` in any case, `PR#N`, or `/pull/N`; leading zeros dropped) or says `no PR` (owner ruling
+# phase's PRs (`PR #N` in any case, `PR#N`, or a bare `/pull/N` URL that the template no longer teaches, so
+# older checkpoints still read; leading zeros dropped; a link or a URL with a fragment refuses, P3R5-8) or says `no PR` (owner ruling
 # 1, phase 3). Refused: a done row with neither or with both, a cell holding past `done (<sha>)` any other
 # digit, '#' or PR (a PR written a way that is not read; P3R3-3), and a job with no done row at all, where
 # nothing says which PR to read or that there is none. Nothing outside those cells is read: a PR named in

@@ -120,6 +120,12 @@ plain notes under it, or the file has a second Phase plan heading, and while the
 or absent (no runs) where the PR's head commit has a workflow file. PRs are read only from those
 cells, never from prose; `run.log` says which were read.
 
+The done gate defends against a child that is lazy or confused, not one that crafts Markdown or HTML to
+hide a PR from it: children run as the owner's user with bypass permissions and could edit the runner
+itself, so a malicious child is out of scope (owner ruling 3 of phase 3). A checkpoint written by
+following `templates/checkpoint.md` and `templates/brief.md` is never refused for its format and never
+slips the gate.
+
 ## Exit codes
 
 | Code | Meaning | What to do |
@@ -142,7 +148,7 @@ safe to run again.
 
 `big-next-job`'s Run mode launches its own `run-job` with `nohup`. To run the job under blast-off
 instead, the skill writes the brief and checkpoint from **blast-off's** templates (they carry the rules
-the runner enforces: digit row keys, `done (<sha>)` cells, receipts, `ci-wait`; a checkpoint from
+the runner enforces: row keys (0, 1, 2a), `done (<sha>)` cells, receipts, `ci-wait`; a checkpoint from
 big-next-job's template ends in exit 9 at its first done row) into `<worktree>/.big-next-job/`, then
 replaces its launch line with the [Check, then start](#check-then-start) block (`export GH_TOKEN
 CLAUDE_FLAGS=...`, `blast-off preflight <job-dir>`, `blast-off start <job-dir>`)

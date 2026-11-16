@@ -74,8 +74,10 @@ flat() { tr '\n' ' ' | tr -s ' '; }
 C="$(flat < "$t")"
 for s in 'Children write only running, done or blocked there.' "paused-cap and paused-limit are the runner's" \
          '-uall' "each from the left margin like the ones above, between pipes, with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last." \
-         'Notes go under the table after a blank line, as plain text. At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.' \
-         "Every closed row's Status cell names every PR the phase opened, each as \`PR #<n>\` (or its /pull/<n> link), or says \`no PR\`." \
+         'Notes go under the table after a blank line, as plain text with no `|` and no code fence. At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.' \
+         'One `## Phase plan` heading, and no other heading anywhere in this file whose text starts "Phase plan".' \
+         'the header (its last cell Status, and no other cell Status)' 'No cell holds a pipe, written `|` or `\|`.' \
+         "Every closed row's Status cell names every PR the phase opened, each as \`PR #<n>\` (that form, not a link or URL), or says \`no PR\`." \
          'Write `no PR` only for a phase the brief says opens no PR; a PR that could not be opened is a blocked part' \
          'The runner refuses done (exit 10) for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.' \
          "A PR that is not this job's goes in prose, outside the table." '<job-dir>/decisions.tsv'; do

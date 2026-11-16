@@ -21,18 +21,19 @@ other worktrees: <path · branch · HEAD, or none>
 - The first status line above is the one the runner reads. Children write only running, done or
   blocked there. paused-cap and paused-limit are the runner's: on a usage limit, checkpoint and end
   the turn; the runner pauses the job itself.
-- One `## Phase plan` heading. Under it, first, one table: the header (its last cell Status), the
+- One `## Phase plan` heading, and no other heading anywhere in this file whose text starts "Phase plan".
+  Under it, first, one table: the header (its last cell Status, and no other cell Status), the
   separator, then one row per phase, each from the left margin like the ones above, between pipes,
-  with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last. Notes
-  go under the table after a blank line, as plain text. At done the runner refuses (exit 10) a Phase
-  plan that is not written this way, naming the line.
+  with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last. No cell
+  holds a pipe, written `|` or `\|`. Notes go under the table after a blank line, as plain text with no `|` and no code fence.
+  At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.
 - A closed row's Status cell starts `done (<sha>)`, <sha> = the commit `blast-off receipt` recorded
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
   hex word in the cell, so replace an older sha, never append a second. After it comes `PR #<n>` or
   `no PR` (the PR rule below).
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- Every closed row's Status cell names every PR the phase opened, each as `PR #<n>` (or its /pull/<n>
-  link), or says `no PR`. Write `no PR` only for a phase the brief says opens no PR; a PR that could
+- Every closed row's Status cell names every PR the phase opened, each as `PR #<n>` (that form, not a
+  link or URL), or says `no PR`. Write `no PR` only for a phase the brief says opens no PR; a PR that could
   not be opened is a blocked part (Open or blocked), not `no PR`. The runner refuses done (exit 10)
   for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.
   Past `done (<sha>)` a done row's Status cell holds those PRs or `no PR` and no other number, '#' or

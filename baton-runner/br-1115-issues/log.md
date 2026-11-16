@@ -53,3 +53,5 @@
 - 2026-11-16 PAUSE (manager judgement): HIGH count rose 2 -> 8; the loop is not converging; owner to set the gate's threat model before the last allowed round
 - 2026-11-16 RESUME: owner ruling 3 (threat model: honest children); P3R5-1..7 out of scope; fix P3R5-8 and honest-checkpoint mediums; one final review round
 - 2026-11-16 phase 3/8 · FIX iter5 spawn · units 19/75
+- 2026-11-16 phase 3/8 · FIX iter5 return COMPLETE progress=32 · baton baton-runner/br-1115-issues/baton-phase-3-fix-5.md
+- 2026-11-16 phase 3/8 · REVIEW iter6 (3 of 3 after reset, final) spawn · units 20/75
