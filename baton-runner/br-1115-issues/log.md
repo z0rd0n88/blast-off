@@ -48,3 +48,6 @@
 - 2026-11-16 phase 3/8 · FIX iter4 spawn (strict allow-list direction) · units 17/75
 - 2026-11-16 phase 3/8 · FIX iter4 return COMPLETE progress=46 · baton baton-runner/br-1115-issues/baton-phase-3-fix-4.md · allow-list reader cp_scan replaces the deny-list
 - 2026-11-16 phase 3/8 · REVIEW iter5 (2 of 3 after reset) spawn · units 18/75
+- 2026-11-16 phase 3/8 · commit 15960ad (fix iter4, allow-list)
+- 2026-11-16 phase 3/8 · REVIEW iter5 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 8 HIGH / 6 MEDIUM / 18 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-5.md · units 18/75
+- 2026-11-16 PAUSE (manager judgement): HIGH count rose 2 -> 8; the loop is not converging; owner to set the gate's threat model before the last allowed round
