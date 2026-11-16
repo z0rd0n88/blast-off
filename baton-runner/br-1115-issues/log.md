@@ -55,3 +55,6 @@
 - 2026-11-16 phase 3/8 · FIX iter5 spawn · units 19/75
 - 2026-11-16 phase 3/8 · FIX iter5 return COMPLETE progress=32 · baton baton-runner/br-1115-issues/baton-phase-3-fix-5.md
 - 2026-11-16 phase 3/8 · REVIEW iter6 (3 of 3 after reset, final) spawn · units 20/75
+- 2026-11-16 phase 3/8 · commit c0517fb (fix iter5)
+- 2026-11-16 phase 3/8 · REVIEW iter6 (final) return COMPLETE · VERDICT ISSUES (in scope: 0 CRITICAL / 1 HIGH / 12 MEDIUM / 23 LOW; 3 out of scope by ruling 3) · baton baton-runner/br-1115-issues/baton-phase-3-review-6.md · units 20/75
+- 2026-11-16 PAUSE: phase 3 hit the second review cap; P3R6-1 HIGH open; owner picks
