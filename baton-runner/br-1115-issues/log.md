@@ -43,3 +43,6 @@
 - 2026-11-16 phase 3/8 · FIX iter3 (guided) spawn · units 15/75
 - 2026-11-16 phase 3/8 · FIX iter3 (guided) return COMPLETE progress=17 · baton baton-runner/br-1115-issues/baton-phase-3-fix-3.md
 - 2026-11-16 phase 3/8 · REVIEW iter4 (1 of 3 after reset) spawn · units 16/75
+- 2026-11-16 phase 3/8 · commit e791f67 (fix iter3, guided)
+- 2026-11-16 phase 3/8 · REVIEW iter4 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 2 HIGH / 14 MEDIUM / 29 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-4.md · units 16/75
+- 2026-11-16 phase 3/8 · FIX iter4 spawn (strict allow-list direction) · units 17/75
