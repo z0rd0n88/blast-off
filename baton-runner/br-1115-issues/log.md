@@ -30,3 +30,5 @@
 - 2026-11-15 phase 3/8 · commit ecc6e90 (fix iter1)
 - 2026-11-15 phase 3/8 · REVIEW iter2 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 4 HIGH / 18 MEDIUM / 17 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-2.md · skill-sheriff: 0 Fail, 3 Gap (pre-existing) · units 11/75
 - 2026-11-15 PAUSE: owner ruling needed on P3R2-1 (which PRs done must read; criterion 3) and on which commit decides CI runs were due, before fix round 2; review round 3 is the cap
+- 2026-11-15 RESUME: owner rulings recorded in baton-runner/br-1115-issues/owner-rulings-phase-3.md (token or `no PR`; CI due decided at the PR's head commit)
+- 2026-11-15 phase 3/8 · FIX iter2 spawn · units 12/75

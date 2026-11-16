@@ -1,10 +1,10 @@
 # zord-baton-runner run br-1115-issues
-status: PAUSED
+status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 3 of 8  unit: FIX  review_iter: 2 of 3
 current_baton: baton-runner/br-1115-issues/baton-phase-3-review-2.md
-units_used: 11
-pause_reason: owner ruling on P3R2-1 / criterion 3 and on owner question 2 (workdir HEAD vs record head_sha); resume = spawn fix unit iter 2 from baton-phase-3-review-2.md with the rulings, then review iter 3 (the cap)
+units_used: 12
+pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
