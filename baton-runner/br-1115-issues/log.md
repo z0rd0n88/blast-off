@@ -32,3 +32,7 @@
 - 2026-11-15 PAUSE: owner ruling needed on P3R2-1 (which PRs done must read; criterion 3) and on which commit decides CI runs were due, before fix round 2; review round 3 is the cap
 - 2026-11-15 RESUME: owner rulings recorded in baton-runner/br-1115-issues/owner-rulings-phase-3.md (token or `no PR`; CI due decided at the PR's head commit)
 - 2026-11-15 phase 3/8 · FIX iter2 spawn · units 12/75
+- 2026-11-15 phase 3/8 · FIX iter2 unit died (API 529 overloaded), no baton written; 15 tracked files modified, uncommitted
+- 2026-11-15 phase 3/8 · FIX iter2 continuation spawn · units 13/75
+- 2026-11-16 phase 3/8 · FIX iter2 continuation return COMPLETE progress=39 · baton baton-runner/br-1115-issues/baton-phase-3-fix-2.md
+- 2026-11-16 phase 3/8 · REVIEW iter3 spawn (the cap) · units 14/75

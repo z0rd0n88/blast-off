@@ -24,12 +24,14 @@ other worktrees: <path · branch · HEAD, or none>
 - Each row's first cell starts with a digit (0, 1, 2a): the runner only sees rows like that.
 - A closed row's Status cell starts `done (<sha>)`, <sha> = the commit `blast-off receipt` recorded
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
-  hex word in the cell, so replace an older sha, never append a second. Add `PR #<n>` after it.
+  hex word in the cell, so replace an older sha, never append a second. After it comes `PR #<n>` or
+  `no PR` (the PR rule below).
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- `PR #<n>` or a /pull/<n> link in a row's Status cell means this job's own PR: at done the runner wants
-  a CI record for each (exit 10). A row closed without one gets no CI check, and a PR named only outside
-  the Status cells is not read, unless no Status cell names a PR: then every PR named anywhere here is
-  read. Name any other PR by its branch or as `other PR <n>`, no '#'.
+- Every closed row's Status cell names the phase's own PR, as `PR #<n>` (or its /pull/<n> link), or
+  says `no PR`. Write `no PR` only for a phase that opened no PR. The runner refuses done (exit 10)
+  for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.
+  It reads PRs nowhere else in this file, and refuses any other '#<n>' in a Status cell: name another
+  PR in prose, outside the table.
 - An uncommitted path at a child's end must be named here, whole: each file `git status --porcelain
   -uall` lists, from the repo root or the workdir, never absolute, no leading ./ (a directory does not
   name the files in it). A name with no '/' and no '.' (`<bare-name>`) counts only in backticks. An
@@ -46,7 +48,7 @@ other worktrees: <path · branch · HEAD, or none>
 
 ## Completed phases (summary each, newest last)
 - **Phase 0, <name>** (done <UTC>, children <a>-<b>). <what now works; gate verdict and receipt;
-  review rounds, closed clean or at cap, open finding IDs; PR #<n>; CI conclusion read>. Hand-backs:
+  review rounds, closed clean or at cap, open finding IDs; PR #<n> or no PR; CI conclusion read>. Hand-backs:
   <child at which step boundary, and the reason, or none>. Ledger `phases/phase-<n>.md`.
 
 ## Open or blocked (append only)

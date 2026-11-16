@@ -2,10 +2,11 @@
 # 41-ci-wait: `blast-off ci-wait <job-dir> <pr>` watches every run of the PR's head commit, bar the
 # workflow_dispatch ones, with one blocking `gh run watch <id> --exit-status` each and records the
 # conclusions in gate-logs/ci-pr-<pr>.json; exit 0 green, 10 red or no runs (absent is not a pass) (F7).
-# At `status: done` the runner exits 10, status unchanged, while a PR a Phase plan Status cell names has
-# no record, a red one, or an absent one where HEAD has a workflow file; an absent record lets done
-# through, logged as not a pass, only where HEAD has none (issue 26). With no PR in any Status cell the
-# PRs named anywhere in the checkpoint are read instead, and run.log says what was read (P3R1-1).
+# At `status: done` the runner exits 10, status unchanged, unless every done Phase plan row's Status cell
+# names the phase's PR or says `no PR` (a job with no done row is refused too; owner ruling 1), and while a
+# PR named there has no record, a red one, or an absent one whose head commit has a workflow file or cannot
+# be read. An absent record passes, logged as not a pass, only where the PR's head has no workflow file
+# (issue 26, owner ruling 2). Nothing outside those cells is read; run.log says what was.
 source "$REPO/tests/lib.sh"
 use_fakes
 export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token JOB_CHILD_TIMEOUT=30
@@ -122,12 +123,15 @@ echo "$h7" > "$FAKE_GH/pr-7-head"; rm "$FAKE_GH/pr-9-head"
 rc=0; "$bo" run "$JOB" > d3d.out 2>&1 || rc=$?
 [ "$rc" -eq 10 ] && grep -q 'PR #9 CI unread for head unknown' "$log" || fail "absent record gh could not check: exit $rc: $(cat "$log")"
 echo 3333333333333333333333333333333333333333 > "$FAKE_GH/pr-9-head"
+# owner ruling 2: outside git the PR's head commit cannot be read, so an absent record is refused, not passed
 rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
-[ "$rc" -eq 0 ] || fail "green and absent records: exit $rc: $(cat d4.out "$log")"
-! grep -qE 'PR #9[6-9]' "$log" || fail "a PR named outside a Status cell was read: $(grep -E 'PR #9[6-9]' "$log")"
-# P3R1-1, P3R1-2: what was read at done is in run.log, and so is every PR named elsewhere and left unread
-grep -q 'CI read for the PRs Phase plan Status cells name: 7 9; named elsewhere in checkpoint.md and not read: 96 97 98 99$' "$log" || fail "PRs read at done not logged: $(cat "$log")"
-grep -q 'PR #9: no CI runs and no workflow file at HEAD (absent, not a pass)' "$log" || fail "absent not logged: $(cat "$log")"
+[ "$rc" -eq 10 ] && grep -q 'PR #9 CI absent: no runs, and the workdir is in no git repo' "$log" || fail "absent record outside git: exit $rc: $(cat d4.out "$log")"
+jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-9.json" > ci9 && mv ci9 "$JOB/gate-logs/ci-pr-9.json"
+rc=0; "$bo" run "$JOB" > d4b.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "green records: exit $rc: $(cat d4b.out "$log")"
+! grep -qE 'PR #9[6-9]' "$log" && ! grep -qE '^pr view 9[6-9]' "$FAKE_GH/calls" || fail "a PR named outside a Status cell was read: $(grep -E 'PR #9[6-9]' "$log")"
+# what was read at done is in run.log
+grep -q 'CI at done: PRs read: 7 9; rows that say no PR: none$' "$log" || fail "PRs read at done not logged: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "a child ran after done: $(cat "$JOB/fake-marker")"
 # P4R2-2: a gh pr view past BLAST_OFF_CI_HEAD is a failed call: unread, exit 10, status unchanged, fast
 echo 30 > "$FAKE_GH/hang-pr-7"
@@ -136,63 +140,118 @@ SECONDS=0; rc=0; BLAST_OFF_CI_HEAD=1 "$bo" run "$JOB" > d5.out 2>&1 || rc=$?
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "a stalled gh pr view changed the status"
 rm "$FAKE_GH/hang-pr-7"
 
-# --- P3R1-1: no Status cell names a PR: done fails closed on every PR the checkpoint names ---
-# no Phase plan table (a supported job: hard cap, no receipts), PR in prose, no record
-new_job nt 'done'; log="$JOB/run.log"
-echo '- shipped as PR #7' >> "$JOB/checkpoint.md"
-rc=0; "$bo" run "$JOB" > n1.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && grep -q 'PR #7 CI unread' "$log" || fail "no table, PR in prose, no record: exit $rc: $(cat n1.out "$log")"
-grep -q 'no Phase plan Status cell names a PR; CI read for every PR checkpoint.md names instead: 7 (' "$log" || fail "whole-file read not logged: $(cat "$log")"
-grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 10 with no table changed the status"
-# a done row with no PR in its Status cell, the PR only under Completed phases (the template's own shape)
-new_job np 'done'; log="$JOB/run.log"
-printf '%s\n' '' '## Phase plan' '| # | Phase | Done when | Status |' '|---|---|---|---|' '| 0 | a | b | done (abc1234) |' \
-  '## Completed phases' '- **Phase 0, a** (done). PR #7; CI read.' >> "$JOB/checkpoint.md"
-rc=0; "$bo" run "$JOB" > n2.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && grep -q 'PR #7 CI unread' "$log" || fail "done row with no PR, PR named below: exit $rc: $(cat n2.out "$log")"
-# no PR named at all: done goes through, and run.log says no CI was read
-sed -i 's/ PR #7;//' "$JOB/checkpoint.md"
-rc=0; "$bo" run "$JOB" > n3.out 2>&1 || rc=$?
-[ "$rc" -eq 0 ] && grep -q 'no PR named in checkpoint.md; CI not read$' "$log" || fail "done with no PR named: exit $rc: $(cat n3.out "$log")"
+# --- owner ruling 1: every done row says `PR #<n>` or `no PR`; nothing outside the Status cells is read ---
+# done_job <suffix> <line>...: a job already at status done (no child runs) whose checkpoint ends in those lines
+done_job() {
+  local s="$1"; shift
+  new_job "$s" noop; sed -i 's/^status: running$/status: done/' "$JOB/checkpoint.md"
+  printf '%s\n' '' "$@" >> "$JOB/checkpoint.md"; log="$JOB/run.log"; mkdir -p "$JOB/gate-logs"
+}
+plan=('## Phase plan' '| # | Phase | Done when | Status |' '|---|---|---|---|')
+rec() { cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-$1.json" "$JOB/gate-logs/"; }  # cmd's records: 7 red, 8 green
+refused() { # <text wanted in run.log> <case>: exit 10, that text logged, status unchanged
+  rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?
+  [ "$rc" -eq 10 ] && grep -qF -- "$1" "$log" || fail "$2: exit $rc, want 10 and '$1': $(cat r.out "$log" 2>&1)"
+  grep -q '^status: done$' "$JOB/checkpoint.md" || fail "$2: exit 10 changed the status"
+}
+passes() { rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?; [ "$rc" -eq 0 ] || fail "$1: exit $rc, want 0: $(cat r.out "$log" 2>&1)"; }
+# no done row (P3R1-1): with no table nothing says which PR to read or that there is none, so done is
+# refused; the PR in prose is not read
+done_job nt '- shipped as PR #7'
+refused 'status done but the Phase plan has no done row' "no table"
+! grep -q 'PR #7' "$log" || fail "no table: the PR in prose was read: $(cat "$log")"
+# a heading the runner does not read (capital P) hides its rows: the same refusal, not a pass
+done_job hd '## Phase Plan' "${plan[@]:1}" '| 0 | a | b | done (abc1234) · no PR |'
+refused 'status done but the Phase plan has no done row' "mis-typed heading"
+# a table with no row (header only), no PR named anywhere: the same refusal, not "no PR to read"
+done_job nr "${plan[@]}"
+refused 'status done but the Phase plan has no done row' "table with no rows"
+# a done row with neither, its PR only under Completed phases (the old template's shape): refused, with what to write
+done_job np "${plan[@]}" '| 0 | a | b | done (abc1234) |' '## Completed phases' '- **Phase 0, a** (done). PR #7; CI read.'
+refused 'phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>`' "done row with neither"
+sed -i 's/^| 0 | a | b | done (abc1234) |$/| 0 | a | b | done (abc1234) · no PR |/' "$JOB/checkpoint.md"
+passes "done row that says no PR"
+grep -q 'CI at done: PRs read: none; rows that say no PR: 0$' "$log" || fail "no PR row not logged: $(cat "$log")"
+# P3R2-1: one cell that names a PR does not excuse the next row. Row 1 has neither; its PR #7 (a red record
+# is in the job) is named only in prose
+done_job mx "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' '| 1 | a | b | done (abc1234) |' \
+  '## Completed phases' '- **Phase 1, a** (done). PR #7; CI read.'
+rec 7; rec 8
+refused 'phase row 1 is done but its Status cell says neither' "mixed rows, one with neither (P3R2-1)"
+# ruling 1 as ruled: once row 1 says `no PR` nothing in prose is read, so PR #7's red record does not count
+sed -i 's/^| 1 | a | b | done (abc1234) |$/| 1 | a | b | done (abc1234) · no PR · usage 7d 5% |/' "$JOB/checkpoint.md"
+passes "PR #8 green, row 1 says no PR"
+grep -q 'CI at done: PRs read: 8; rows that say no PR: 1$' "$log" && ! grep -q 'PR #7' "$log" || fail "mixed rows log: $(cat "$log")"
+# P3R2-2: another repo's PR and /pull/ link in prose are never read as this repo's PR 99
+n99="$(grep -c '^pr view 99' "$FAKE_GH/calls" || true)"
+done_job lk "${plan[@]}" '| 0 | a | b | done (abc1234) · no PR |' '## Decisions' \
+  '- copied from o/other PR #99, see https://github.com/o/other/pull/99'
+passes "another repo's PR link in prose (P3R2-2)"
+! grep -qE 'PR #99|pull/99' "$log" && [ "$(grep -c '^pr view 99' "$FAKE_GH/calls" || true)" = "$n99" ] || fail "another repo's PR 99 was read: $(cat "$log")"
+# two rows with one key: each row's own cell counts, not the first row's for both
+done_job dup "${plan[@]}" '| 1 | a | b | done (abc1234) · PR #8 |' '| 1 | a | b | done (abc1234) |'
+rec 8
+refused 'phase row 1 is done but its Status cell says neither' "second row of a duplicated key"
+# a cell that says both is refused
+done_job both "${plan[@]}" '| 0 | a | b | done (abc1234) · no PR · PR #8 |'
+rec 8
+refused 'phase row 0 Status cell says `no PR` and names PR #8' "no PR and a PR in one cell"
+# P3R2-6: a PR written a way the runner does not read is refused, never passed as "no PR named"
+i=0
+for c in 'PR #8, #7' 'PRs #7, #8' 'PR 7' '#7' 'PR: #7' 'PR  #7' 'no PR (#7 dropped)'; do
+  done_job "sp$((++i))" "${plan[@]}" "| 0 | a | b | done (abc1234) · $c |"
+  rec 8
+  refused 'phase row 0 ' "Status cell '$c'"
+done
+# P3R2-5: a NUL byte in the Status cell neither hides its PR nor lets done through (9: the row reads as open)
+done_job nul "${plan[@]}"; printf '| 0 | a | b | done (abc1234)\0 · PR #7 |\n' >> "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] || [ "$rc" -eq 9 ] || fail "NUL in a Status cell: exit $rc, want 9 or 10: $(cat r.out "$log" 2>&1)"
 
-# --- issue 26: an absent record passes only where HEAD has no workflow file ---
+# --- issue 26, owner ruling 2: an absent record passes only where the PR's own head commit has no workflow file ---
 new_job wf 'done'
 w="$(dirname "$JOB")"; log="$JOB/run.log"
-# P3R1-18: files at HEAD beside .github/workflows, in the root and under .github, are no workflow files
+commit() { git -C "$w" -c user.name=t -c user.email=t@t commit -q -m "$1"; git -C "$w" rev-parse HEAD; }
+# P3R1-18: files at the head beside .github/workflows, in the root and under .github, are no workflow files
 mkdir -p "$w/.github" "$w/sub"; echo x > "$w/README.md"; echo 'version: 2' > "$w/.github/dependabot.yml"
-git -C "$w" init -q && git -C "$w" add README.md .github && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m init
-printf '%s\n' '' '## Phase plan' '| # | Phase | Done when | Status |' '|---|---|---|---|' \
-  "| 1 | a | b | done ($(git -C "$w" rev-parse --short HEAD)) · PR #14 |" '## Decisions' >> "$JOB/checkpoint.md"
+git -C "$w" init -q && git -C "$w" add README.md .github; c1="$(commit init)"
+printf '%s\n' '' "${plan[@]}" "| 1 | a | b | done (${c1:0:7}) · PR #17 |" '## Decisions' >> "$JOB/checkpoint.md"
 mkdir -p "$JOB/gate-logs"; echo 'GATE: PASS passed=1 failed=0 shellcheck=ok' > "$JOB/gate-logs/phase-1.log"
 "$bo" receipt "$JOB" 1 > /dev/null 2>&1 || fail "fixture receipt refused"  # a done row in a git workdir needs one (exit 9)
-# P3R1-20: the record is ci-wait's own, of a head whose only run is a workflow_dispatch (PR 14): absent
-rc=0; "$bo" ci-wait "$JOB" 14 > wf14.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && jq -e '.verdict == "absent" and .runs == []' "$JOB/gate-logs/ci-pr-14.json" > /dev/null || fail "dispatch-only head in the wf job: exit $rc: $(cat wf14.out)"
-rc=0; "$bo" run "$JOB" > a1.out 2>&1 || rc=$?
-[ "$rc" -eq 0 ] && grep -q 'PR #14: no CI runs and no workflow file at HEAD (absent, not a pass)' "$log" || fail "absent CI, no workflow at HEAD: exit $rc: $(cat a1.out "$log")"
-mkdir -p "$w/.github/workflows"; echo 'on: pull_request' > "$w/.github/workflows/ci.yml"
-git -C "$w" add .github && git -C "$w" -c user.name=t -c user.email=t@t commit -q -m workflow
-rc=0; "$bo" run "$JOB" > a2.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && grep -q 'PR #14 CI absent: no runs, but HEAD has a workflow file (.github/workflows/ci.yml)' "$log" || fail "absent CI with a workflow at HEAD: exit $rc: $(cat a2.out "$log")"
-# P3R1-22: the way out is a push (an absent record has no run to re-run), then ci-wait
-grep -q 'PR #14 CI absent: .*; push to the PR branch for a run that is not a workflow_dispatch, then blast-off ci-wait <job-dir> 14, then run again' "$log" || fail "absent refusal names no way out: $(cat "$log")"
-grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 10 on absent CI changed the status"
-# P3R1-11: the workflow read is of the repo, also when the workdir is a subdirectory of it
+# absent17 <sha>: PR 17's head is that commit and its only run a workflow_dispatch (61): ci-wait's own absent record (P3R1-20)
+absent17() {
+  echo "$1" > "$FAKE_GH/pr-17-head"; echo 61 > "$FAKE_GH/runs-$1"
+  rc=0; "$bo" ci-wait "$JOB" 17 > wf17.out 2>&1 || rc=$?
+  [ "$rc" -eq 10 ] && jq -e --arg h "$1" '.verdict == "absent" and .runs == [] and .head_sha == $h' "$JOB/gate-logs/ci-pr-17.json" > /dev/null || fail "dispatch-only head $1: exit $rc: $(cat wf17.out)"
+}
+absent17 "$c1"
+passes "absent CI, no workflow file at the PR's head"
+grep -q "PR #17: no CI runs and no workflow file at its head ${c1:0:7} (no CI configured; absent, not a pass)" "$log" || fail "absent pass not logged: $(cat "$log")"
+# ruling 2: a workflow file at the workdir's HEAD that the PR's head lacks does not make runs due on the PR
+mkdir -p "$w/.github/workflows"; echo 'on: pull_request' > "$w/.github/workflows/release.yaml"
+git -C "$w" add .github; c2="$(commit workflow)"
+passes "workflow file at HEAD, none at the PR's head"
+[ "$(grep -c 'PR #17: no CI runs and no workflow file at its head' "$log")" -eq 2 ] || fail "workflow file at HEAD only: $(cat "$log")"
+# the PR's head moves to the commit that has the file (any name under .github/workflows): runs were due
+absent17 "$c2"
+refused "PR #17 CI absent: no runs, but its head ${c2:0:7} has a workflow file (.github/workflows/release.yaml)" "absent CI, workflow file at the PR's head"
+# P3R1-22, P3R2-3: the way out is a push (an absent record has no run to re-run), then ci-wait; a PR no
+# workflow can start on has no way out but the owner
+grep -q 'PR #17 CI absent: .*; push to the PR branch for a run that is not a workflow_dispatch, then blast-off ci-wait <job-dir> 17, then run again; if no workflow can start on this PR (a branch or path filter), there is no override: ask the owner' "$log" || fail "absent refusal names no way out: $(cat "$log")"
+# P3R1-11: the read is of the repo, also when the workdir is a subdirectory of it
 rc=0; "$bo" run "$JOB" "$w/sub" > a3.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #14 CI absent' "$log")" -eq 2 ] || fail "workdir a subdirectory of the repo: exit $rc: $(cat a3.out "$log")"
-# P3R1-13: HEAD is read, not the working tree: the file deleted on disk and not committed is still due its run
-rm "$w/.github/workflows/ci.yml"; echo '- .github/workflows/ci.yml deleted on disk, not committed' >> "$JOB/checkpoint.md"
+[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #17 CI absent' "$log")" -eq 2 ] || fail "workdir a subdirectory of the repo: exit $rc: $(cat a3.out "$log")"
+# P3R2-7, P3R1-13: the PR's head commit is read, not HEAD or the working tree: a later commit that removes
+# the file leaves the PR's head still due its run
+git -C "$w" rm -q .github/workflows/release.yaml; commit 'workflow removed' > /dev/null
 rc=0; "$bo" run "$JOB" > a4.out 2>&1 || rc=$?
-[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #14 CI absent' "$log")" -eq 3 ] || fail "workflow at HEAD, deleted on disk: exit $rc: $(cat a4.out "$log")"
+[ "$rc" -eq 10 ] && [ "$(grep -c 'PR #17 CI absent' "$log")" -eq 3 ] || fail "workflow file at the PR's head, removed at HEAD: exit $rc: $(cat a4.out "$log")"
 # P3R1-19: the workflow file refuses only an absent record; a green one of the same head passes
-jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-14.json" > ci14 && mv ci14 "$JOB/gate-logs/ci-pr-14.json"
-rc=0; "$bo" run "$JOB" > a5.out 2>&1 || rc=$?
-[ "$rc" -eq 0 ] && [ "$(grep -c 'PR #14 CI absent' "$log")" -eq 3 ] || fail "green record with a workflow at HEAD: exit $rc: $(cat a5.out "$log")"
-# P3R1-12: a failing ls-tree (a repo with no commit yet) is the runner's error (exit 1), never "no workflow
-# file". No done row can stand in such a repo (exit 9), so the PR is named in prose, read by P3R1-1's rule
-new_job ub 'done'; w="$(dirname "$JOB")"
-git -C "$w" init -q; echo '- shipped as PR #9' >> "$JOB/checkpoint.md"
-mkdir -p "$JOB/gate-logs"; cp "$JOB/../../test-$$-cmd/job/gate-logs/ci-pr-9.json" "$JOB/gate-logs/"
-rc=0; "$bo" run "$JOB" > u1.out 2>&1 || rc=$?
-[ "$rc" -eq 1 ] && grep -q 'git ls-tree HEAD failed' u1.out || fail "ls-tree failing at done: exit $rc: $(cat u1.out "$JOB/run.log")"
+jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-17.json" > ci17 && mv ci17 "$JOB/gate-logs/ci-pr-17.json"
+passes "green record with a workflow file at the PR's head"
+[ "$(grep -c 'PR #17 CI absent' "$log")" -eq 3 ] || fail "green record refused as absent: $(cat "$log")"
+# a head that is no commit of the workdir's repo: whether runs were due cannot be read, so absent is refused
+echo "$h8" > "$FAKE_GH/pr-17-head"
+jq --arg h "$h8" '.verdict = "absent" | .head_sha = $h' "$JOB/gate-logs/ci-pr-17.json" > ci17 && mv ci17 "$JOB/gate-logs/ci-pr-17.json"
+refused "PR #17 CI absent: no runs, and its head $h8 is no commit git can read in" "absent CI, head not in the workdir's repo"
 echo ok

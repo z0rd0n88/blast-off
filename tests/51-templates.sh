@@ -28,6 +28,7 @@ for f in Makefile decisions.tsv; do ! cp_names "$f" || fail "template names $f; 
 sed -i '0,/^\(| 0 |.*| \)pending |$/s//\1done (abc1234) · PR #7 |/' "$JOB/checkpoint.md"
 [ "$(cp_done_rows)" = 0 ] || fail "done row as the template writes it not read: $(grep '^| 0 ' "$JOB/checkpoint.md")"
 [ "$(cp_row_sha 0)" = abc1234 ] || fail "row sha: '$(cp_row_sha 0)', want abc1234"
+[ "$(cp_done_cells)" = '0|done (abc1234) · PR #7 ' ] || fail "done row's Status cell: '$(cp_done_cells)'"
 for s in 'done (<sha>)' 'PR #<n>' 'replace' '· usage' 'backticks' 'phases/phase-<n>.md' \
          'gate-logs/phase-<n>' 'Hand-backs' 'children <a>-<b>'; do
   has "$t" "$s"
@@ -71,14 +72,20 @@ has "$b" '| D2 | Codex lanes | off'
 flat() { tr '\n' ' ' | tr -s ' '; }
 C="$(flat < "$t")"
 for s in 'Children write only running, done or blocked there.' "paused-cap and paused-limit are the runner's" \
-         '-uall' "in a row's Status cell means this job's own PR" 'A row closed without one gets no CI check' \
-         'unless no Status cell names a PR' '<job-dir>/decisions.tsv'; do
+         '-uall' "Every closed row's Status cell names the phase's own PR, as \`PR #<n>\` (or its /pull/<n> link), or says \`no PR\`." \
+         'Write `no PR` only for a phase that opened no PR.' \
+         'The runner refuses done (exit 10) for a closed row with neither' \
+         'It reads PRs nowhere else in this file' '<job-dir>/decisions.tsv'; do
   [[ $C == *"$s"* ]] || fail "checkpoint.md lacks: $s"
 done
+# P3R2-4: the rule is an obligation; it names no way to close a row and skip its CI check
+for s in 'gets no CI check' 'unless no Status cell'; do [[ $C != *"$s"* ]] || fail "checkpoint.md still says: $s"; done
 S9="$(sed -n '/^## 9\. Child protocol/,$p' "$b" | flat)"
 for s in 'gh pr list' 'rev-list --count HEAD..origin/' 'git fetch origin' 'git status --porcelain -uall' \
          'Write only running, done or blocked in the `status:` line' \
-         '`paused-cap` and `paused-limit` belong to the runner' 'leave the status as it is' 'Do not try to exit 75'; do
+         '`paused-cap` and `paused-limit` belong to the runner' 'leave the status as it is' 'Do not try to exit 75' \
+         '`done (<sha>) · no PR` only for a phase that opened no PR' \
+         '`absent`, no runs, is not a pass' 'leave the row open, set `status: blocked`'; do
   [[ $S9 == *"$s"* ]] || fail "brief section 9 lacks: $s"
 done
 # the close order the runner checks: commit, gate, receipt, PR, ci-wait, then the done cell

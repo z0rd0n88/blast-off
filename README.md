@@ -111,10 +111,12 @@ blast-off receipt <job-dir> <n>     # gate-logs/phase-<n>.json: verdict, tally, 
 blast-off ci-wait <job-dir> <pr>    # one blocking gh run watch per CI run of the PR head
 ```
 
-and finally the row's Status cell `done (<sha>) · PR #<pr>`. The runner refuses a done row without a
-PASS receipt for its sha (exit 9) and `status: done` while the CI of a PR named in a Phase plan Status
-cell is red, unread, or absent (no runs) with a workflow file at HEAD (exit 10). With no PR in any
-Status cell it reads every PR `checkpoint.md` names instead; `run.log` says which PRs were read.
+and finally the row's Status cell `done (<sha>) · PR #<pr>`, or `done (<sha>) · no PR` for a phase
+that opened no PR. The runner refuses a done row without a PASS receipt for its sha (exit 9). It
+refuses `status: done` (exit 10) while a done row's Status cell says neither `PR #<pr>` nor `no PR`,
+while the job has no done row at all, and while the CI of a PR named in such a cell is red, unread,
+or absent (no runs) where the PR's head commit has a workflow file. PRs are read only from those
+cells, never from prose; `run.log` says which were read.
 
 ## Exit codes
 
@@ -123,13 +125,13 @@ Status cell it reads every PR `checkpoint.md` names instead; `run.log` says whic
 | 0 | job done | read the final report in `checkpoint.md` |
 | 1 | usage, dependency or runner error; `preflight` refused | read the message or the last `run.log` line, fix, run again |
 | 3 | blocked: the job needs the owner | answer what `Open or blocked` asks, set `status: running`, `start` again |
-| 4 | hard child cap (no Phase plan table) | add a Phase plan table, or raise `JOB_MAX_CHILDREN`, and start again |
+| 4 | hard child cap (no Phase plan table; such a job cannot end `done` either, exit 10) | add a Phase plan table, or raise `JOB_MAX_CHILDREN`, and start again |
 | 5 | two children in a row left `checkpoint.md` unchanged | read the children's closing summaries in `run.log`; fix the brief or `Next action` |
 | 6 | soft cap reached, `status: paused-cap` | `blast-off resume <job-dir>` (fresh child count) |
 | 7 | uncommitted paths the checkpoint does not name | commit, remove, or name them in the checkpoint; start again |
 | 8 | usage limit, `status: paused-limit until <time>` | nothing while `status` shows the resume timer active; else `blast-off resume <job-dir>` after `<time>` |
 | 9 | a done Phase plan row lacks its commit or a PASS receipt for it | run the gate, `blast-off receipt`, fix the row's sha |
-| 10 | done refused: the CI of a PR named in a Phase plan Status cell is red, unread, or absent (no runs) while HEAD has a workflow file | the last `run.log` line names the PR and the case. Red: fix CI and push. Then `blast-off ci-wait <job-dir> <pr>` after the last push. Absent: push to the PR branch so a run starts, then `ci-wait`; there is no override for a PR its workflows never run on |
+| 10 | done refused: a done Phase plan row's Status cell says neither `PR #<pr>` nor `no PR` (or the job has no done row); or the CI of a PR named in such a cell is red, unread, or absent (no runs) while the PR's head commit has a workflow file or cannot be read in the workdir's repo | the last `run.log` line names the row or the PR, the case, and what to write or run. Row: add `PR #<pr>`, or `no PR` if the phase opened none. Red: fix CI and push. Then `blast-off ci-wait <job-dir> <pr>` after the last push. Absent: push to the PR branch so a run starts, then `ci-wait`; fetch the PR's head first if the line says it cannot be read. There is no override for a PR no workflow can start on (a branch or path filter): ask the owner |
 
 Every non-zero code except 1 is a state, not a failure: the unit has no `Restart=`, and the runner is
 safe to run again.

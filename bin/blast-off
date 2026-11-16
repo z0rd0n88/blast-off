@@ -34,8 +34,8 @@
 #        5 two children in a row left checkpoint.md unchanged · 6 soft cap reached, status paused-cap (run again)
 #        7 uncommitted paths checkpoint.md does not name (after a child or before child 1)
 #        8 usage limit: status paused-limit until <time>; <unit>.resume.timer runs `blast-off resume` then
-#        9 a done Phase plan row names no commit, or lacks a PASS receipt for it · 10 done refused: a PR's CI red, unread,
-#        or absent (no runs) while HEAD has a workflow file
+#        9 a done Phase plan row names no commit, or lacks a PASS receipt for it · 10 done refused: a done row names
+#        neither its PR nor `no PR`, or a PR's CI is red, unread, or absent (no runs) while its head has a workflow file
 set -euo pipefail
 
 BLAST_OFF_HOME="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"

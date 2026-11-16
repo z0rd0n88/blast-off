@@ -24,7 +24,7 @@ grep -q 'soft cap 2 reached; status paused-cap; run again to continue' "$log" ||
 grep -q 'child 2 launched' "$log" || fail "cap 2 stopped before child 2"
 grep -q 'child 3 launched' "$log" && fail "child 3 launched past the soft cap"
 
-printf 'done\n' > "$JOB/fake-mode"; sed -i 's/| pending |$/| done |/' "$JOB/checkpoint.md"  # done needs every row done (D4-4)
+printf 'done\n' > "$JOB/fake-mode"; sed -i 's/| pending |$/| done · no PR |/' "$JOB/checkpoint.md"  # done needs every row done (D4-4), each with its PR or `no PR`
 printf 'done\n' > "$JOB/fake-mode"
 rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > rerun.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "re-run after paused-cap exit $rc: $(cat rerun.out; cat "$log")"

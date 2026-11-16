@@ -34,13 +34,16 @@ cp_names() {
 
 # cp_done_rows: first cells of the Phase plan rows whose Status cell (the last) starts with "done", any case.
 # cp_open_rows: the other rows' first cells, and done rows whose key is not letters, digits, '.', '-', '_'.
+# cp_done_cells: each done row as "<key>|<Status cell>": every row, also one whose key an earlier row has
+# (cp_row reads only the first of those).
 cp_done_rows() { cp_plan_rows "done"; }
 cp_open_rows() { cp_plan_rows open; }
+cp_done_cells() { cp_plan_rows cells; }
 cp_plan_rows() {
   sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
     awk -F'|' -v want="$1" '{ k = $2; st = $(NF-1); gsub(/[ \t]/, "", k); sub(/^[ \t]+/, "", st)
                  d = tolower(st) ~ /^done/ && k ~ /^[0-9A-Za-z._-]+$/
-                 if ((want == "done") == d) print k }'
+                 if (want == "cells") { if (d) print k "|" st } else if ((want == "done") == d) print k }'
 }
 
 # cp_row <key>: that Phase plan row's whole line.
