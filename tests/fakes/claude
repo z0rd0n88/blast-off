@@ -14,7 +14,7 @@
 #        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
 #        close (mark the first pending Phase plan row `done · no PR`; with none pending, status done)
-#        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>)`)
+#        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>) · no PR`)
 #        close-sha-later (close-sha, then commit later.txt: the row names a commit older than HEAD)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
 # status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; pre=; shift 2 ;; 
 cp="$JOB_DIR/checkpoint.md"
 # fin: status done. The runner refuses done (exit 10) without a done Phase plan row that says `PR #<n>` or
 # `no PR`, so a job with no table gets a one-row one here; in a git workdir that row also needs HEAD's
-# commit and a PASS receipt for it (exit 9), written here as `blast-off receipt` would
+# commit and a PASS receipt for it (exit 9), written here with the fields the receipt gate reads
 fin() {
   sed -i 's/^status: .*/status: done/' "$cp"
   ! grep -q '^## Phase plan' "$cp" || return 0

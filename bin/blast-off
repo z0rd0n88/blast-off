@@ -15,7 +15,7 @@
 #  env:  CLAUDE_FLAGS (required)   --model, --effort and any other flags for every child
 #        JOB_CHILD_TIMEOUT=7200    seconds one child may run before it is killed and replaced
 #        JOB_CAP_FACTOR=3          soft cap = Phase plan rows in checkpoint.md times this
-#        JOB_MAX_CHILDREN          overrides the soft cap; with no Phase plan table, the hard cap (default 12)
+#        JOB_MAX_CHILDREN          overrides the soft cap; with no Phase plan row it reads, the hard cap (default 12)
 #        JOB_SESSION=job-<name>    tmux session on the job's own server, tmux -L blast-off-<name>
 #        JOB_KEEP_WINDOWS=1        leave finished children's windows open
 #        BLAST_OFF_TRUST_SECONDS=60  seconds after a child starts that its trust dialog is answered
@@ -35,7 +35,7 @@
 #        7 uncommitted paths checkpoint.md does not name (after a child or before child 1)
 #        8 usage limit: status paused-limit until <time>; <unit>.resume.timer runs `blast-off resume` then
 #        9 a done Phase plan row names no commit, or lacks a PASS receipt for it · 10 done refused: a done row names
-#        neither its PR nor `no PR`, or a PR's CI is red, unread, or absent (no runs) while its head has a workflow file
+#        neither its PR nor `no PR`, the Phase plan holds a line that is no row the runner reads, or a PR's CI is red, unread, or absent (no runs) while its head has a workflow file
 set -euo pipefail
 
 BLAST_OFF_HOME="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"

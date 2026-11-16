@@ -41,3 +41,5 @@
 - 2026-11-16 PAUSE: phase 3 review cap reached without CLEAN; failure baton baton-runner/br-1115-issues/failure-phase-3.md; owner to pick guide-resume / waive / abandon
 - 2026-11-16 RESUME: owner chose guide & resume for phase 3; review counter reset
 - 2026-11-16 phase 3/8 · FIX iter3 (guided) spawn · units 15/75
+- 2026-11-16 phase 3/8 · FIX iter3 (guided) return COMPLETE progress=17 · baton baton-runner/br-1115-issues/baton-phase-3-fix-3.md
+- 2026-11-16 phase 3/8 · REVIEW iter4 (1 of 3 after reset) spawn · units 16/75

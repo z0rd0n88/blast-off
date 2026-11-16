@@ -1,0 +1,11 @@
+FAIL 41-ci-wait
+  | FAIL: unread line '| P1 | a | b | done (abc1234) · PR #7 |': exit 0, want 10 and 'checkpoint.md line 13 '| P1 | a | b | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a row the runner reads': 2026-11-16T11:10:33Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+  | 2026-11-16T11:10:33Z workdir /tmp/tmp.dKCrBHGYoH/cwd/test-2636739-ur1 is not in a git repo; dirty-tree check off, receipt check off
+  | 2026-11-16T11:10:33Z CI at done: PRs read: 8; rows that say no PR: none
+  | 2026-11-16T11:10:33Z job done
+  | 2026-11-16T11:10:33Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+  | 2026-11-16T11:10:33Z workdir /tmp/tmp.dKCrBHGYoH/cwd/test-2636739-ur1 is not in a git repo; dirty-tree check off, receipt check off
+  | 2026-11-16T11:10:33Z CI at done: PRs read: 8; rows that say no PR: none
+  | 2026-11-16T11:10:33Z job done
+PASS shellcheck (33 files)
+GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=41-ci-wait

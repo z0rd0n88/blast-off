@@ -7,8 +7,12 @@ cp_status() { sed -n '/^status:/{s/^status: *\([a-z-]*\).*/\1/p;q}' "$JOB/checkp
 # Changes whenever a child rewrites the checkpoint; equal before and after a child = a stall.
 cp_fingerprint() { sha256sum "$JOB/checkpoint.md" | cut -c1-16; }
 
-# Rows of the `## Phase plan` table whose first cell is a number: the job's phase count (0 = no table).
-cp_phases() { sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" | wc -l; }
+# cp_rows [file]: the `## Phase plan` lines the runner reads as rows (`|`, spaces, then a digit), of this job's
+# checkpoint.md or that file; every row reader starts here (P3R3-13). cp_unread refuses at done what it skips.
+cp_rows() { sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "${1:-$JOB/checkpoint.md}"; }
+
+# Rows of the `## Phase plan` table whose first cell starts with a digit: the phase count (0 = none read).
+cp_phases() { cp_rows | wc -l; }
 
 # cp_size_warn: log when checkpoint.md is over 150 lines (F3: each child re-reads it whole; ledgers and
 # decision detail belong in phases/). Called before every launch, so it repeats while the file stays over.
@@ -40,21 +44,43 @@ cp_done_rows() { cp_plan_rows "done"; }
 cp_open_rows() { cp_plan_rows open; }
 cp_done_cells() { cp_plan_rows cells; }
 cp_plan_rows() {
-  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+  cp_rows |
     awk -F'|' -v want="$1" '{ k = $2; st = $(NF-1); gsub(/[ \t]/, "", k); sub(/^[ \t]+/, "", st)
                  d = tolower(st) ~ /^done/ && k ~ /^[0-9A-Za-z._-]+$/
                  if (want == "cells") { if (d) print k "|" st } else if ((want == "done") == d) print k }'
 }
 
+# cp_unread: the first line that would keep a row out of what the runner reads, said as "line <n> '<line>'
+# <why>"; nothing when there is none. That is a second Phase plan heading (any level or case, ATX or setext:
+# rows under it are outside the section or end it), or a line of the `## Phase plan` section that holds a '|'
+# and is not the header (the first such line, first cell `#`, no digit, no "done" in its last cell), a
+# separator or a row the parser takes (`|`, spaces, a digit), or holds a carriage return mid-line (the
+# parser would read two rows as one). A key `P1`, a bold or indented row, a tab, no leading pipe: each
+# would be skipped by every gate, so done refuses them all (P3R3-1, owner direction), not each shape.
+cp_unread() {
+  awk -F'|' '{ sub(/\r$/, "") }
+    tolower($0) ~ /^[ \t]*#+[ \t]*phase[ \t]+plan/ { n = NR; t = $0 }
+    /^[ \t]*(=+|-+)[ \t]*$/ && tolower(p) ~ /^[ \t]*phase[ \t]+plan/ { n = NR - 1; t = p }
+    n { if (h++) { print "line " n " \047" t "\047 is a second Phase plan heading"; exit } n = 0 }
+    { p = $0 }
+    /^## Phase plan/ { s = 1; next }
+    s && /^## / { s = 0 }
+    s && /\|/ { if (!/\r/ && (/^\| *[0-9]/ || /^\|[ \t:|-]*-[ \t:|-]*$/)) { f = 1; next }
+      k = $2; st = $(NF-1); gsub(/[ \t]/, "", k)
+      if (!f++ && /^\|/ && k == "#" && !/[0-9]/ && tolower(st) !~ /done/) next
+      gsub(/\r/, "\\r")
+      print "line " NR " \047" $0 "\047 holds a \047|\047 in the Phase plan and is not its header, separator or a row the runner reads"; exit }' "$JOB/checkpoint.md"
+}
+
 # cp_row <key>: that Phase plan row's whole line.
 cp_row() {
-  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+  cp_rows |
     awk -F'|' -v k="$1" '{ key = $2; gsub(/[ \t]/, "", key); if (key == k) { print; exit } }'
 }
 
 # cp_row_sha <key>: the first 7 to 40 character lower-case hex word in that Phase plan row's Status cell.
 cp_row_sha() {
-  sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$JOB/checkpoint.md" |
+  cp_rows |
     awk -F'|' -v k="$1" '{ key = $2; gsub(/[ \t]/, "", key); if (key != k) next
       n = split($(NF-1), w, /[^0-9A-Za-z]+/)
       for (i = 1; i <= n; i++) if (w[i] ~ /^[0-9a-f]+$/ && length(w[i]) >= 7 && length(w[i]) <= 40) { print w[i]; exit } }'

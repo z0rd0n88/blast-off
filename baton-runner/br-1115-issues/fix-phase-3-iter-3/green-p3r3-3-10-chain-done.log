@@ -1,0 +1,3 @@
+PASS 10-chain-done
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=10-chain-done

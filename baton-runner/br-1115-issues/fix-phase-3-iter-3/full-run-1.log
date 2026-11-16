@@ -1,0 +1,21 @@
+FAIL 00-harness
+  | FAIL: spec has no filled row for 10
+PASS 10-chain-done
+PASS 11-unit-smoke
+PASS 12-start-env
+PASS 20-dead-child
+PASS 21-soft-cap
+PASS 22-dirty-tree
+PASS 23-runner-lock
+PASS 30-paused-limit
+PASS 31-resume-after-reset
+PASS 32-usage-per-phase
+PASS 40-receipt-required
+PASS 41-ci-wait
+PASS 50-checkpoint-size
+PASS 51-templates
+PASS 60-preflight
+PASS 61-jev-pick
+PASS 70-docs
+PASS shellcheck (33 files)
+GATE: FAIL passed=17 failed=1 shellcheck=ok

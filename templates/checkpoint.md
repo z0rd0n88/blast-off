@@ -21,17 +21,21 @@ other worktrees: <path · branch · HEAD, or none>
 - The first status line above is the one the runner reads. Children write only running, done or
   blocked there. paused-cap and paused-limit are the runner's: on a usage limit, checkpoint and end
   the turn; the runner pauses the job itself.
-- Each row's first cell starts with a digit (0, 1, 2a): the runner only sees rows like that.
+- One `## Phase plan` heading and one table under it: the header, the separator and one row per phase,
+  each row from the left margin like the ones above, its first cell (the key) starting with a digit
+  (0, 1, 2a), its Status cell last. At done the runner refuses (exit 10) a second Phase plan heading
+  and any table line in that section that is not the header, the separator or such a row.
 - A closed row's Status cell starts `done (<sha>)`, <sha> = the commit `blast-off receipt` recorded
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
   hex word in the cell, so replace an older sha, never append a second. After it comes `PR #<n>` or
   `no PR` (the PR rule below).
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- Every closed row's Status cell names the phase's own PR, as `PR #<n>` (or its /pull/<n> link), or
-  says `no PR`. Write `no PR` only for a phase that opened no PR. The runner refuses done (exit 10)
+- Every closed row's Status cell names every PR the phase opened, each as `PR #<n>` (or its /pull/<n>
+  link), or says `no PR`. Write `no PR` only for a phase the brief says opens no PR; a PR that could
+  not be opened is a blocked part (Open or blocked), not `no PR`. The runner refuses done (exit 10)
   for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.
-  It reads PRs nowhere else in this file, and refuses any other '#<n>' in a Status cell: name another
-  PR in prose, outside the table.
+  Past `done (<sha>)` a done row's Status cell holds those PRs or `no PR` and no other number, '#' or
+  PR. A PR that is not this job's goes in prose, outside the table.
 - An uncommitted path at a child's end must be named here, whole: each file `git status --porcelain
   -uall` lists, from the repo root or the workdir, never absolute, no leading ./ (a directory does not
   name the files in it). A name with no '/' and no '.' (`<bare-name>`) counts only in backticks. An

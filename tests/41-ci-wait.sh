@@ -89,12 +89,11 @@ wd="$PWD/wd"; mkdir -p "$wd"
 # The scenario dir is in no git repo, so the done rows below need no receipt (P3R1-37).
 new_job fin 'done'
 # D4-5, D4-17: any case, no space, leading 0. Issue 26: only a Status cell names this job's PRs; PR #98
-# (another cell) and PR #99 (prose, say another repo's) have no record and must not hold done back. Nor do
-# PR #96 (a row whose key is no digit) and PR #97 (a digit-keyed row under another heading): the Status
-# cell is the last of five here, of the rows the runner sees, in `## Phase plan` only (P3R1-15 to 17)
+# (another cell) and PR #99 (prose, say another repo's) have no record and must not hold done back. Nor
+# does PR #97 (a digit-keyed row under another heading, so prose): the Status cell is the last of five
+# here, in `## Phase plan` only (P3R1-15 to 17). A row there the runner cannot read refuses done (P3R3-1, below)
 printf '%s\n' '' '## Phase plan' '| # | Phase | Done when | Notes | Status |' '|---|---|---|---|---|' \
   '| 0 | a | b | c | done (abc1234) · pr#07 |' '| 1 | a | b | port of PR #98 | done (abc1234) https://github.com/o/r/pull/9 |' \
-  '| P1 | a | b | c | done (abc1234) · PR #96 |' \
   '## Decisions' '- copied from o/other PR #99, see https://github.com/o/other/pull/99' \
   '| 3 | a | b | c | done (abc1234) · PR #97 |' >> "$JOB/checkpoint.md"
 log="$JOB/run.log"
@@ -129,7 +128,7 @@ rc=0; "$bo" run "$JOB" > d4.out 2>&1 || rc=$?
 jq '.verdict = "success"' "$JOB/gate-logs/ci-pr-9.json" > ci9 && mv ci9 "$JOB/gate-logs/ci-pr-9.json"
 rc=0; "$bo" run "$JOB" > d4b.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "green records: exit $rc: $(cat d4b.out "$log")"
-! grep -qE 'PR #9[6-9]' "$log" && ! grep -qE '^pr view 9[6-9]' "$FAKE_GH/calls" || fail "a PR named outside a Status cell was read: $(grep -E 'PR #9[6-9]' "$log")"
+! grep -qE 'PR #9[7-9]' "$log" && ! grep -qE '^pr view 9[7-9]' "$FAKE_GH/calls" || fail "a PR named outside a Status cell was read: $(grep -E 'PR #9[6-9]' "$log")"
 # what was read at done is in run.log
 grep -q 'CI at done: PRs read: 7 9; rows that say no PR: none$' "$log" || fail "PRs read at done not logged: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "a child ran after done: $(cat "$JOB/fake-marker")"
@@ -196,13 +195,47 @@ refused 'phase row 1 is done but its Status cell says neither' "second row of a 
 done_job both "${plan[@]}" '| 0 | a | b | done (abc1234) · no PR · PR #8 |'
 rec 8
 refused 'phase row 0 Status cell says `no PR` and names PR #8' "no PR and a PR in one cell"
+# P3R3-1 (owner direction): beside a readable done row (PR #8 green), a Phase plan line that holds a '|' and is
+# not the header, the separator or a row the runner reads, or a second Phase plan heading, refuses done and
+# names the line: a row the runner cannot read is never skipped. Its PR #7 is red, its key is no digit, it
+# is indented, tab-led, has a tab after its pipe, no leading pipe, a `#` key holding a done Status, or it sits
+# under a second heading (any level or case, ATX or setext, in or after the section)
+i=0 r7='done (abc1234) · PR #7 |'
+for l in "| P1 | a | b | $r7" "| **1** | a | b | $r7" "  | 1 | a | b | $r7" $'\t'"| 1 | a | b | $r7" \
+  $'|\t'"1 | a | b | $r7" "1 | a | b | $r7" "| # | a | b | $r7" "| ~~1~~ | a | b | $r7" "<!-- | 1 | a | b | $r7 -->" \
+  '| # | a | b | pending |' '| # | a | b | PR #7 · done (abc1234) |' "| 1 | a | b | done (abc1234) · PR #8 |\\r| 2 | a | b | $r7"; do
+  done_job "ur$((++i))" "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' "$(printf '%b' "$l")"
+  rec 7; rec 8
+  refused "checkpoint.md line 13 '$l' holds a '|' in the Phase plan and is not its header, separator or a row the runner reads" "unread line '$l'"
+  ! grep -q 'PRs read' "$log" || fail "unread line '$l': PRs were read before the refusal: $(cat "$log")"
+done
+for h in '## Phase plan' '## Phase Plan' '### Phase plan' '# phase  plan (cont.)'; do
+  done_job "uh$((++i))" "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' '## Decisions' "$h" "${plan[@]:1}" "| 1 | a | b | $r7"
+  rec 7; rec 8
+  refused "checkpoint.md line 14 '$h' is a second Phase plan heading" "second heading '$h'"
+done
+done_job "uh$((++i))" "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' "${plan[@]}" "| 1 | a | b | $r7"
+rec 7; rec 8
+refused "checkpoint.md line 13 '## Phase plan' is a second Phase plan heading" "second heading right after the table"
+done_job "uh$((++i))" "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #8 |' '## Decisions' 'Phase plan' '----------' "${plan[@]:1}" "| 1 | a | b | $r7"
+rec 7; rec 8
+refused "checkpoint.md line 14 'Phase plan' is a second Phase plan heading" "setext second heading"
+# what may stay: CRLF lines, an aligned separator, a sub-heading and prose lines with no '|' in the section
+done_job ok "${plan[@]::2}" '|:--|---|:-:|--:|' '### detail' 'Rows below are phases 0 and 1.' '| 0 | a | b | done (abc1234) · PR #8 |' \
+  $'| 1 | a | b | done (abc1234) · no PR |\r' '## Decisions'
+rec 8
+passes "a Phase plan with only rows, header, separator and lines with no '|'"
 # P3R2-6: a PR written a way the runner does not read is refused, never passed as "no PR named"
 i=0
-for c in 'PR #8, #7' 'PRs #7, #8' 'PR 7' '#7' 'PR: #7' 'PR  #7' 'no PR (#7 dropped)'; do
+# P3R3-3: past `done (<sha>)` only PR tokens and `no PR` may hold a number or the word PR (a whitelist)
+for c in 'PR #8, #7' 'PRs #7, #8' 'PR 7' '#7' 'PR: #7' 'PR  #7' 'no PR (#7 dropped)' \
+  'no PR, see PR 7' 'PR #8, 7' 'PR #8,234' 'PR 7 · no PR checks failed' '(see PR 7) no PR' 'no PRs' 'PR #8 see /pull/x'; do
   done_job "sp$((++i))" "${plan[@]}" "| 0 | a | b | done (abc1234) · $c |"
   rec 8
   refused 'phase row 0 ' "Status cell '$c'"
 done
+done_job nc "${plan[@]}" '| 0 | a | b | done (abc1234) · No PR |'
+passes "\`No PR\`, any case (P3R3-21)"
 # P3R2-5: a NUL byte in the Status cell neither hides its PR nor lets done through (9: the row reads as open)
 done_job nul "${plan[@]}"; printf '| 0 | a | b | done (abc1234)\0 · PR #7 |\n' >> "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?

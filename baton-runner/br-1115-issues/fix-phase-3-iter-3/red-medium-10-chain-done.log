@@ -1,0 +1,13 @@
+FAIL 10-chain-done
+  | FAIL: hard cap source not logged: 2026-11-16T11:23:54Z child cap 1 (hard: no Phase plan table in checkpoint.md)
+  | 2026-11-16T11:23:54Z workdir /tmp/tmp.f3ZQpLxeaj/cwd/test-2710428-cap is not in a git repo; dirty-tree check off, receipt check off
+  | 2026-11-16T11:23:54Z model level: no open Phase plan row; static CLAUDE_FLAGS: --model fake --effort low
+  | 2026-11-16T11:23:54Z child 1 launched  window=%1  (watch: tmux -L blast-off-test-2710428-cap attach -t job-test-2710428-cap)
+  | child 1 session=fake-1 transcript=/dev/null
+  | --- child's last message ---
+  | fake child 1 did step
+  | ---
+  | 2026-11-16T11:23:55Z child 1 usage: unknown
+  | 2026-11-16T11:23:55Z child cap 1 reached
+PASS shellcheck (33 files)
+GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=10-chain-done
