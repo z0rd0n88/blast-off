@@ -27,3 +27,16 @@ phases:
   - id: phase-8  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
 skipped (not in this run): 15, 11, 19, 24, 10, 20, 17, 18, 25, 23; 29 beyond the PR 32 warning
+
+## RESUME HERE (paused by owner, 2026-11-16)
+Nothing is running. Every unit has returned and every result is committed on feat/br-1115-issues/phase-3.
+- Phases 1 and 2: DONE, draft PRs https://github.com/z0rd0n88/blast-off/pull/34 (base main) and https://github.com/z0rd0n88/blast-off/pull/35 (base phase-1). Merge 34 first.
+- Phase 3 (issue 26): PAUSED at its second review cap. The last review (iter 6) found 1 in-scope HIGH: P3R6-1 (two done rows can name the same PR, so a phase's own red PR goes unread), plus MEDIUM P3R6-2 (a bare /pull/N from another repo is read as this repo's PR) and 11 more MEDIUMs; see baton-phase-3-review-6.md. Rulings 1-3: owner-rulings-phase-3.md. History: failure-phase-3.md.
+- PENDING OWNER DECISION (asked, not answered) on how to close phase 3:
+  1. one narrow fix (refuse two done rows naming the same PR; stop reading bare /pull/N), one review round, then open the phase 3 draft PR whatever it finds (manager's recommendation);
+  2. waive now and open the phase 3 draft PR with the open findings listed;
+  3. abandon phase 3 and build phase 4 on phase 2.
+- After phase 3: phases 4-8 = issues 22, 14, 27 (threshold 0.7 via JOB_JEV_MIN_CONF), 16, 21. Each phase branches from the previous phase's tip.
+- Open owner questions for the phase 3 PR body: P3R2-8 (which files count as workflows), P3R4-13, P3R4-15, P3R4-16 (another repo's /pull/N).
+- Rules learned this run (put them in every unit brief): only the review unit runs the full suite, once, alone; reviewers run single scenarios only; nobody runs two suites at once (the suite rewrites ~/.config/systemd/user/blast-off@.service with no lock); after each full run check ExecStart still names /home/alex/blast-off/.worktrees/blast-off-build/bin/blast-off; nobody deletes anything but their own temp dirs.
+- To resume: open a session in /home/alex/blast-off/.claude/worktrees/pending-items-53932d, invoke Z0rd0nZords:zord-baton-runner, point it at this file, give the phase 3 decision.
