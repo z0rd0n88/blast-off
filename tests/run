@@ -4,6 +4,8 @@
 # Usage: tests/run [scenario-dir]        (default: the dir this script lives in)
 #   env: BLAST_OFF_NO_SHELLCHECK=1       skip shellcheck for a fixture scenario-dir only (the harness self-test); ignored on the real suite
 #        BLAST_OFF_TEST_TIMEOUT=300      seconds one scenario may run before it counts as failed
+#        BLAST_OFF_TEST_KEEP=<dir>       keep each scenario's work dir as <dir>/<name> (out = its output, cwd/ = what it
+#                                        left) instead of removing it, so CI can upload a failed run; scenarios never see it
 # Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."
 set -euo pipefail
 
@@ -11,6 +13,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$HERE")"
 DIR="$(cd "${1:-$HERE}" && pwd)"
 export REPO
+
+KEEP="${BLAST_OFF_TEST_KEEP:-}"
+# before any scenario: a keep dir that cannot be made fails here, not after the suite ran
+[ -z "$KEEP" ] || { mkdir -p "$KEEP"; KEEP="$(cd "$KEEP" && pwd)"; }
+# a scenario that runs tests/run itself (00-harness) would keep its fixtures beside the real scenarios
+unset BLAST_OFF_TEST_KEEP
 
 passed=0 failed=0 sc=skipped
 for t in "$DIR"/[0-9][0-9]-*.sh; do
@@ -22,7 +30,8 @@ for t in "$DIR"/[0-9][0-9]-*.sh; do
   else
     failed=$((failed+1)); echo "FAIL $name"; sed 's/^/  | /' "$work/out"
   fi
-  rm -rf "$work"
+  # a dir left by an earlier run goes first: mv onto an existing dir nests
+  if [ -n "$KEEP" ]; then rm -rf "${KEEP:?}/$name"; mv "$work" "$KEEP/$name"; else rm -rf "$work"; fi
 done
 [ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
 

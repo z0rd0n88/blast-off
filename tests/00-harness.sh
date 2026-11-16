@@ -19,6 +19,23 @@ grep -q '  | boom' bad.out || fail "failing scenario output not shown"
 if run_gate empty; then fail "empty fixture exited 0 (unrun is not passed)"; fi
 grep -q '^GATE: FAIL' empty.out || fail "empty fixture verdict: $(cat empty.out)"
 
+# --- BLAST_OFF_TEST_KEEP: each scenario's work dir (output and cwd) is kept under it; unset, none is left ---
+# TMPDIR is pinned so "removed" is observable. A scenario must not see the var: this one runs tests/run
+# itself, and its fixtures would land in the outer keep dir (CI's artifact).
+mkdir keepfix tmp
+printf '[ -z "${BLAST_OFF_TEST_KEEP:-}" ] || exit 1; echo mark > made\n' > keepfix/01-ok.sh
+printf 'echo boom; exit 1\n' > keepfix/02-bad.sh
+if TMPDIR="$PWD/tmp" BLAST_OFF_TEST_KEEP=kept run_gate keepfix; then fail "keep fixture exited 0"; fi
+grep -qx 'GATE: FAIL passed=1 failed=1 shellcheck=skipped' keepfix.out || fail "keep fixture verdict: $(cat keepfix.out)"
+grep -qx boom kept/02-bad/out 2>/dev/null || fail "failed scenario's output not kept: $(ls -R kept 2>&1)"
+[[ -f kept/01-ok/out ]] || fail "passed scenario's output not kept: $(ls -R kept 2>&1)"
+grep -qx mark kept/01-ok/cwd/made 2>/dev/null || fail "scenario's cwd not kept: $(ls -R kept 2>&1)"
+TMPDIR="$PWD/tmp" BLAST_OFF_TEST_KEEP=kept run_gate keepfix || true
+[[ -z $(compgen -G 'kept/01-ok/tmp.*') && -f kept/01-ok/out ]] || fail "second run nested into the kept dir: $(ls -R kept)"
+[[ -z $(ls -A tmp) ]] || fail "kept work dirs also left in TMPDIR: $(ls -A tmp)"
+if (unset BLAST_OFF_TEST_KEEP; TMPDIR="$PWD/tmp" run_gate keepfix); then fail "keep fixture exited 0 with the var unset"; fi
+[[ -z $(ls -A tmp) ]] || fail "work dirs left with BLAST_OFF_TEST_KEEP unset: $(ls -A tmp)"
+
 # --- the shellcheck skip holds only for a fixture dir, never for the suite tests/run lives beside ---
 mkdir -p self/tests/fakes; cp "$REPO/tests/run" self/tests/run
 printf '#!/usr/bin/env bash\nexit 0\n' > self/tests/01-ok.sh

@@ -32,8 +32,17 @@ jobs:
           XDG_RUNTIME_DIR="$rt" systemctl --user is-system-running --wait || true
           XDG_RUNTIME_DIR="$rt" systemctl --user show -p Version
       - name: tests/run
+        env:
+          # every scenario's work dir (output, job dirs, run.log), uploaded below when the gate is red
+          BLAST_OFF_TEST_KEEP: ${{ runner.temp }}/blast-off-tests
         run: |
           # The owner's launch env may carry these into a job; test 21 then fails (P2R3-6).
           unset JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_KEEP_WINDOWS JOB_SESSION JOB_CHILD_TIMEOUT
           tmux -V; shellcheck --version | sed -n 2p
           tests/run
+      - name: Scenario work dirs of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blast-off-tests
+          path: ${{ runner.temp }}/blast-off-tests
