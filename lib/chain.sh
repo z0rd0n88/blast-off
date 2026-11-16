@@ -157,7 +157,7 @@ chain_run() {
     receipt_check "$rows"
     s="$(cp_status)"
     case "$s" in
-      done)    receipt_all_done; ci_check; chain_end 0 "job done" ;;
+      done)    ci_plan; receipt_all_done; ci_check; chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((n+1))

@@ -21,10 +21,11 @@ other worktrees: <path · branch · HEAD, or none>
 - The first status line above is the one the runner reads. Children write only running, done or
   blocked there. paused-cap and paused-limit are the runner's: on a usage limit, checkpoint and end
   the turn; the runner pauses the job itself.
-- One `## Phase plan` heading and one table under it: the header, the separator and one row per phase,
-  each row from the left margin like the ones above, its first cell (the key) starting with a digit
-  (0, 1, 2a), its Status cell last. At done the runner refuses (exit 10) a second Phase plan heading
-  and any table line in that section that is not the header, the separator or such a row.
+- One `## Phase plan` heading. Under it, first, one table: the header (its last cell Status), the
+  separator, then one row per phase, each from the left margin like the ones above, between pipes,
+  with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last. Notes
+  go under the table after a blank line, as plain text. At done the runner refuses (exit 10) a Phase
+  plan that is not written this way, naming the line.
 - A closed row's Status cell starts `done (<sha>)`, <sha> = the commit `blast-off receipt` recorded
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
   hex word in the cell, so replace an older sha, never append a second. After it comes `PR #<n>` or

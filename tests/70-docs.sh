@@ -49,7 +49,7 @@ for s in "refuses \`status: done\` (exit 10) while a done row's Status cell says
   'or the file has a second Phase plan heading' 'PRs are read only from those cells, never from prose'; do
   [[ $R == *"$s"* ]] || fail "README does not say '$s'"
 done
-for s in 'a phase with no PR closes its row with `no PR`' "logged \"absent, not a pass\", only where that PR's head commit has no file under" \
+for s in 'a phase that opens no PR says `no PR` in brief §5 and closes its row with `no PR`' "logged \"absent, not a pass\", only where that PR's head commit has no file under" \
   'refused at `done` with no override and that `no PR` is no way out'; do
   [[ $K == *"$s"* ]] || fail "SKILL.md does not say '$s'"
 done

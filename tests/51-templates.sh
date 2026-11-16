@@ -73,8 +73,8 @@ has "$b" '| D2 | Codex lanes | off'
 flat() { tr '\n' ' ' | tr -s ' '; }
 C="$(flat < "$t")"
 for s in 'Children write only running, done or blocked there.' "paused-cap and paused-limit are the runner's" \
-         '-uall' 'each row from the left margin like the ones above, its first cell (the key) starting with a digit' \
-         'At done the runner refuses (exit 10) a second Phase plan heading and any table line in that section that is not the header, the separator or such a row.' \
+         '-uall' "each from the left margin like the ones above, between pipes, with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last." \
+         'Notes go under the table after a blank line, as plain text. At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.' \
          "Every closed row's Status cell names every PR the phase opened, each as \`PR #<n>\` (or its /pull/<n> link), or says \`no PR\`." \
          'Write `no PR` only for a phase the brief says opens no PR; a PR that could not be opened is a blocked part' \
          'The runner refuses done (exit 10) for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.' \

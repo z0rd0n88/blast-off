@@ -70,7 +70,7 @@ dated claims and inference marked as such.
   lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Finish the
   independent work, record it.
 
-## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase)
+## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase; a phase that opens none says `no PR` in its Done when)
 | # | Phase | Branch | Done when |
 |---|---|---|---|
 | 0 | <e.g. spec> | `<branch>` | <reviewed; draft PR on base> |

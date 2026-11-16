@@ -54,39 +54,50 @@ ci_runs() {
     jq -r '.[] | select(.event != "workflow_dispatch") | .databaseId'
 }
 
-# ci_check: at status done, exit 10 while the Phase plan holds a line the parser skips (cp_unread), and
-# unless every done Phase plan row's Status cell names the phase's own PR
-# (`PR #N` in any case, `PR#N`, or `/pull/N`; leading zeros dropped) or says `no PR` (owner ruling 1,
-# phase 3). Refused: a done row with neither or with both, a cell holding past `done (<sha>)` any other
-# digit, '#' or PR (a PR written a way that is not read; P3R3-3), and a job with no done row at all (no table, a heading or rows the
-# runner does not read), where nothing says which PR to read or that there is none. Nothing outside those
-# cells is read: a PR named in prose or another cell may be another repo's (issue 26).
+# ci_plan: at status done, before any other gate, exit 10 naming the first line of checkpoint.md that the
+# Phase plan reader does not accept (cp_scan, an allow-list: P3R3-1, P3R4-1, P3R4-2, P3R4-32), or when the
+# file cannot be read.
+ci_plan() {
+  local u end='then run again; done refused, status unchanged'
+  u="$(cp_unread)" || chain_end 10 "checkpoint.md could not be read for its Phase plan; $end"
+  [ -z "$u" ] || chain_end 10 "checkpoint.md $u; $end"
+}
+
+# ci_check: at status done (after ci_plan), exit 10 unless every done Phase plan row's Status cell names the
+# phase's PRs (`PR #N` in any case, `PR#N`, or `/pull/N`; leading zeros dropped) or says `no PR` (owner ruling
+# 1, phase 3). Refused: a done row with neither or with both, a cell holding past `done (<sha>)` any other
+# digit, '#' or PR (a PR written a way that is not read; P3R3-3), and a job with no done row at all, where
+# nothing says which PR to read or that there is none. Nothing outside those cells is read: a PR named in
+# prose or another cell may be another repo's (issue 26).
 # Each PR named needs a ci-wait record for that PR, of the PR's head now (ci_head), that is not red. An
 # absent record (no runs) passes, logged as not a pass, only when that head commit has no file under
 # .github/workflows: runs were never due on it. With a file there runs were due and absent is refused
 # (D18), and so it is when the commit cannot be read (not fetched, or the workdir in no git repo). The
 # PR's head decides, not the workdir's HEAD that issue 26 named: owner ruling 2.
 ci_check() {
-  local k cell n pr v h wf prs u rest cells='' none='' end='then run again; done refused, status unchanged'
-  # a row the parser skips would skip every gate below, so any line it cannot read refuses done (P3R3-1)
-  u="$(cp_unread)" || chain_end 10 "checkpoint.md could not be read for its Phase plan; $end"
-  [ -z "$u" ] || chain_end 10 "checkpoint.md $u: keep one \`## Phase plan\` heading over one table, its header first (first cell \`#\`), and write each phase as a row from the left margin, \`| <key starting with a digit> | ... | <Status> |\`, with no other '|' line in that section, $end"
-  while IFS='|' read -r k cell; do
+  local k cell n pr v h wf prs rest done_cells cells='' none='' end='then run again; done refused, status unchanged'
+  done_cells="$(cp_done_cells)" || chain_end 10 "checkpoint.md could not be read for its Phase plan; $end"  # P3R4-37
+  while IFS='|' read -r k cell && [ -n "$k" ]; do
     n="$(ci_prs <<< "$cell")"
     # a whitelist (P3R3-3): past `done (<sha>)` and before the runner's ` · usage`, only PR tokens and `no PR`
     # may hold a digit, '#' or the word PR, so `PR #5, 7` or `no PR, see PR 7` cannot leave a PR unread
-    rest="$(sed -E 's/^done *(\([[:alnum:]]*\))?//I; s/ · usage .*//; s~https?://[^[:space:]]*/pull/[0-9]+|/pull/[0-9]+|PR ?#[0-9]+|no PR~~Ig' <<< "$cell")"
+    # P3R4-8: only ASCII and '·', and no '<' or '[', so a comment, a reference link or a lookalike digit
+    # cannot show a reader what the runner does not read
+    ! LC_ALL=C command grep -qE '[^[:print:][:blank:]]|[<[]' <<< "${cell//·/}" ||
+      chain_end 10 "phase row $k Status cell holds a character the runner does not read there (not ASCII, or '<' or '['): write \`done (<sha>)\`, then each of the phase's PRs as \`PR #<n>\`, or \`no PR\`, in plain text, $end"
+    # the sha slot is hex (P3R4-17); only the runner's own usage text, at the end, is passed over (P3R4-7)
+    rest="$(sed -E 's/^done *(\([0-9a-f]{7,40}\))?//I; s/ · usage (unknown|unreadable|5h -?[0-9]+%( 7d -?[0-9]+%)?|7d -?[0-9]+%)[[:space:]]*$//; s~https?://[A-Za-z0-9.-]+/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/pull/[0-9]+|/pull/[0-9]+|PR ?#[0-9]+|no PR~~Ig' <<< "$cell")"
     [[ ! ${rest,,} =~ [0-9#]|(^|[^a-z])(prs?|pull)([^a-z]|$) ]] ||
       chain_end 10 "phase row $k Status cell holds '${rest//$'\n'/ }' beside done, its sha and its PRs, a number or PR the runner does not read: write \`done (<sha>)\`, then each of the phase's PRs as \`PR #<n>\`, or \`no PR\`, and nothing else with a digit, '#' or PR, $end"
     if command grep -qiE '(^|[^[:alnum:]])no PR([^[:alnum:]]|$)' <<< "$cell"; then
       [ -z "$n" ] || chain_end 10 "phase row $k Status cell says \`no PR\` and names PR #${n// /, #}: if the phase opened that PR, delete \`no PR\`; a PR that is not this job's goes in prose, $end"
       none+=" $k"
     else
-      [ -n "$n" ] || chain_end 10 "phase row $k is done but its Status cell says neither \`PR #<n>\` nor \`no PR\`: after the sha write \`PR #<n>\` (the phase's own PR) or \`no PR\` (the brief says the phase opens none), $end"
+      [ -n "$n" ] || chain_end 10 "phase row $k is done but its Status cell says neither \`PR #<n>\` nor \`no PR\`: after the sha write \`PR #<n>\` (each PR the phase opened) or \`no PR\` (the brief says the phase opens none), $end"
     fi
     cells+="$cell"$'\n'
-  done < <(cp_done_cells)
-  [ -n "$cells" ] || chain_end 10 "status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a \`## Phase plan\` table with a row per phase (from the left margin, first cell a digit, Status cell last) that ends \`done (<sha>) · PR #<n>\`, or \`done (<sha>) · no PR\` for a phase the brief says opens no PR, $end"
+  done <<< "$done_cells"
+  [ -n "$cells" ] || chain_end 10 "status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a \`## Phase plan\` table with a row per phase (from the left margin, first cell its key, Status cell last) that ends \`done (<sha>) · PR #<n>\`, or \`done (<sha>) · no PR\` for a phase the brief says opens no PR, $end"
   prs="$(ci_prs <<< "$cells")"
   log "CI at done: PRs read: ${prs:-none}; rows that say no PR:${none:- none}"
   for pr in $prs; do
@@ -98,7 +109,7 @@ ci_check() {
         [ -n "$TOP" ] || chain_end 10 "PR #$pr CI absent: no runs, and the workdir is in no git repo, so whether runs were due at the PR's head $h cannot be read; run from a checkout of the PR's repo; done refused, status unchanged"
         wf="$(git --no-replace-objects -C "$TOP" ls-tree -r --name-only "$h^{commit}" -- .github/workflows 2>/dev/null)" ||
           chain_end 10 "PR #$pr CI absent: no runs, and its head $h is no commit git can read in $TOP, so whether runs were due cannot be read; git -C $TOP fetch origin pull/$pr/head, $end"
-        [ -z "$wf" ] || chain_end 10 "PR #$pr CI absent: no runs, but its head ${h:0:7} has a workflow file (${wf%%$'\n'*}); push to the PR branch for a run that is not a workflow_dispatch, then blast-off ci-wait <job-dir> $pr, then run again; if no workflow can start on this PR (a branch or path filter), there is no override: ask the owner (the PR base and the trigger filter are theirs; \`no PR\` is no way out, nor is editing a workflow file); done refused, status unchanged"
+        [ -z "$wf" ] || chain_end 10 "PR #$pr CI absent: no runs, but its head ${h:0:7} has a workflow file (${wf%%$'\n'*}); push to the PR branch for a run that is not a workflow_dispatch, then blast-off ci-wait <job-dir> $pr, then run again; if no workflow can start on this PR (a branch or path filter), there is no override: ask the owner (the PR base and the trigger filter are theirs; \`no PR\` is no way out, nor is adding, removing, moving or editing a workflow file); done refused, status unchanged"
         log "PR #$pr: no CI runs and no workflow file at its head ${h:0:7} (no CI configured; absent, not a pass)" ;;
       failure) chain_end 10 "PR #$pr CI red or unfinished at $(jq -r '.head_sha // "?"' "$JOB/gate-logs/ci-pr-$pr.json") (gate-logs/ci-pr-$pr.json); fix and push if red, then blast-off ci-wait <job-dir> $pr (once its runs finish, if one was only unfinished), then run again; done refused, status unchanged" ;;
       *) chain_end 10 "PR #$pr CI unread: no readable record for PR $pr in gate-logs/ci-pr-$pr.json; blast-off ci-wait <job-dir> $pr, then run again" ;;

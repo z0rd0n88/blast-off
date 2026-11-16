@@ -31,7 +31,7 @@ resume; `templates/` holds the brief and checkpoint you fill.
    question: the exact paths, then the may-widen list. Done when the owner answers that question.
 4. **Settle the rest**, one question at a time, each with your recommendation: phases and their
    "done when", the gate command (its last output line `GATE: PASS` or `GATE: FAIL`), delivery (one
-   stacked draft PR per phase, never merged; a phase with no PR closes its row with `no PR`; when a
+   stacked draft PR per phase, never merged; a phase that opens no PR says `no PR` in brief §5 and closes its row with `no PR`; when a
    PR gets no CI runs, `blast-off ci-wait` records `absent` and exits 10, and the runner lets `done`
    through, logged "absent, not a pass", only where that PR's head commit has no file under
    `.github/workflows/`: ask whether the repo's workflows start on the stacked PR branches, and

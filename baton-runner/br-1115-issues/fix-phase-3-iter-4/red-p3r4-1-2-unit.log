@@ -1,0 +1,9 @@
+case: | 1 | a | b | done (abc1234) · PR #7 | done (abc1234) · no PR |
+  cp_unread: ''
+  done cells read: 0|done (abc1234) · PR #8 ;1|done (abc1234) · no PR ;
+case: | 1 | a | b | done (abc1234) · PR #7 \| done (abc1234) · no PR |
+  cp_unread: ''
+  done cells read: 0|done (abc1234) · PR #8 ;1|done (abc1234) · no PR ;
+case: 1 a b done (abc1234) · PR #7
+  cp_unread: ''
+  done cells read: 0|done (abc1234) · PR #8 ;
