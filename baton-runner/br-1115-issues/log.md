@@ -11,3 +11,5 @@
 - 2026-11-15 phase 1/8 · commit 97a4ebe (fix iter1)
 - 2026-11-15 phase 1/8 · REVIEW iter2 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 39 LOW) · baton baton-runner/br-1115-issues/baton-phase-1-review-2.md · digest written · units 5/75
 - 2026-11-15 side effect: round-2 reviewers ran the full suite in parallel on /tmp copies and left the owner's ~/.config/systemd/user/blast-off@.service pointing at a temp path; manager restored it from the saved original and reloaded systemd. Later review briefs forbid full-suite runs by reviewers.
+- 2026-11-15 phase 1/8 · draft PR https://github.com/z0rd0n88/blast-off/pull/34 (base main) · phase DONE
+- 2026-11-15 phase 2/8 · WORK spawn (issue 31) · units 6/75
