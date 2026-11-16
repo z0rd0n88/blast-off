@@ -25,3 +25,5 @@
 - 2026-11-15 phase 3/8 · commit b9c39ad (work)
 - 2026-11-15 phase 3/8 · REVIEW iter1 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 19 MEDIUM / 24 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-1.md · units 9/75
 - 2026-11-15 phase 3/8 · FIX iter1 spawn · units 10/75
+- 2026-11-15 phase 3/8 · FIX iter1 return COMPLETE progress=44 · baton baton-runner/br-1115-issues/baton-phase-3-fix-1.md · 8 tracked files (README.md, bin/blast-off, skills/blast-off/SKILL.md, templates/checkpoint.md, tests/51-templates.sh beyond the work unit's set)
+- 2026-11-15 phase 3/8 · REVIEW iter2 spawn · units 11/75

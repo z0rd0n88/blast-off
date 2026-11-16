@@ -26,8 +26,10 @@ other worktrees: <path · branch · HEAD, or none>
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
   hex word in the cell, so replace an older sha, never append a second. Add `PR #<n>` after it.
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- `PR #<n>` or a /pull/<n> link anywhere here means this job's own PR: at done the runner wants a CI
-  record for each (exit 10). Name any other PR by its branch or as `other PR <n>`, no '#'.
+- `PR #<n>` or a /pull/<n> link in a row's Status cell means this job's own PR: at done the runner wants
+  a CI record for each (exit 10). A row closed without one gets no CI check, and a PR named only outside
+  the Status cells is not read, unless no Status cell names a PR: then every PR named anywhere here is
+  read. Name any other PR by its branch or as `other PR <n>`, no '#'.
 - An uncommitted path at a child's end must be named here, whole: each file `git status --porcelain
   -uall` lists, from the repo root or the workdir, never absolute, no leading ./ (a directory does not
   name the files in it). A name with no '/' and no '.' (`<bare-name>`) counts only in backticks. An

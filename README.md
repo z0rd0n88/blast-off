@@ -112,7 +112,9 @@ blast-off ci-wait <job-dir> <pr>    # one blocking gh run watch per CI run of th
 ```
 
 and finally the row's Status cell `done (<sha>) · PR #<pr>`. The runner refuses a done row without a
-PASS receipt for its sha (exit 9) and `status: done` while a named PR's CI is red or unread (exit 10).
+PASS receipt for its sha (exit 9) and `status: done` while the CI of a PR named in a Phase plan Status
+cell is red, unread, or absent (no runs) with a workflow file at HEAD (exit 10). With no PR in any
+Status cell it reads every PR `checkpoint.md` names instead; `run.log` says which PRs were read.
 
 ## Exit codes
 
@@ -127,7 +129,7 @@ PASS receipt for its sha (exit 9) and `status: done` while a named PR's CI is re
 | 7 | uncommitted paths the checkpoint does not name | commit, remove, or name them in the checkpoint; start again |
 | 8 | usage limit, `status: paused-limit until <time>` | nothing while `status` shows the resume timer active; else `blast-off resume <job-dir>` after `<time>` |
 | 9 | a done Phase plan row lacks its commit or a PASS receipt for it | run the gate, `blast-off receipt`, fix the row's sha |
-| 10 | done refused: a named PR's CI is red or unread | fix CI, or run `blast-off ci-wait <job-dir> <pr>` after the last push |
+| 10 | done refused: the CI of a PR named in a Phase plan Status cell is red, unread, or absent (no runs) while HEAD has a workflow file | the last `run.log` line names the PR and the case. Red: fix CI and push. Then `blast-off ci-wait <job-dir> <pr>` after the last push. Absent: push to the PR branch so a run starts, then `ci-wait`; there is no override for a PR its workflows never run on |
 
 Every non-zero code except 1 is a state, not a failure: the unit has no `Restart=`, and the runner is
 safe to run again.

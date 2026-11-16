@@ -71,7 +71,8 @@ has "$b" '| D2 | Codex lanes | off'
 flat() { tr '\n' ' ' | tr -s ' '; }
 C="$(flat < "$t")"
 for s in 'Children write only running, done or blocked there.' "paused-cap and paused-limit are the runner's" \
-         '-uall' "means this job's own PR" '<job-dir>/decisions.tsv'; do
+         '-uall' "in a row's Status cell means this job's own PR" 'A row closed without one gets no CI check' \
+         'unless no Status cell names a PR' '<job-dir>/decisions.tsv'; do
   [[ $C == *"$s"* ]] || fail "checkpoint.md lacks: $s"
 done
 S9="$(sed -n '/^## 9\. Child protocol/,$p' "$b" | flat)"

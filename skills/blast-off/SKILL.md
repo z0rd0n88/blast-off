@@ -32,7 +32,9 @@ resume; `templates/` holds the brief and checkpoint you fill.
 4. **Settle the rest**, one question at a time, each with your recommendation: phases and their
    "done when", the gate command (its last output line `GATE: PASS` or `GATE: FAIL`), delivery (one
    stacked draft PR per phase, never merged; with no CI, `blast-off ci-wait` records `absent` and
-   exits 10, and the runner lets `done` through logged "absent, not a pass": say so in brief §2),
+   exits 10; the runner then lets `done` through, logged "absent, not a pass", only while the
+   workdir's HEAD has no file under `.github/workflows/`, and refuses `done` (exit 10) once HEAD has
+   one: say which holds in brief §2),
    per-commit LLM plugins opt-in or out (look in `.claude/settings.json` `enabledPlugins`,
    `git config core.hooksPath`, `.git/hooks`), and `CLAUDE_FLAGS`. `CLAUDE_FLAGS` is the owner's string, verbatim: it must hold `--model` and
    `--effort`; you add nothing to it.
