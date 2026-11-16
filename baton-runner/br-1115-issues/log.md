@@ -51,3 +51,5 @@
 - 2026-11-16 phase 3/8 · commit 15960ad (fix iter4, allow-list)
 - 2026-11-16 phase 3/8 · REVIEW iter5 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 8 HIGH / 6 MEDIUM / 18 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-5.md · units 18/75
 - 2026-11-16 PAUSE (manager judgement): HIGH count rose 2 -> 8; the loop is not converging; owner to set the gate's threat model before the last allowed round
+- 2026-11-16 RESUME: owner ruling 3 (threat model: honest children); P3R5-1..7 out of scope; fix P3R5-8 and honest-checkpoint mediums; one final review round
+- 2026-11-16 phase 3/8 · FIX iter5 spawn · units 19/75
