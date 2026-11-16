@@ -57,6 +57,14 @@ rc=0; "$bo" receipt "$JOB" 4 > r4.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && [ ! -e "$JOB/gate-logs/phase-4.json" ] || fail "receipt with no verdict line: exit $rc: $(cat r4.out)"
 rc=0; "$bo" receipt "$JOB" ../x > r5.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "receipt for phase '../x' exit $rc, want 1"
+# a filtered tests/run (BLAST_OFF_TEST_ONLY) is not the gate: its log, as tests/run wrote it, ends in no
+# GATE: verdict, so one green scenario never receipts a phase. The fixture sits in the job dir: the tree stays clean.
+mkdir "$JOB/onlyfix"; printf 'exit 0\n' > "$JOB/onlyfix/01-ok.sh"
+BLAST_OFF_TEST_ONLY=01-ok BLAST_OFF_NO_SHELLCHECK=1 "$REPO/tests/run" "$JOB/onlyfix" > "$JOB/gate-logs/phase-8.log" 2>&1 ||
+  fail "filtered fixture run failed: $(cat "$JOB/gate-logs/phase-8.log")"
+rc=0; "$bo" receipt "$JOB" 8 > r10.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && [ ! -e "$JOB/gate-logs/phase-8.json" ] || fail "receipt on a filtered run's log: exit $rc: $(cat r10.out "$JOB/gate-logs/phase-8.log")"
+grep -q 'receipt refused: the last line of .*phase-8.log is not a GATE: verdict' "$JOB/run.log" || fail "filtered-log refusal not logged: $(cat "$JOB/run.log")"
 
 # --- runner: exit 9 ---
 new_job chain close-sha
