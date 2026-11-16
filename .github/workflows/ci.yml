@@ -1,7 +1,8 @@
 # ci: blast-off's gate (D15) on every pull request: tests/run, every scenario plus shellcheck -S warning.
 # Tests 10-12 drive `systemctl --user` and `systemd-run --user --scope`, so the runner user's systemd
 # manager is started first (linger); without one they fail, never skip. shellcheck is pinned to the
-# version on the build box (0.11.0) so CI and a local gate judge the same warnings.
+# version on the build box (0.11.0) so CI and a local gate judge the same warnings. A red run leaves the
+# artifact blast-off-tests: blast-off-tests.tgz, every scenario's work dir (its output, cwd and run.log).
 name: ci
 on:
   pull_request:
@@ -32,17 +33,29 @@ jobs:
           XDG_RUNTIME_DIR="$rt" systemctl --user is-system-running --wait || true
           XDG_RUNTIME_DIR="$rt" systemctl --user show -p Version
       - name: tests/run
+        # A hung gate fails this step inside the job's 30 minutes, so the two steps below still run;
+        # on a job timeout or a cancel they do not, and nothing is uploaded.
+        timeout-minutes: 25
         env:
-          # every scenario's work dir (output, job dirs, run.log), uploaded below when the gate is red
+          # every finished scenario's work dir (output, job dirs, run.log), for the artifact below
           BLAST_OFF_TEST_KEEP: ${{ runner.temp }}/blast-off-tests
         run: |
           # The owner's launch env may carry these into a job; test 21 then fails (P2R3-6).
           unset JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_KEEP_WINDOWS JOB_SESSION JOB_CHILD_TIMEOUT
           tmux -V; shellcheck --version | sed -n 2p
           tests/run
-      - name: Scenario work dirs of a failed run
+      # One tar file, not the tree: upload-artifact refuses a whole tree for one file name holding any of
+      # " : < > | * ? CR LF (22-dirty-tree leaves a line feed), drops dot files (every .git) and follows
+      # symlinks. tests/00-harness.sh runs the tar line as written: keep it one line, and its names in step
+      # with the env above and the path below. Both steps also run, and fail, when a step before the gate
+      # failed and there is nothing to keep.
+      - name: Tar the scenario work dirs of a failed run
         if: failure()
-        uses: actions/upload-artifact@v4
+        run: tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/blast-off-tests.tgz" blast-off-tests
+      - name: Upload them (artifact blast-off-tests)
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
           name: blast-off-tests
-          path: ${{ runner.temp }}/blast-off-tests
+          path: ${{ runner.temp }}/blast-off-tests.tgz
+          if-no-files-found: error
