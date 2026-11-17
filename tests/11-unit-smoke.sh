@@ -56,7 +56,6 @@ not_active "$inst" || fail "template instance was started"
 start_hang() {
   sed -i 's/^status: .*/status: running/' "$JOB/checkpoint.md"; echo hang > "$JOB/fake-mode"; rm -f "$JOB/fake-marker"
   rm -f "$JOB/child-count"  # the job's child count goes on across runs (issue 22); each hang child is child 1 again
-  rm -f "$JOB/child-count"  # each start_hang child is child 1 again (issue 22 numbering goes on per job)
   "$bo" start "$JOB" > "start-$1.out" 2>&1 || fail "start ($1): $(cat "start-$1.out")"
   wait_until 20 grep -q '^grandchild=' "$JOB/fake-marker" || fail "hanging child never ran ($1)"
   pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"

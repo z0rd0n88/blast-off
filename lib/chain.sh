@@ -109,16 +109,17 @@ chain_cap() {
 }
 
 # chain_count: LAUNCHED (children this job has launched, so the last one's number) and BASE (LAUNCHED at
-# the last paused-cap -> running) from $JOB/child-count, so the cap and run.log's numbering survive a
-# relaunch (issue 22). No file is a fresh job, 0 0. Anything else but two whole numbers with BASE <=
-# LAUNCHED stops the runner: a garbled count must not reset the cap to 0.
+# the last paused-cap -> running under the soft cap; the hard cap ignores it) from $JOB/child-count, so the
+# cap and run.log's numbering survive a relaunch (issue 22). No file is a fresh job, 0 0. Anything else but
+# two whole numbers of at most 9 digits with BASE <= LAUNCHED stops the runner: a garbled count must not
+# reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
 chain_count() {
   local f="$JOB/child-count" c
   LAUNCHED=0 BASE=0
   [ -e "$f" ] || return 0
   c="$(cat "$f")" || die "cannot read $f"
-  [[ $c =~ ^(0|[1-9][0-9]*)\ (0|[1-9][0-9]*)$ ]] && [ "${BASH_REMATCH[2]}" -le "${BASH_REMATCH[1]}" ] ||
-    die "$f holds '$c', not '<launched> <base>' (whole numbers, base <= launched); fix it, or delete it to count this job's children from 0 again"
+  [[ $c =~ ^(0|[1-9][0-9]{0,8})\ (0|[1-9][0-9]{0,8})$ ]] && [ "${BASH_REMATCH[2]}" -le "${BASH_REMATCH[1]}" ] ||
+    die "$f holds '$c', not '<launched> <base>' (whole numbers of at most 9 digits, base <= launched); fix it, or delete it to count this job's children from 0 again"
   LAUNCHED="${BASH_REMATCH[1]}" BASE="${BASH_REMATCH[2]}"
 }
 # chain_count_set: LAUNCHED and BASE to $JOB/child-count by rename, so a reboot mid-write leaves one or the other.
@@ -160,7 +161,7 @@ chain_run() {
   [[ $JOBREL != ..* ]] || JOBREL=
   WORKREL="$([ -z "$TOP" ] || realpath --relative-to="$TOP" "$WORKDIR")"
   case "$(cp_status)" in
-    paused-cap) BASE="$LAUNCHED"; chain_count_set  # the soft cap's fresh allotment; numbering goes on
+    paused-cap) [ -z "$CAP_SOFT" ] || { BASE="$LAUNCHED"; chain_count_set; }  # the soft cap's fresh allotment (P4-22a); numbering goes on
       cp_set_status running; log "status paused-cap -> running; the chain continues" ;;
     paused-limit) # before the reset nothing may start; the timer (or the owner) runs resume after it
       local until; until="$(usage_until)"
@@ -181,7 +182,8 @@ chain_run() {
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((LAUNCHED+1))
-    if [ $((n - BASE)) -gt "$MAXC" ]; then
+    # base is the soft cap's alone; the hard cap counts every child of the job and never resets (P4-22a)
+    if [ $((n - (CAP_SOFT ? BASE : 0))) -gt "$MAXC" ]; then
       [ -n "$CAP_SOFT" ] || chain_end 4 "child cap $MAXC reached ($LAUNCHED children launched for this job, $JOB/child-count); a larger JOB_MAX_CHILDREN goes on"
       cp_set_status paused-cap; chain_end 6 "soft cap $MAXC reached; status paused-cap; run again to continue"
     fi

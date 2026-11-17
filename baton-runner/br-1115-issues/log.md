@@ -67,3 +67,5 @@
 - 2026-11-17 phase 4/8 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 11 MEDIUM / 19 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-4-review-1.md
 - 2026-11-17 owner: P4-22a = fresh soft allotment on resume
 - 2026-11-17 phase 4/8 · FIX iter1 spawn (manager: P4R1-1 hard cap reset is a reproduced criterion-1 hole; plus cheap test gaps 6,8,9,10,11) · units 23/75
+- 2026-11-17 phase 4/8 · FIX iter1 return COMPLETE · P4R1-1,6,8,9,10,11 fixed, each mutant killed · baton baton-runner/br-1115-issues/baton-phase-4-fix-1.md
+- 2026-11-17 phase 4/8 · REVIEW iter2 spawn (narrow: gate + 2 reviewers on the fix diff) · units 24/75

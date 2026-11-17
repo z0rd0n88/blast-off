@@ -23,6 +23,11 @@ grep -q 'child cap 2 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 1)' "$log" || fai
 grep -q 'soft cap 2 reached; status paused-cap; run again to continue' "$log" || fail "no soft cap line: $(cat "$log")"
 grep -q 'child 2 launched' "$log" || fail "cap 2 stopped before child 2"
 grep -q 'child 3 launched' "$log" && fail "child 3 launched past the soft cap"
+# the paused-cap resume saves its new base itself (P4R1-8): at cap 0 it pauses again before any launch, so
+# only that save can make the file '2 2'; the re-run below then starts from base == launched (P4R1-9)
+rc=0; JOB_MAX_CHILDREN=0 "$bo" run "$JOB" > zero.out 2>&1 || rc=$?
+[ "$rc" -eq 6 ] && [ "$(cat "$JOB/child-count")" = "2 2" ] && [ "$(grep -c 'child [0-9]* launched' "$log")" -eq 2 ] ||
+  fail "paused-cap resume at cap 0: exit $rc, child-count '$(cat "$JOB/child-count")', want 6 and '2 2': $(cat zero.out "$log")"
 
 printf 'done\n' > "$JOB/fake-mode"; sed -i 's/| pending |$/| done · no PR |/' "$JOB/checkpoint.md"  # done needs every row done (D4-4), each with its PR or `no PR`
 printf 'done\n' > "$JOB/fake-mode"
