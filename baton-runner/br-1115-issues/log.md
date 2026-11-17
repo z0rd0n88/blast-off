@@ -13,3 +13,10 @@
 - 2026-11-15 side effect: round-2 reviewers ran the full suite in parallel on /tmp copies and left the owner's ~/.config/systemd/user/blast-off@.service pointing at a temp path; manager restored it from the saved original and reloaded systemd. Later review briefs forbid full-suite runs by reviewers.
 - 2026-11-15 phase 1/8 · draft PR https://github.com/z0rd0n88/blast-off/pull/34 (base main) · phase DONE
 - 2026-11-15 phase 2/8 · WORK spawn (issue 31) · units 6/75
+- 2026-11-15 phase 2/8 · WORK return COMPLETE progress=4 · baton baton-runner/br-1115-issues/baton-phase-2-work.md
+- 2026-11-15 phase 2/8 · REVIEW iter1 spawn · units 7/75
+- 2026-11-15 phase 2/8 · commit 5062c7d (work)
+- 2026-11-15 phase 2/8 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 16 LOW) · baton baton-runner/br-1115-issues/baton-phase-2-review-1.md · digest written · units 7/75
+- 2026-11-15 side effect: a phase-2 reviewer deleted the session scratchpad dir rt (phase 1's kept work-dir tree, a temp artifact); nothing in the repo or the owner's config was touched; ExecStart check unchanged
+- 2026-11-15 phase 2/8 · draft PR https://github.com/z0rd0n88/blast-off/pull/35 (base phase-1) · phase DONE
+- 2026-11-15 phase 3/8 · WORK spawn (issue 26 + P2R1-1) · units 8/75

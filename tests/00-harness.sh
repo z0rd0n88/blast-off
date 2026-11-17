@@ -19,6 +19,36 @@ grep -q '  | boom' bad.out || fail "failing scenario output not shown"
 if run_gate empty; then fail "empty fixture exited 0 (unrun is not passed)"; fi
 grep -q '^GATE: FAIL' empty.out || fail "empty fixture verdict: $(cat empty.out)"
 
+# --- BLAST_OFF_TEST_ONLY: only the named scenarios run, and the verdict line is not the gate's: one green
+# scenario must never read as a green suite (blast-off receipt refuses the line: test 40). A scenario must
+# not see the var: this one runs tests/run itself, and `only=00-harness` would filter its fixtures away. ---
+mkdir onlyfix
+printf '[ -z "${BLAST_OFF_TEST_ONLY+x}" ] || exit 1\n' > onlyfix/01-a.sh
+printf 'exit 0\n' > onlyfix/02-b.sh; printf 'echo boom; exit 1\n' > onlyfix/03-c.sh
+only() { BLAST_OFF_TEST_ONLY="$1" run_gate onlyfix; }
+only_out() { [[ $(cat onlyfix.out) == "$2" ]] || fail "$1: $(cat onlyfix.out)"; }
+only 01-a || fail "one named scenario exited non-zero: $(cat onlyfix.out)"
+only_out "one named scenario" $'PASS 01-a\nGATE-ONLY: PASS passed=1 failed=0 shellcheck=skipped only=01-a'
+# several names, split on spaces or commas; scenarios run in suite order whatever order they are named in
+for o in '02-b,01-a' ' 02-b  01-a ' '02-b, 01-a,'; do
+  only "$o" || fail "only='$o' exited non-zero: $(cat onlyfix.out)"
+  only_out "only='$o'" $'PASS 01-a\nPASS 02-b\nGATE-ONLY: PASS passed=2 failed=0 shellcheck=skipped only=02-b,01-a'
+done
+if only 03-c; then fail "a failing named scenario exited 0"; fi
+grep -qx 'GATE-ONLY: FAIL passed=0 failed=1 shellcheck=skipped only=03-c' onlyfix.out || fail "failing named scenario verdict: $(cat onlyfix.out)"
+# a name that is no scenario fails by name, beside one that matched; names are never patterns or paths
+if only '01-a 09-nope'; then fail "a name matching no scenario exited 0"; fi
+only_out "a name matching no scenario" "PASS 01-a"$'\n'"FAIL only 09-nope: no such scenario in $PWD/onlyfix"$'\n''GATE-ONLY: FAIL passed=1 failed=1 shellcheck=skipped only=01-a,09-nope'
+for o in '*' '0?-a' '../onlyfix/01-a' '01-a.sh'; do
+  if only "$o"; then fail "only='$o' exited 0"; fi
+  only_out "only='$o'" "FAIL only $o: no such scenario in $PWD/onlyfix"$'\n'"GATE-ONLY: FAIL passed=0 failed=1 shellcheck=skipped only=$o"
+done
+# set but empty (what CI exports on a pull request) is the whole suite, with the gate's own verdict line
+for o in '' ' , '; do
+  if only "$o"; then fail "only='$o' exited 0 on a suite with a failing scenario"; fi
+  only_out "only='$o'" $'PASS 01-a\nPASS 02-b\nFAIL 03-c\n  | boom\nGATE: FAIL passed=2 failed=1 shellcheck=skipped'
+done
+
 # --- BLAST_OFF_TEST_KEEP: each scenario's work dir (output and cwd) is kept under it; unset, none is left ---
 # TMPDIR is pinned so "removed" is observable. A scenario must not see the var: this one runs tests/run
 # itself, and its fixtures would land in the outer keep dir (CI's artifact).
@@ -75,6 +105,9 @@ if (cd self && BLAST_OFF_TEST_KEEP=tests/kept tests/run > ../selfkeep.out 2>&1);
 ci="$REPO/.github/workflows/ci.yml"
 grep -qF 'BLAST_OFF_TEST_KEEP: ${{ runner.temp }}/blast-off-tests' "$ci" || fail "ci.yml does not keep work dirs in runner.temp/blast-off-tests"
 grep -qF 'path: ${{ runner.temp }}/blast-off-tests.tgz' "$ci" || fail "ci.yml does not upload runner.temp/blast-off-tests.tgz"
+# the dispatch input `only` reaches the gate through env alone: written into a run script it would be shell
+grep -qE '^ +BLAST_OFF_TEST_ONLY: \$\{\{ inputs\.only \}\}$' "$ci" && [[ $(grep -c 'inputs\.' "$ci") == 1 ]] \
+  || fail "ci.yml does not pass inputs.only to tests/run as env BLAST_OFF_TEST_ONLY, and nowhere else"
 [[ $(grep -c '^ *if: failure()$' "$ci") == 2 ]] || fail "ci.yml: the tar and the upload steps do not both run on failure()"
 tarline="$(sed -n 's/^ *run: \(tar .*\)$/\1/p' "$ci")"
 [[ -n $tarline ]] || fail "ci.yml has no one-line 'run: tar ...' step"

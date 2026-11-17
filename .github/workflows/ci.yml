@@ -3,10 +3,17 @@
 # manager is started first (linger); without one they fail, never skip. shellcheck is pinned to the
 # version on the build box (0.11.0) so CI and a local gate judge the same warnings. A red run leaves the
 # artifact blast-off-tests: blast-off-tests.tgz, every scenario's work dir (its output, cwd and run.log).
+# A dispatch may name scenarios in `only` for a diagnosis; that run is not the gate and its verdict line
+# says so (GATE-ONLY:, tests/run's BLAST_OFF_TEST_ONLY). A pull request always runs the whole suite.
 name: ci
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Run only these scenarios (e.g. 30-paused-limit; several split by spaces or commas). Empty: the whole gate."
+        type: string
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -39,6 +46,9 @@ jobs:
         env:
           # every finished scenario's work dir (output, job dirs, run.log), for the artifact below
           BLAST_OFF_TEST_KEEP: ${{ runner.temp }}/blast-off-tests
+          # the dispatch input, empty on a pull request (the whole suite). Through env, never written into
+          # the script below: there its text would be shell. tests/run fails on a name that is no scenario
+          BLAST_OFF_TEST_ONLY: ${{ inputs.only }}
         run: |
           # The owner's launch env may carry these into a job; test 21 then fails (P2R3-6).
           unset JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_KEEP_WINDOWS JOB_SESSION JOB_CHILD_TIMEOUT

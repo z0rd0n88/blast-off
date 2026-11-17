@@ -8,7 +8,12 @@
 #                                        left) instead of removing it, so CI can upload a failed run; scenarios never see it.
 #                                        A <dir>/<name> already there is replaced. <dir> cannot be under bin/, lib/ or tests/
 #                                        (linted below); a work dir that cannot be kept counts as one more failure
-# Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."
+#        BLAST_OFF_TEST_ONLY="<name>..." run only the named scenarios (30-paused-limit; several split by spaces or
+#                                        commas), for a diagnosis: CI's `only` input. Not the gate, so the verdict
+#                                        line is "GATE-ONLY: PASS|FAIL ... only=<names>", which blast-off receipt
+#                                        refuses. A name that is no scenario is a failure; empty runs the whole suite;
+#                                        scenarios never see it
+# Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."   (GATE-ONLY: with BLAST_OFF_TEST_ONLY)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -29,10 +34,17 @@ if [ -n "$KEEP" ]; then
   KEEP="$abs"
 fi
 
-passed=0 failed=0 sc=skipped
+# names are compared to scenario names as text, never globbed or made into a path. Unset for the scenarios:
+# 00-harness runs tests/run on fixtures, and `only=00-harness` would filter those to nothing
+only="${BLAST_OFF_TEST_ONLY:-}"; read -rd '' -a only <<< "${only//,/ }" || true  # -d '': every line; read ends non-zero
+unset BLAST_OFF_TEST_ONLY
+
+passed=0 failed=0 sc=skipped ran=' '
 for t in "$DIR"/[0-9][0-9]-*.sh; do
   [ -e "$t" ] || continue
   name="$(basename "$t" .sh)"
+  [ ${#only[@]} -eq 0 ] || [[ " ${only[*]} " == *" $name "* ]] || continue
+  ran+="$name "
   work="$(mktemp -d)"; mkdir "$work/cwd"
   if (cd "$work/cwd" && timeout "${BLAST_OFF_TEST_TIMEOUT:-300}" bash "$t") >"$work/out" 2>&1; then
     passed=$((passed+1)); echo "PASS $name"
@@ -45,6 +57,9 @@ for t in "$DIR"/[0-9][0-9]-*.sh; do
   elif ! { rm -rf "${KEEP:?}/$name" && mv "$work" "$KEEP/$name"; }; then
     failed=$((failed+1)); echo "FAIL keep $name"; rm -rf "$work" || true
   fi
+done
+for o in "${only[@]}"; do
+  [[ $ran == *" $o "* ]] || { failed=$((failed+1)); echo "FAIL only $o: no such scenario in $DIR"; }
 done
 [ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
 
@@ -67,8 +82,11 @@ if [ -z "${BLAST_OFF_NO_SHELLCHECK:-}" ] || [ "$DIR" = "$HERE" ]; then
   fi
 fi
 
+# a filtered run is no gate: its line must not start "GATE: ", which is all blast-off receipt reads
+gate=GATE tail=
+[ ${#only[@]} -eq 0 ] || { gate=GATE-ONLY; tail=" only=$(IFS=,; echo "${only[*]}")"; }
 if [ "$failed" -eq 0 ]; then
-  echo "GATE: PASS passed=$passed failed=0 shellcheck=$sc"
+  echo "$gate: PASS passed=$passed failed=0 shellcheck=$sc$tail"
 else
-  echo "GATE: FAIL passed=$passed failed=$failed shellcheck=$sc"; exit 1
+  echo "$gate: FAIL passed=$passed failed=$failed shellcheck=$sc$tail"; exit 1
 fi
