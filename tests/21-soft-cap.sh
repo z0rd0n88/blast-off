@@ -31,6 +31,17 @@ rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > rerun.out 2>&1 || rc=$?
 grep -q 'status paused-cap -> running; the chain continues' "$log" || fail "re-run did not log the resume: $(cat "$log")"
 [ "$(sed -n 's/^status_at_start=//p' "$JOB/fake-marker" | tail -n 1)" = running ] || fail "status at re-run start not running: $(cat "$JOB/fake-marker")"
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "re-run did not finish the job"
+# the re-run gets a fresh allotment of 2, but its child is child 3: numbering goes on (issue 22)
+grep -q 'child 3 launched' "$log" && [ "$(grep -c 'child 1 launched' "$log")" -eq 1 ] || fail "child numbering did not go on after paused-cap: $(cat "$log")"
+
+# a relaunch that is no paused-cap re-run keeps the count (issue 22): two stalls end the first run at
+# cap 2's last child, so the re-run pauses before launching one
+new_job relaunch noop
+plan 2
+rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > rl.out 2>&1 || rc=$?
+[ "$rc" -eq 5 ] || fail "two-stall run exit $rc, want 5: $(cat rl.out "$JOB/run.log")"
+rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > rl2.out 2>&1 || rc=$?
+[ "$rc" -eq 6 ] && [ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 2 ] || fail "relaunch past soft cap 2: exit $rc, want 6 and no child: $(cat rl2.out "$JOB/run.log")"
 
 # default factor 3 over one phase row: cap 3
 new_job dflt step

@@ -59,3 +59,5 @@
 - 2026-11-16 phase 3/8 · REVIEW iter6 (final) return COMPLETE · VERDICT ISSUES (in scope: 0 CRITICAL / 1 HIGH / 12 MEDIUM / 23 LOW; 3 out of scope by ruling 3) · baton baton-runner/br-1115-issues/baton-phase-3-review-6.md · units 20/75
 - 2026-11-16 PAUSE: phase 3 hit the second review cap; P3R6-1 HIGH open; owner picks
 - 2026-11-17 owner: phase 3 waived; follow-up rulings filed as #36; branch updated with origin/main (phases 1-2 merged)
+- 2026-11-17 owner: merge PR 37 then phase 4; PR 37 merged 7867255; phase-3 branch deleted
+- 2026-11-17 phase 4/8 · WORK spawn (issue 22) · units 21/75

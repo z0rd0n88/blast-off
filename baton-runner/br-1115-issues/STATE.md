@@ -1,10 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: PAUSED (between phases)
+status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 4 of 8  unit: WORK  review_iter: 0 of 3
+phase_4_branch: feat/br-1115-issues/phase-4 (from main 7867255)
 current_baton: baton-runner/br-1115-issues/baton-phase-3-review-6.md
-units_used: 20
-pause_reason: phase 3 closed by owner waiver 2026-11-17; phases 1-2 merged to main; phase 4 not started, awaiting owner go
+units_used: 21
+pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -18,9 +19,11 @@ phases:
     phase_branch: feat/br-1115-issues/phase-2  pr: https://github.com/z0rd0n88/blast-off/pull/35  digest: baton-runner/br-1115-issues/digest-phase-2.md
     units: 2  state: DONE (CLEAN iter 1; 6 MEDIUM open, listed in the PR)
   - id: phase-3  spec: issue 26 (+ P2R1-1: ci_wait ignores workflow_dispatch runs)  readiness: READY  work_agent: general-purpose
-    phase_branch: feat/br-1115-issues/phase-3  pr: -  digest: baton-runner/br-1115-issues/digest-phase-3.md
+    phase_branch: feat/br-1115-issues/phase-3  pr: https://github.com/z0rd0n88/blast-off/pull/37  digest: baton-runner/br-1115-issues/digest-phase-3.md
+    units: 15  state: DONE (owner waiver; merged 7867255; P3R6-1, P3R6-2 and rulings 2-5 tracked in #36)
+  - id: phase-4  spec: issue 22  readiness: READY  work_agent: general-purpose
+    phase_branch: feat/br-1115-issues/phase-4  pr: -
     units: 1  state: RUNNING
-  - id: phase-4  spec: issue 22  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-5  spec: issue 14  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-6  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING
   - id: phase-7  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
@@ -43,3 +46,6 @@ Nothing is running. Every unit has returned and every result is committed on fea
 
 ## UPDATE 2026-11-17
 Phases 1-2 merged to main (#34, #35). Phase 3 waived and opened as a draft PR to main; follow-ups in #36. Phase 4 (issue 22) branches from main. The RESUME HERE section above is superseded on phase 3.
+
+## UPDATE 2026-11-17 (2)
+Owner: merge PR 37, then begin phase 4. PR 37 merged (7867255), phase-3 branch deleted. Phase 4 WORK unit spawned on feat/br-1115-issues/phase-4 from main.

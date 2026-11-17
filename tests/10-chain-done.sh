@@ -76,6 +76,24 @@ grep -q 'child cap 1 reached' "$JOB/run.log" || fail "no cap line: $(cat "$JOB/r
 grep -q '^status: running$' "$JOB/checkpoint.md" || fail "hard cap changed the status"
 grep -q '^child=1 ' "$JOB/fake-marker" 2>/dev/null || fail "cap 1 stopped the job before child 1 ran: $(cat "$JOB/run.log")"
 grep -q 'child 2 launched' "$JOB/run.log" && fail "child 2 launched past the cap"
+# the cap is per job, not per run (issue 22): a re-run at the same cap launches nothing, and one at
+# cap 2 numbers its child 2, then stops at the cap counted over both runs
+rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > cap2.out 2>&1 || rc=$?
+[ "$rc" -eq 4 ] || fail "re-run at a reached cap exit $rc, want 4: $(cat cap2.out "$JOB/run.log")"
+[ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 1 ] || fail "re-run at a reached cap launched a child: $(cat "$JOB/run.log")"
+rc=0; JOB_MAX_CHILDREN=2 "$bo" run "$JOB" > cap3.out 2>&1 || rc=$?
+[ "$rc" -eq 4 ] || fail "re-run at cap 2 exit $rc, want 4: $(cat cap3.out "$JOB/run.log")"
+[ "$(grep -c 'child 1 launched' "$JOB/run.log")" -eq 1 ] || fail "child numbering restarted at 1 on a re-run: $(cat "$JOB/run.log")"
+grep -q 'child 2 launched' "$JOB/run.log" || fail "re-run at cap 2 launched no child 2: $(cat "$JOB/run.log")"
+grep -q 'child 3 launched' "$JOB/run.log" && fail "child 3 launched past cap 2 counted over two runs"
+grep -q 'child cap 2 reached' "$JOB/run.log" || fail "no cap line after the re-run: $(cat "$JOB/run.log")"
+# a child count file that is not two whole numbers stops the runner before any child; it never reads as 0
+nbad=0; for bad in '' 'x' '1' '08 0' '1 2' '-1 0'; do
+  new_job "badcount-$((++nbad))" step; printf '%s\n' "$bad" > "$JOB/child-count"
+  rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && grep -q "$JOB/child-count" badcount.out || fail "child-count '$bad': exit $rc, want 1 before any child: $(cat badcount.out)"
+  [ "$(cat "$JOB/child-count")" = "$bad" ] || fail "child-count '$bad' was rewritten"
+done
 
 # a Stop payload written slowly is read only once complete
 new_job slowhook slow-hook
@@ -106,6 +124,10 @@ grep -q 'runner exit 129 without a state' "$JOB/run.log" || fail "SIGHUP not log
 wait_until 5 eval "! kill -0 $hung 2>/dev/null && ! kill -0 $gc 2>/dev/null" || fail "child $hung or grandchild $gc alive after runner SIGHUP"
 ! tmux -L "$TEST_ID-hup" has-session 2>/dev/null || fail "tmux server alive after runner SIGHUP"
 gone_dirs hup
+# the count is saved before a child launches: child 1, cut off by the runner's end (a reboot), counts
+rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > hup2.out 2>&1 || rc=$?
+[ "$rc" -eq 4 ] || fail "re-run after a runner cut off child 1, cap 1: exit $rc, want 4: $(cat hup2.out "$JOB/run.log")"
+[ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 1 ] || fail "a child launched past cap 1 after a relaunch: $(cat "$JOB/run.log")"
 
 # a runner abort is logged and never reads as a state: a python3 that exits 4 fails child_report
 # with the cap's code under set -e; the runner exits 1 and run.log ends with the abort line
