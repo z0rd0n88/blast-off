@@ -4,6 +4,10 @@
 # Usage: tests/run [scenario-dir]        (default: the dir this script lives in)
 #   env: BLAST_OFF_NO_SHELLCHECK=1       skip shellcheck for a fixture scenario-dir only (the harness self-test); ignored on the real suite
 #        BLAST_OFF_TEST_TIMEOUT=300      seconds one scenario may run before it counts as failed
+#        BLAST_OFF_TEST_KEEP=<dir>       keep each scenario's work dir as <dir>/<name> (out = its output, cwd/ = what it
+#                                        left) instead of removing it, so CI can upload a failed run; scenarios never see it.
+#                                        A <dir>/<name> already there is replaced. <dir> cannot be under bin/, lib/ or tests/
+#                                        (linted below); a work dir that cannot be kept counts as one more failure
 # Exit:  0 "GATE: PASS ..." · 1 "GATE: FAIL ..."
 set -euo pipefail
 
@@ -11,6 +15,19 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$HERE")"
 DIR="$(cd "${1:-$HERE}" && pwd)"
 export REPO
+
+KEEP="${BLAST_OFF_TEST_KEEP:-}"
+# a scenario that runs tests/run itself (00-harness) would keep its fixtures beside the real scenarios
+unset BLAST_OFF_TEST_KEEP
+if [ -n "$KEEP" ]; then
+  # before any scenario, and with a verdict: a keep dir under a dir the shellcheck below lints (the scripts
+  # kept there fail it, and go on failing it once the var is unset), or one that cannot be made
+  no_keep() { echo "FAIL BLAST_OFF_TEST_KEEP=$KEEP: $1"; echo "GATE: FAIL passed=0 failed=1 shellcheck=skipped"; exit 1; }
+  abs="$(realpath -m -- "$KEEP")"; repo="$(realpath "$REPO")"
+  case "$abs/" in "$repo"/bin/*|"$repo"/lib/*|"$repo"/tests/*) no_keep "under a dir this gate lints";; esac
+  mkdir -p -- "$abs" || no_keep "cannot be made"
+  KEEP="$abs"
+fi
 
 passed=0 failed=0 sc=skipped
 for t in "$DIR"/[0-9][0-9]-*.sh; do
@@ -22,7 +39,12 @@ for t in "$DIR"/[0-9][0-9]-*.sh; do
   else
     failed=$((failed+1)); echo "FAIL $name"; sed 's/^/  | /' "$work/out"
   fi
-  rm -rf "$work"
+  # a dir left by an earlier run goes first: mv onto an existing dir nests. A work dir that cannot be
+  # kept is a failure of its own, not the end of the run: the rest of the suite and the verdict still come
+  if [ -z "$KEEP" ]; then rm -rf "$work"
+  elif ! { rm -rf "${KEEP:?}/$name" && mv "$work" "$KEEP/$name"; }; then
+    failed=$((failed+1)); echo "FAIL keep $name"; rm -rf "$work" || true
+  fi
 done
 [ $((passed+failed)) -gt 0 ] || { echo "FAIL no scenarios found in $DIR"; failed=1; }
 

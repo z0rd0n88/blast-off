@@ -1,0 +1,26 @@
+kept tree: 18 scenario dirs, 1445 files, 8.4M
+  names upload-artifact refuses (any of " : < > | * ? CR LF): 3
+0000000                   2   2   -   d   i   r   t   y   -   t   r   e
+0000020   e   /   c   w   d   /   t   e   s   t   -   8   2   6   0   8
+0000040   5   -   n   e   w   l   i   n   e   /   n   o   t   e   s  \n
+0000060   .   t   x   t  \n                   0   0   -   h   a   r   n
+0000100   e   s   s   /   c   w   d   /   r   t   /   b   l   a   s   t
+0000120   -   o   f   f   -   t   e   s   t   s   /   2   2   -   x   /
+  files under a dot dir or dot-named: 578; symlinks: 4; sockets+fifos: 0
+ci.yml tar line: tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/blast-off-tests.tgz" blast-off-tests
+tar exit=0
+  4096 blast-off-tests
+  311979 blast-off-tests.tgz
+grep: Unmatched [, [^, [:, [., or [=
+  tar file name refused by upload-artifact: 
+untar exit=0
+diff -r --no-dereference kept-tree untarred-tree exit=0 (0 lines of difference)
+  untarred: 1445 files, 4 symlinks, newline-named: 3
+token-shaped strings in the kept tree (files matching): 0
+  $GH_TOKEN: not set in this shell
+  $GITHUB_PERSONAL_ACCESS_TOKEN: not set in this shell
+  $DISCORD_BOT_TOKEN: not set in this shell
+  $RUNPOD_API_KEY: not set in this shell
+  $ANTHROPIC_API_KEY: not set in this shell
+  $JEV_API_KEY: not set in this shell
+  $OPENROUTER_API_KEY: not set in this shell
