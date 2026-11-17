@@ -1,0 +1,47 @@
+== 41-ci-wait (old code, new tests, fail() not exiting)
+FAIL: absent record outside git: exit 0: 2026-11-16T07:30:19Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: PRs read at done not logged: 2026-11-16T07:30:17Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: no table: exit 10, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:30:20Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+FAIL: no table: the PR in prose was read: 2026-11-16T07:30:20Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+FAIL: mis-typed heading: exit 0, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:30:20Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+FAIL: done row with neither: exit 10, want 10 and 'phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>`': 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FAC
+FAIL: done row that says no PR: exit 10, want 0: 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: no PR row not logged: 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: mixed rows, one with neither (P3R2-1): exit 0, want 10 and 'phase row 1 is done but its Status cell says neither': 2026-11-16T07:30:20Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: mixed rows log: 2026-11-16T07:30:20Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: another repo's PR link in prose (P3R2-2): exit 10, want 0: 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: another repo's PR 99 was read: 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: second row of a duplicated key: exit 0, want 10 and 'phase row 1 is done but its Status cell says neither': 2026-11-16T07:30:20Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: no PR and a PR in one cell: exit 0, want 10 and 'phase row 0 Status cell says `no PR` and names PR #8': 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'PR #8, #7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'PRs #7, #8': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:20Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'PR 7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell '#7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'PR: #7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'PR  #7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: Status cell 'no PR (#7 dropped)': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: NUL in a Status cell: exit 0, want 9 or 10: 2026-11-16T07:30:21Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: absent pass not logged: 2026-11-16T07:30:21Z receipt phase 1: GATE: PASS passed=1 failed=0 shellcheck=ok at 49a2d4982b171c60ba27c37dabb53b4e53904858
+FAIL: workflow file at HEAD, none at the PR's head: exit 10, want 0: 2026-11-16T07:30:22Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: workflow file at HEAD only: 2026-11-16T07:30:21Z receipt phase 1: GATE: PASS passed=1 failed=0 shellcheck=ok at 49a2d4982b171c60ba27c37dabb53b4e53904858
+FAIL: absent CI, workflow file at the PR's head: exit 10, want 10 and 'PR #17 CI absent: no runs, but its head eb1b955 has a workflow file (.github/workflows/release.yaml)': 2026-11-16T07:30:23Z child cap 3 (soft: 1 Phase plan row
+FAIL: absent refusal names no way out: 2026-11-16T07:30:21Z receipt phase 1: GATE: PASS passed=1 failed=0 shellcheck=ok at 49a2d4982b171c60ba27c37dabb53b4e53904858
+FAIL: workdir a subdirectory of the repo: exit 10: 2026-11-16T07:30:23Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: workflow file at the PR's head, removed at HEAD: exit 0: 2026-11-16T07:30:23Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+FAIL: absent CI, head not in the workdir's repo: exit 0, want 10 and 'PR #17 CI absent: no runs, and its head 2222222222222222222222222222222222222222 is no commit git can read in': 2026-11-16T07:30:23Z child cap 3 (soft: 1 Phase 
+ok
+== 51-templates (old code, new tests, fail() not exiting)
+/tmp/claude-1000/-home-alex-blast-off--claude-worktrees-pending-items-53932d/60b15296-819e-491a-8ffe-34b3bd988f86/scratchpad/red/tests/51-templates.sh: line 31: cp_done_cells: command not found
+/tmp/claude-1000/-home-alex-blast-off--claude-worktrees-pending-items-53932d/60b15296-819e-491a-8ffe-34b3bd988f86/scratchpad/red/tests/51-templates.sh: line 31: cp_done_cells: command not found
+FAIL: done row's Status cell: ''
+FAIL: checkpoint.md lacks: Every closed row's Status cell names the phase's own PR, as `PR #<n>` (or its /pull/<n> link), or says `no PR`.
+FAIL: checkpoint.md lacks: Write `no PR` only for a phase that opened no PR.
+FAIL: checkpoint.md lacks: The runner refuses done (exit 10) for a closed row with neither
+FAIL: checkpoint.md lacks: It reads PRs nowhere else in this file
+FAIL: checkpoint.md still says: gets no CI check
+FAIL: checkpoint.md still says: unless no Status cell
+ok
+== RED for the brief pins: count of each string in HEAD's templates/brief.md (flat)
+`done (<sha>) · no PR` only for a phase that opened no PR: 0
+`absent`, no runs, is not a pass: 0
+leave the row open, set `status: blocked`: 0

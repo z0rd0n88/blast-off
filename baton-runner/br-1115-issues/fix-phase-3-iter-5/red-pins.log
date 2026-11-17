@@ -1,0 +1,11 @@
+# RED for pinned sentences: hits in HEAD (571ed81) versions; 0 = absent before this fix
+chain.sh cp_unread at loop head (P3R5-13): 0
+template 'as plain text with no `|` and no code fence.': 0
+template 'whose text starts "Phase plan".': 0
+template 'and no other cell Status': 0
+template 'No cell holds a pipe, written `|` or `\|`.': 0
+template '(that form, not a link or URL)': 0
+README/spec 'row keys (0, 1, 2a)': 0/0
+README/spec 'The done gate defends against a child that is lazy or confused': 0/0
+README/spec 'children run as the owner's user with bypass permissions': 0/0
+README/spec 'is never refused for its format and never slips the gate': 0/0

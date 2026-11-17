@@ -74,7 +74,7 @@ pf_usage() {
 # of the seven_day window: refused. The five_hour window is bridged by paused-limit, never refused.
 pf_estimate() {
   local src="${BLAST_OFF_ESTIMATE_FROM:-$JOB/checkpoint.md}" per open est
-  per="$(sed -n '/^## Phase plan/,/^## /{/^| *[0-9]/p}' "$src" 2>/dev/null |
+  per="$(cp_rows "$src" 2>/dev/null |
     sed -n 's/.* · usage .*7d \([0-9][0-9]*\)%.*/\1/p' |
     awk 'NR > 1 && $1 > p { s += $1 - p; n++ } { p = $1 } END { if (n) printf "%d", (s + n - 1) / n }')"
   if [ -z "$per" ]; then echo "estimate: no estimate (fewer than two 7d figures in the Phase plan rows of $src)"; return 0; fi

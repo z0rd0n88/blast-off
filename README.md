@@ -41,8 +41,8 @@ Keep the job dir out of git (from inside the worktree, where `.git` is a file):
 1. Copy `templates/brief.md` and fill every section. §4's **Target set** is the exact list of tracked
    paths the job may change, plus a "may widen to" list; the owner confirms it as its own question
    before launch. §9, the child protocol, stays verbatim.
-2. Copy `templates/checkpoint.md`: `status: running`, one Phase plan row per phase (first cell a
-   digit), the first `Next action`. Keep the HTML comment: it lists the rules the runner enforces.
+2. Copy `templates/checkpoint.md`: `status: running`, one Phase plan row per phase (from the left
+   margin, first cell its key, Status cell last), the first `Next action`. Keep the HTML comment: it lists the rules the runner enforces.
 3. The workdir's name (letters, digits, `-`, `_`) names the unit `blast-off-<name>.service` and the
    tmux server `blast-off-<name>`.
 
@@ -111,8 +111,20 @@ blast-off receipt <job-dir> <n>     # gate-logs/phase-<n>.json: verdict, tally, 
 blast-off ci-wait <job-dir> <pr>    # one blocking gh run watch per CI run of the PR head
 ```
 
-and finally the row's Status cell `done (<sha>) · PR #<pr>`. The runner refuses a done row without a
-PASS receipt for its sha (exit 9) and `status: done` while a named PR's CI is red or unread (exit 10).
+and finally the row's Status cell `done (<sha>) · PR #<pr>`, or `done (<sha>) · no PR` for a phase
+the brief says opens no PR (a PR that could not be opened is a blocked part, not `no PR`). The runner refuses a done row without a PASS receipt for its sha (exit 9). It
+refuses `status: done` (exit 10) while a done row's Status cell says neither `PR #<pr>` nor `no PR`,
+while the Phase plan has no row the runner reads, while the Phase plan section is not one table (its header
+ending in Status, the separator, one row per phase from the left margin with the header's cells) and
+plain notes under it, or the file has a second Phase plan heading, and while the CI of a PR named in such a cell is red, unread,
+or absent (no runs) where the PR's head commit has a workflow file. PRs are read only from those
+cells, never from prose; `run.log` says which were read.
+
+The done gate defends against a child that is lazy or confused, not one that crafts Markdown or HTML to
+hide a PR from it: children run as the owner's user with bypass permissions and could edit the runner
+itself, so a malicious child is out of scope (owner ruling 3 of phase 3). A checkpoint written by
+following `templates/checkpoint.md` and `templates/brief.md` is never refused for its format and never
+slips the gate.
 
 ## Exit codes
 
@@ -121,13 +133,13 @@ PASS receipt for its sha (exit 9) and `status: done` while a named PR's CI is re
 | 0 | job done | read the final report in `checkpoint.md` |
 | 1 | usage, dependency or runner error; `preflight` refused | read the message or the last `run.log` line, fix, run again |
 | 3 | blocked: the job needs the owner | answer what `Open or blocked` asks, set `status: running`, `start` again |
-| 4 | hard child cap (no Phase plan table) | add a Phase plan table, or raise `JOB_MAX_CHILDREN`, and start again |
+| 4 | hard child cap (no Phase plan row the runner reads; such a job ends `done` only once its Phase plan table has its rows, else exit 10) | add a Phase plan table with a row per phase and start again; raising `JOB_MAX_CHILDREN` alone gives more children, not a way to `done` |
 | 5 | two children in a row left `checkpoint.md` unchanged | read the children's closing summaries in `run.log`; fix the brief or `Next action` |
 | 6 | soft cap reached, `status: paused-cap` | `blast-off resume <job-dir>` (fresh child count) |
 | 7 | uncommitted paths the checkpoint does not name | commit, remove, or name them in the checkpoint; start again |
 | 8 | usage limit, `status: paused-limit until <time>` | nothing while `status` shows the resume timer active; else `blast-off resume <job-dir>` after `<time>` |
 | 9 | a done Phase plan row lacks its commit or a PASS receipt for it | run the gate, `blast-off receipt`, fix the row's sha |
-| 10 | done refused: a named PR's CI is red or unread | fix CI, or run `blast-off ci-wait <job-dir> <pr>` after the last push |
+| 10 | done refused: a done Phase plan row's Status cell says neither `PR #<pr>` nor `no PR` (or the Phase plan has no row the runner reads, or holds a line that is neither part of its one table nor a plain note under it, or there is a second Phase plan heading); or the CI of a PR named in such a cell is red, unread, or absent (no runs) while the PR's head commit has a workflow file or cannot be read in the workdir's repo | the last `run.log` line names the row or the PR, the case, and what to write or run. Row: add `PR #<pr>`, or `no PR` if the brief says the phase opens none; a Phase plan line named: rewrite it as a row of the one table (from the left margin, the header's cells, Status last) or delete it; a second Phase plan heading: rename or delete it. Red: fix CI and push. Then `blast-off ci-wait <job-dir> <pr>` after the last push. Absent: push to the PR branch so a run starts, then `ci-wait`; fetch the PR's head first if the line says it cannot be read. There is no override for a PR no workflow can start on (a branch or path filter): ask the owner, who can change the PR base or the trigger filter; `no PR` is no way out. Never add, remove or edit a workflow file to change a CI result |
 
 Every non-zero code except 1 is a state, not a failure: the unit has no `Restart=`, and the runner is
 safe to run again.
@@ -136,7 +148,7 @@ safe to run again.
 
 `big-next-job`'s Run mode launches its own `run-job` with `nohup`. To run the job under blast-off
 instead, the skill writes the brief and checkpoint from **blast-off's** templates (they carry the rules
-the runner enforces: digit row keys, `done (<sha>)` cells, receipts, `ci-wait`; a checkpoint from
+the runner enforces: row keys (0, 1, 2a), `done (<sha>)` cells, receipts, `ci-wait`; a checkpoint from
 big-next-job's template ends in exit 9 at its first done row) into `<worktree>/.big-next-job/`, then
 replaces its launch line with the [Check, then start](#check-then-start) block (`export GH_TOKEN
 CLAUDE_FLAGS=...`, `blast-off preflight <job-dir>`, `blast-off start <job-dir>`)

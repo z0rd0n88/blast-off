@@ -70,7 +70,7 @@ dated claims and inference marked as such.
   lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Finish the
   independent work, record it.
 
-## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase)
+## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase; a phase that opens none says `no PR` in its Done when)
 | # | Phase | Branch | Done when |
 |---|---|---|---|
 | 0 | <e.g. spec> | `<branch>` | <reviewed; draft PR on base> |
@@ -132,7 +132,11 @@ Every session in this job follows this, in order:
    then `git merge origin/<base>`); commit; run the gate on the
    committed tree into `gate-logs/phase-<n>.log`; `"$BLAST_OFF" receipt <job-dir> <n>`; push and open the
    draft PR; `"$BLAST_OFF" ci-wait <job-dir> <pr>` after the last push to it (one blocking `gh run watch`
-   per run; absent checks are not a pass, and a red one means fix, commit, gate, receipt again). Run
+   per run; a red one means fix, commit, gate, receipt again; `absent`, no runs, is not a pass:
+   where the PR's head has a file under `.github/workflows/`, leave the row open, record it under Open
+   or blocked and go on (step 9 decides the status); where it has none, no CI is configured: close the
+   row, and the runner logs it as absent, not a pass. Never add, remove or edit a workflow file to
+   change what the runner reads of CI). Run
    the gate and ci-wait in the foreground with the Bash tool's longest timeout. If the tool cuts one
    off, stop any copy it left running, run that step again as below, and go on from the step after
    it. Run ci-wait again until it returns: each call reads the head's runs anew, and `gh run watch`
@@ -140,7 +144,8 @@ Every session in this job follows this, in order:
    `( trap '' HUP; <gate command> ) > "<job-dir>/gate-logs/phase-<n>.log" 2>&1 < /dev/null & echo $!`
    and wait with foreground calls of `timeout 590 tail --pid=<that pid> -f /dev/null` until that pid
    is gone (step 8); a log with no final `GATE:` line is refused by the receipt. After ci-wait,
-   set the row's Status to `done (<sha>) · PR #<n>`, <sha> = the receipt's commit: the runner reads
+   set the row's Status to `done (<sha>) · PR #<n>` (`done (<sha>) · no PR` only for a phase the
+   brief says opens no PR; a PR that could not be opened is a blocked part, not `no PR`; the runner refuses a done row with neither, exit 10), <sha> = the receipt's commit: the runner reads
    the first 7 to 40 character hex word in the cell, so replace, not append. No code commit after
    the receipt (the runner refuses with exit 9). Move the phase to `Completed phases` (children,
    hand-backs and their reasons, clean or cap close), set `phase:` and `Next action`, end your turn.

@@ -71,7 +71,7 @@ grep -q 'child 5 launched' "$JOB/run.log" && fail "child 5 launched after two st
 new_job cap step
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > cap.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "cap run exit $rc: $(cat cap.out)"
-grep -q 'child cap 1 (hard: no Phase plan table in checkpoint.md)' "$JOB/run.log" || fail "hard cap source not logged: $(cat "$JOB/run.log")"
+grep -q 'child cap 1 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)' "$JOB/run.log" || fail "hard cap source not logged: $(cat "$JOB/run.log")"
 grep -q 'child cap 1 reached' "$JOB/run.log" || fail "no cap line: $(cat "$JOB/run.log")"
 grep -q '^status: running$' "$JOB/checkpoint.md" || fail "hard cap changed the status"
 grep -q '^child=1 ' "$JOB/fake-marker" 2>/dev/null || fail "cap 1 stopped the job before child 1 ran: $(cat "$JOB/run.log")"

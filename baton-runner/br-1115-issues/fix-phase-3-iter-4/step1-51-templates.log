@@ -1,0 +1,3 @@
+PASS 51-templates
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=51-templates

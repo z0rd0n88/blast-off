@@ -13,8 +13,8 @@
 #        dirty (step; leaves untracked stray.txt in the workdir) · dirty-named (step; leaves named.txt, names it in the checkpoint)
 #        ratelimit / apierr / authfail (step; then the StopFailure hook with error rate_limit / overloaded / authentication_failed, no Stop hook)
 #        die75 (exit 75, the child code reserved for a usage limit, with no Stop hook)
-#        close (mark the first pending Phase plan row done; with none pending, status done)
-#        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>)`)
+#        close (mark the first pending Phase plan row `done · no PR`; with none pending, status done)
+#        close-sha (close, writing the workdir's short HEAD into the row: `done (<sha>) · no PR`)
 #        close-sha-later (close-sha, then commit later.txt: the row names a commit older than HEAD)
 # With $JOB_DIR/fake-usage-<n> (child n only) or fake-usage present, its content is this session's
 # status-line usage record: $BLAST_OFF_STATE_DIR/usage-limits-fake-<n>.json, as ~/.claude/hooks/usage-limit-tee.sh writes it.
@@ -27,6 +27,20 @@ settings='' flags=() pre=1
 while [ $# -gt 0 ]; do case "$1" in --settings) settings="$2"; pre=; shift 2 ;; *) [ -z "$pre" ] || flags+=("$1"); shift ;; esac; done
 : "${JOB_DIR:?fake claude needs JOB_DIR}" "${JOB_CHILD:?fake claude needs JOB_CHILD}"
 cp="$JOB_DIR/checkpoint.md"
+# fin: status done. The runner refuses done (exit 10) without a done Phase plan row that says `PR #<n>` or
+# `no PR`, so a job with no table gets a one-row one here; in a git workdir that row also needs HEAD's
+# commit and a PASS receipt for it (exit 9), written here with the fields the receipt gate reads
+fin() {
+  sed -i 's/^status: .*/status: done/' "$cp"
+  ! grep -q '^## Phase plan' "$cp" || return 0
+  local sha; sha="$(git -C "$(dirname "$JOB_DIR")" rev-parse HEAD 2>/dev/null)" || sha=
+  if [ -n "$sha" ]; then
+    mkdir -p "$JOB_DIR/gate-logs"; echo 'GATE: PASS passed=1 failed=0 shellcheck=ok' > "$JOB_DIR/gate-logs/phase-0.log"
+    jq -n --arg h "$sha" '{verdict: "PASS", verdict_line: "GATE: PASS passed=1 failed=0 shellcheck=ok", gate_log: "gate-logs/phase-0.log", head_sha: $h}' \
+      > "$JOB_DIR/gate-logs/phase-0.json"
+  fi
+  printf '\n## Phase plan\n| # | Phase | Done when | Status |\n|---|---|---|---|\n| 0 | fake | x | done%s · no PR |\n' "${sha:+ (${sha:0:7})}" >> "$cp"
+}
 mode="$(sed -n "${JOB_CHILD}p" "$JOB_DIR/fake-mode")"; [ -n "$mode" ] || mode="$(tail -n 1 "$JOB_DIR/fake-mode")"
 # prev_alive: whether the previous child's process outlived the runner launching this one
 prev="$(sed -n "s/^child=$((JOB_CHILD-1)) pid=\([0-9]*\) .*/\1/p" "$JOB_DIR/fake-marker" 2>/dev/null | tail -n 1 || true)"
@@ -57,28 +71,29 @@ case "$mode" in
   dirty-named) echo x > "$(dirname "$JOB_DIR")/named.txt"; printf -- '- fake child %s left named.txt uncommitted\n' "$JOB_CHILD" >> "$cp" ;;
   bg-step) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"
     printf -- '- fake child %s step\n' "$JOB_CHILD" >> "$cp" ;;
-  done|blocked) sed -i "s/^status: .*/status: $mode/" "$cp" ;;
-  slow-done) sleep 5; sed -i 's/^status: .*/status: done/' "$cp" ;;
-  close) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then sed -i '0,/^\(| [0-9]* |.*| \)pending |$/s//\1done |/' "$cp"
+  done) fin ;;
+  blocked) sed -i 's/^status: .*/status: blocked/' "$cp" ;;
+  slow-done) sleep 5; fin ;;
+  close) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then sed -i '0,/^\(| [0-9]* |.*| \)pending |$/s//\1done · no PR |/' "$cp"
          else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
   close-sha) if grep -q '^| [0-9]* |.*| pending |$' "$cp"; then
              sha="$(git -C "$(dirname "$JOB_DIR")" rev-parse --short HEAD)"
-             sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($sha) |/" "$cp"
+             sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($sha) · no PR |/" "$cp"
            else sed -i 's/^status: .*/status: done/' "$cp"; fi ;;
   close-sha-later) w="$(dirname "$JOB_DIR")"
     grep -q '^| [0-9]* |.*| pending |$' "$cp" || { sed -i 's/^status: .*/status: done/' "$cp"; w=; }
-    [ -z "$w" ] || sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($(git -C "$w" rev-parse --short HEAD)) |/" "$cp"
+    [ -z "$w" ] || sed -i "0,/^\\(| [0-9]* |.*| \\)pending |\$/s//\\1done ($(git -C "$w" rev-parse --short HEAD)) · no PR |/" "$cp"
     [ -z "$w" ] || { echo x > "$w/later.txt"; git -C "$w" add later.txt; git -C "$w" -c user.name=t -c user.email=t@t commit -q -m later; } ;;
   noop) ;;
   hang) nohup sleep 600 >/dev/null 2>&1 & echo "grandchild=$!" >> "$JOB_DIR/fake-marker"; exec sleep 600 ;;
-  slow-hook|done-exit|bad-payload) sed -i 's/^status: .*/status: done/' "$cp" ;;
+  slow-hook|done-exit|bad-payload) fin ;;
   die) echo "fake child $JOB_CHILD: API Error: fake death"; exit 3 ;;
   die75) echo "fake child $JOB_CHILD: usage limit"; exit 75 ;;
   trust-early|trust-late)
     [ "$mode" = trust-early ] || sleep 3
     echo "Yes, I trust this folder"
     if read -r -t 6 _; then echo keys=yes >> "$JOB_DIR/fake-marker"; else echo keys=no >> "$JOB_DIR/fake-marker"; fi
-    sed -i 's/^status: .*/status: done/' "$cp" ;;
+    fin ;;
   *) echo "fake claude: unknown mode $mode" >&2; exit 1 ;;
 esac
 if [ "$mode" = ratelimit ] || [ "$mode" = apierr ] || [ "$mode" = authfail ]; then

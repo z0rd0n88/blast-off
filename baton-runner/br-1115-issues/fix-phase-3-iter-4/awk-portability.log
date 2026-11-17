@@ -1,0 +1,80 @@
+DIFF f0.md rows
+DIFF f0.md done
+DIFF f0.md open
+DIFF f0.md cells
+DIFF f0.md nums
+DIFF f0.md unread
+DIFF f1.md rows
+DIFF f1.md done
+DIFF f1.md open
+DIFF f1.md cells
+DIFF f1.md nums
+DIFF f1.md unread
+DIFF f2.md rows
+DIFF f2.md done
+DIFF f2.md open
+DIFF f2.md cells
+DIFF f2.md nums
+DIFF f2.md unread
+DIFF f3.md rows
+DIFF f3.md done
+DIFF f3.md open
+DIFF f3.md cells
+DIFF f3.md nums
+DIFF f3.md unread
+DIFF f4.md rows
+DIFF f4.md done
+DIFF f4.md open
+DIFF f4.md cells
+DIFF f4.md nums
+DIFF f4.md unread
+DIFF f5.md rows
+DIFF f5.md done
+DIFF f5.md open
+DIFF f5.md cells
+DIFF f5.md nums
+DIFF f5.md unread
+DIFF f6.md rows
+DIFF f6.md done
+DIFF f6.md open
+DIFF f6.md cells
+DIFF f6.md nums
+DIFF f6.md unread
+DIFF f7.md rows
+DIFF f7.md done
+DIFF f7.md open
+DIFF f7.md cells
+DIFF f7.md nums
+DIFF f7.md unread
+DIFF f8.md rows
+DIFF f8.md done
+DIFF f8.md open
+DIFF f8.md cells
+DIFF f8.md nums
+DIFF f8.md unread
+DIFF f9.md rows
+DIFF f9.md done
+DIFF f9.md open
+DIFF f9.md cells
+DIFF f9.md nums
+DIFF f9.md unread
+--- f0.md: unread: 
+    done: 0 1 2  open: 
+--- f1.md: unread: line 9 '| 1 | a | b | done (abc1234) · PR #7 | done (abc1234) · no PR |' is in the Phase plan table and is no phase row: write each phase as a row from the left margin, `| <key> | ... | <Status> |`, with the header's 4 cells; delete anything else
+    done: 0  open: 
+--- f2.md: unread: line 9 '| 1 | a | b | done (abc1234) · PR #7 \| x |' is in the Phase plan table and is no phase row: write each phase as a row from the left margin, `| <key> | ... | <Status> |`, with the header's 4 cells; delete anything else
+    done: 0  open: 
+--- f3.md: unread: line 9 '1 a b done (abc1234) · PR #7' is in the Phase plan table and is no phase row: write each phase as a row from the left margin, `| <key> | ... | <Status> |`, with the header's 4 cells; delete anything else
+    done: 0  open: 
+--- f4.md: unread: line 13 '| # | Phase | Done when | Status |' follows the Phase plan table: each phase is a row of that one table, and a note under it is plain text (no table, code block or HTML); move the phase into the table or delete the line
+    done: 0  open: 
+--- f5.md: unread: line 10 '## **Phase plan**' is a second Phase plan heading (the first is line 5): keep one; rename or delete this one
+    done: 0  open: 
+--- f6.md: unread: line 10 '## Phase plan' is a second Phase plan heading (the first is line 5): keep one; rename or delete this one
+    done: 0  open: 
+--- f7.md: unread: 
+    done: 0 2a  open: P1 
+--- f8.md: unread: line 9 '| 1 | a | b | Done-ish |' has a Status cell that starts with "done" and is no done state: write `done (<sha>)`, then each of the phase's PRs as `PR #<n>` or `no PR`, or leave the row open
+    done: 0  open: 1 
+--- f9.md: unread: line 9 '| ** | a | b | done (abc1234) |' is a phase row whose key '**' is not letters, digits, '.', '-' or '_': write the key plainly (0, 1, 2a)
+    done: 0  open: ** 

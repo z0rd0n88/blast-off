@@ -21,13 +21,23 @@ other worktrees: <path · branch · HEAD, or none>
 - The first status line above is the one the runner reads. Children write only running, done or
   blocked there. paused-cap and paused-limit are the runner's: on a usage limit, checkpoint and end
   the turn; the runner pauses the job itself.
-- Each row's first cell starts with a digit (0, 1, 2a): the runner only sees rows like that.
+- One `## Phase plan` heading, and no other heading anywhere in this file whose text starts "Phase plan".
+  Under it, first, one table: the header (its last cell Status, and no other cell Status), the
+  separator, then one row per phase, each from the left margin like the ones above, between pipes,
+  with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last. No cell
+  holds a pipe, written `|` or `\|`. Notes go under the table after a blank line, as plain text with no `|` and no code fence.
+  At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.
 - A closed row's Status cell starts `done (<sha>)`, <sha> = the commit `blast-off receipt` recorded
   for the phase (gate-logs/phase-<n>.json head_sha). The runner reads the first 7 to 40 character
-  hex word in the cell, so replace an older sha, never append a second. Add `PR #<n>` after it.
+  hex word in the cell, so replace an older sha, never append a second. After it comes `PR #<n>` or
+  `no PR` (the PR rule below).
 - ` · usage ...` at the end of a done cell is written by the runner at the child's end. Never edit it.
-- `PR #<n>` or a /pull/<n> link anywhere here means this job's own PR: at done the runner wants a CI
-  record for each (exit 10). Name any other PR by its branch or as `other PR <n>`, no '#'.
+- Every closed row's Status cell names every PR the phase opened, each as `PR #<n>` (that form, not a
+  link or URL), or says `no PR`. Write `no PR` only for a phase the brief says opens no PR; a PR that could
+  not be opened is a blocked part (Open or blocked), not `no PR`. The runner refuses done (exit 10)
+  for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.
+  Past `done (<sha>)` a done row's Status cell holds those PRs or `no PR` and no other number, '#' or
+  PR. A PR that is not this job's goes in prose, outside the table.
 - An uncommitted path at a child's end must be named here, whole: each file `git status --porcelain
   -uall` lists, from the repo root or the workdir, never absolute, no leading ./ (a directory does not
   name the files in it). A name with no '/' and no '.' (`<bare-name>`) counts only in backticks. An
@@ -44,7 +54,7 @@ other worktrees: <path · branch · HEAD, or none>
 
 ## Completed phases (summary each, newest last)
 - **Phase 0, <name>** (done <UTC>, children <a>-<b>). <what now works; gate verdict and receipt;
-  review rounds, closed clean or at cap, open finding IDs; PR #<n>; CI conclusion read>. Hand-backs:
+  review rounds, closed clean or at cap, open finding IDs; PR #<n> or no PR; CI conclusion read>. Hand-backs:
   <child at which step boundary, and the reason, or none>. Ledger `phases/phase-<n>.md`.
 
 ## Open or blocked (append only)

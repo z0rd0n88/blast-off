@@ -1,0 +1,21 @@
+copy: /tmp/p3f2-mut.UMnZAz   keep: /tmp/p3f2-keep.FsFouR
+== baseline
+PASS 41-ci-wait
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=41-ci-wait
+NUL case, last run.log line: 2026-11-16T07:51:41Z PR #7 CI unread: no readable record for PR 7 in gate-logs/ci-pr-7.json; blast-off ci-wait <job-dir> 7, then run again
+== RED: HEAD's lib/ci.sh and lib/checkpoint.sh, new tests, fail() not exiting
+FAIL lines: 31
+FAIL: no table: exit 10, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:52:01Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+FAIL: no table: the PR in prose was read: 2026-11-16T07:52:01Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+FAIL: mis-typed heading: exit 0, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:52:01Z child cap 12 (hard: no Phase plan table in checkpoint.
+FAIL: table with no rows: exit 0, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:52:01Z child cap 12 (hard: no Phase plan table in checkpoint
+== mutants of the new lib/ci.sh
+mA no-done-row refusal dropped: KILLED:   | FAIL: no table: exit 0, want 10 and 'status done but the Phase plan has no done row': 2026-11-16T07:52:22Z child cap 12 (hard: no Phase plan table in checkpoint.md)
+mB neither refusal dropped: KILLED:   | FAIL: done row with neither: exit 0, want 10 and 'phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>`': 2026-11-
+mC PRs read from the whole file again: KILLED:   | FAIL: green records: exit 10: 2026-11-16T07:52:58Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+mD workdir HEAD read, not the record head: KILLED:   | FAIL: workflow file at HEAD, none at the PR's head: exit 10, want 0: 2026-11-16T07:53:18Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+mE stray #<n> check dropped: KILLED:   | FAIL: Status cell 'PR #8, #7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T07:53:37Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+mF unreadable head commit passes: KILLED:   | FAIL: absent CI, head not in the workdir's repo: exit 0, want 10 and 'PR #17 CI absent: no runs, and its head 2222222222222222222222222222222222222222 is no commit gi
+== done
+ExecStart=/home/alex/blast-off/.worktrees/blast-off-build/bin/blast-off run %f

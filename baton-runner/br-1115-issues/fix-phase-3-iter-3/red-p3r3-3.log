@@ -1,0 +1,11 @@
+FAIL 41-ci-wait
+  | FAIL: Status cell 'no PR, see PR 7': exit 0, want 10 and 'phase row 0 ': 2026-11-16T11:20:28Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+  | 2026-11-16T11:20:28Z workdir /tmp/tmp.wsjywMkJ4U/cwd/test-2686781-sp8 is not in a git repo; dirty-tree check off, receipt check off
+  | 2026-11-16T11:20:28Z CI at done: PRs read: none; rows that say no PR: 0
+  | 2026-11-16T11:20:28Z job done
+  | 2026-11-16T11:20:28Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+  | 2026-11-16T11:20:28Z workdir /tmp/tmp.wsjywMkJ4U/cwd/test-2686781-sp8 is not in a git repo; dirty-tree check off, receipt check off
+  | 2026-11-16T11:20:28Z CI at done: PRs read: none; rows that say no PR: 0
+  | 2026-11-16T11:20:28Z job done
+PASS shellcheck (33 files)
+GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=41-ci-wait

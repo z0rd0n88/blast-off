@@ -20,6 +20,7 @@ p="$(cp_phases)"
 cp_open_rows | while read -r k; do [[ $k =~ ^[0-9] ]] || fail "row key '$k' does not start with a digit"; done
 [ "$(wc -l < "$t")" -le 100 ] || fail "template is $(wc -l < "$t") lines; it must leave a job room under 150"
 cp_size_warn; [ ! -s "$JOB/run.log" ] || fail "template warned: $(cat "$JOB/run.log")"
+[ -z "$(cp_unread)" ] || fail "template Phase plan holds a line done refuses (P3R3-1): $(cp_unread)"
 ! grep -q '^## Decisions' "$t" || fail "checkpoint template keeps a Decisions table; F3 puts decisions in decisions.tsv, not the checkpoint"
 # the template names no file a repo may hold: an uncommitted Makefile or decisions.tsv must not count as
 # named in every job built from it (P5R1-1)
@@ -28,6 +29,7 @@ for f in Makefile decisions.tsv; do ! cp_names "$f" || fail "template names $f; 
 sed -i '0,/^\(| 0 |.*| \)pending |$/s//\1done (abc1234) · PR #7 |/' "$JOB/checkpoint.md"
 [ "$(cp_done_rows)" = 0 ] || fail "done row as the template writes it not read: $(grep '^| 0 ' "$JOB/checkpoint.md")"
 [ "$(cp_row_sha 0)" = abc1234 ] || fail "row sha: '$(cp_row_sha 0)', want abc1234"
+[ "$(cp_done_cells)" = '0|done (abc1234) · PR #7 ' ] || fail "done row's Status cell: '$(cp_done_cells)'"
 for s in 'done (<sha>)' 'PR #<n>' 'replace' '· usage' 'backticks' 'phases/phase-<n>.md' \
          'gate-logs/phase-<n>' 'Hand-backs' 'children <a>-<b>'; do
   has "$t" "$s"
@@ -71,13 +73,25 @@ has "$b" '| D2 | Codex lanes | off'
 flat() { tr '\n' ' ' | tr -s ' '; }
 C="$(flat < "$t")"
 for s in 'Children write only running, done or blocked there.' "paused-cap and paused-limit are the runner's" \
-         '-uall' "means this job's own PR" '<job-dir>/decisions.tsv'; do
+         '-uall' "each from the left margin like the ones above, between pipes, with the header's cells; its first cell is the phase's key (0, 1, 2a), its Status cell last." \
+         'Notes go under the table after a blank line, as plain text with no `|` and no code fence. At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.' \
+         'One `## Phase plan` heading, and no other heading anywhere in this file whose text starts "Phase plan".' \
+         'the header (its last cell Status, and no other cell Status)' 'No cell holds a pipe, written `|` or `\|`.' \
+         "Every closed row's Status cell names every PR the phase opened, each as \`PR #<n>\` (that form, not a link or URL), or says \`no PR\`." \
+         'Write `no PR` only for a phase the brief says opens no PR; a PR that could not be opened is a blocked part' \
+         'The runner refuses done (exit 10) for a closed row with neither, and wants a CI record (`blast-off ci-wait`) for each PR named there.' \
+         "A PR that is not this job's goes in prose, outside the table." '<job-dir>/decisions.tsv'; do
   [[ $C == *"$s"* ]] || fail "checkpoint.md lacks: $s"
 done
+# P3R2-4: the rule is an obligation; it names no way to close a row and skip its CI check
+for s in 'gets no CI check' 'unless no Status cell' 'It reads PRs nowhere else' 'the runner only sees rows'; do [[ $C != *"$s"* ]] || fail "checkpoint.md still says: $s"; done
 S9="$(sed -n '/^## 9\. Child protocol/,$p' "$b" | flat)"
 for s in 'gh pr list' 'rev-list --count HEAD..origin/' 'git fetch origin' 'git status --porcelain -uall' \
          'Write only running, done or blocked in the `status:` line' \
-         '`paused-cap` and `paused-limit` belong to the runner' 'leave the status as it is' 'Do not try to exit 75'; do
+         '`paused-cap` and `paused-limit` belong to the runner' 'leave the status as it is' 'Do not try to exit 75' \
+         '`done (<sha>) · no PR` only for a phase the brief says opens no PR' \
+         '`absent`, no runs, is not a pass' 'leave the row open, record it under Open or blocked and go on (step 9 decides the status)' \
+         'where it has none, no CI is configured: close the row' 'Never add, remove or edit a workflow file to change what the runner reads of CI'; do
   [[ $S9 == *"$s"* ]] || fail "brief section 9 lacks: $s"
 done
 # the close order the runner checks: commit, gate, receipt, PR, ci-wait, then the done cell

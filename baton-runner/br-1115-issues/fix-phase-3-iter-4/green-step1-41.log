@@ -1,0 +1,10 @@
+PASS 41-ci-wait
+
+In /home/alex/blast-off/.claude/worktrees/pending-items-53932d/lib/checkpoint.sh line 96:
+cp_done_rows() { cp_scan done; }
+                         ^-- SC1010 (warning): Use semicolon or linefeed before 'done' (or quote to make it literal).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1010 -- Use semicolon or linefeed before ...
+FAIL shellcheck
+GATE-ONLY: FAIL passed=1 failed=1 shellcheck=fail only=41-ci-wait

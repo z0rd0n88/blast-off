@@ -31,8 +31,13 @@ resume; `templates/` holds the brief and checkpoint you fill.
    question: the exact paths, then the may-widen list. Done when the owner answers that question.
 4. **Settle the rest**, one question at a time, each with your recommendation: phases and their
    "done when", the gate command (its last output line `GATE: PASS` or `GATE: FAIL`), delivery (one
-   stacked draft PR per phase, never merged; with no CI, `blast-off ci-wait` records `absent` and
-   exits 10, and the runner lets `done` through logged "absent, not a pass": say so in brief §2),
+   stacked draft PR per phase, never merged; a phase that opens no PR says `no PR` in brief §5 and closes its row with `no PR`; when a
+   PR gets no CI runs, `blast-off ci-wait` records `absent` and exits 10, and the runner lets `done`
+   through, logged "absent, not a pass", only where that PR's head commit has no file under
+   `.github/workflows/`: ask whether the repo's workflows start on the stacked PR branches, and
+   put the answer in brief §2; if none starts on them, tell the owner before launch that such a PR is
+   refused at `done` with no override and that `no PR` is no way out, that the PR base and the
+   trigger filter are theirs to change, and record their choice there too),
    per-commit LLM plugins opt-in or out (look in `.claude/settings.json` `enabledPlugins`,
    `git config core.hooksPath`, `.git/hooks`), and `CLAUDE_FLAGS`. `CLAUDE_FLAGS` is the owner's string, verbatim: it must hold `--model` and
    `--effort`; you add nothing to it.
@@ -43,7 +48,7 @@ resume; `templates/` holds the brief and checkpoint you fill.
    `echo .big-next-job/ >> "$(git rev-parse --git-common-dir)/info/exclude"`. Fill every section of
    `templates/brief.md` (§9 Child protocol verbatim; the confirmed Target set in §4). From
    `templates/checkpoint.md`: `status: running`, `phase: 0 of N`, one Phase plan row per phase keyed
-   `0`, `1`, `2`..., the first `Next action`, and its HTML comment kept.
+   `0`, `1`, `2`..., each from the left margin, the first `Next action`, and its HTML comment kept.
 6. **Preflight**: `CLAUDE_FLAGS='<owner flags>' blast-off preflight <job-dir>`. Fix what a
    `preflight: refused` line names before going on; a usage estimate over what the 7-day window has
    left is the owner's call: report it and stop.

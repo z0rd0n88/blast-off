@@ -93,8 +93,9 @@ chain_nums() {
 
 # chain_cap: MAXC, CAP_WHY and CAP_SOFT (empty for the hard cap). The soft cap (F2): the checkpoint's
 # phase count times JOB_CAP_FACTOR, or JOB_MAX_CHILDREN. Reaching it pauses the job (paused-cap, exit 6)
-# and a re-run continues. With no Phase plan table there is no phase count, the soft cap is disabled,
-# and the cap is the hard one of phase 1 (exit 4, status kept).
+# and a re-run continues. With no Phase plan row the runner reads there is no phase count, the soft cap is
+# disabled, and the cap is the hard one of phase 1 (exit 4, status kept). Such a job ends done only once a
+# child adds its rows: ci_check wants a done row (exit 10). CAP_WHY says so at start and in preflight (P3R3-12).
 chain_cap() {
   local phases; phases="$(cp_phases)"
   CAP_SOFT=1
@@ -103,7 +104,7 @@ chain_cap() {
   elif [ "$phases" -gt 0 ]; then
     MAXC=$((phases * ${JOB_CAP_FACTOR:-3})) CAP_WHY="soft: $phases Phase plan rows x JOB_CAP_FACTOR ${JOB_CAP_FACTOR:-3}"
   else
-    MAXC="${JOB_MAX_CHILDREN:-12}" CAP_WHY="hard: no Phase plan table in checkpoint.md" CAP_SOFT=
+    MAXC="${JOB_MAX_CHILDREN:-12}" CAP_WHY="hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one" CAP_SOFT=
   fi
 }
 
@@ -113,7 +114,7 @@ chain_run() {
   test -s "$JOB/brief.md" || die "missing $JOB/brief.md"
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
-  local n=0 stalls=0 s before after rows w limited back=
+  local n=0 stalls=0 s u before after rows w limited back=
   chain_nums
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
@@ -155,8 +156,10 @@ chain_run() {
   while :; do
     receipt_check "$rows"
     s="$(cp_status)"
+    # P3R5-13: mid-run a line done would refuse silently stops the rows after it being read; say so each pass
+    [ "$s" = "done" ] || { u="$(cp_unread)"; [ -z "$u" ] || log "checkpoint.md $u; the Phase plan rows from there on are not read, and done is refused, until it is fixed"; }
     case "$s" in
-      done)    receipt_all_done; ci_check; chain_end 0 "job done" ;;
+      done)    ci_plan; receipt_all_done; ci_check; chain_end 0 "job done" ;;
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((n+1))

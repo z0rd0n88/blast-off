@@ -43,6 +43,24 @@ grep -q 'big-next-job' "$readme" || fail "README does not say how big-next-job c
 for s in "types the bare line" "! CLAUDE_FLAGS='<flags>' blast-off start <job-dir>"; do
   grep -qF "$s" "$readme" || fail "README does not say '$s'"
 done
+# P3R3-7: the done rules as the owner and the skill read them (flat: however the lines wrap)
+R="$(tr '\n' ' ' < "$readme" | tr -s ' ')" K="$(tr '\n' ' ' < "$skill" | tr -s ' ')"
+for s in "refuses \`status: done\` (exit 10) while a done row's Status cell says neither \`PR #<pr>\` nor \`no PR\`" \
+  'or the file has a second Phase plan heading' 'PRs are read only from those cells, never from prose' \
+  '`done (<sha>) · PR #<pr>`' '`done (<sha>) · no PR`' 'row keys (0, 1, 2a)'; do  # P3R5-32, P3R5-22
+  [[ $R == *"$s"* ]] || fail "README does not say '$s'"
+done
+# owner ruling 3 of phase 3: the done gate's threat model, in the spec and beside the README's exit 10
+P="$(tr '\n' ' ' < "$REPO/docs/spec.md" | tr -s ' ')"
+for s in 'The done gate defends against a child that is lazy or confused, not one that crafts Markdown or HTML to hide a PR from it' \
+  "children run as the owner's user with bypass permissions" 'is never refused for its format and never slips the gate'; do
+  [[ $R == *"$s"* ]] || fail "README does not say '$s'"
+  [[ $P == *"$s"* ]] || fail "docs/spec.md does not say '$s'"
+done
+for s in 'a phase that opens no PR says `no PR` in brief §5 and closes its row with `no PR`' "logged \"absent, not a pass\", only where that PR's head commit has no file under" \
+  'refused at `done` with no override and that `no PR` is no way out'; do
+  [[ $K == *"$s"* ]] || fail "SKILL.md does not say '$s'"
+done
 # A '!' start line without CLAUDE_FLAGS exits 1 (lib/units.sh unit_check).
 ! grep -qF '! blast-off start' "$skill" "$readme" || fail "SKILL.md or README hands over '! blast-off start' with no CLAUDE_FLAGS"
 

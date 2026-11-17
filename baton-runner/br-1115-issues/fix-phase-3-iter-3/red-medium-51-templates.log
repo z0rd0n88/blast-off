@@ -1,0 +1,4 @@
+FAIL 51-templates
+  | FAIL: checkpoint.md lacks: Every closed row's Status cell names every PR the phase opened, each as `PR #<n>` (or its /pull/<n> link), or says `no PR`.
+PASS shellcheck (33 files)
+GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=51-templates

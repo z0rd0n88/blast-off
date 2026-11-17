@@ -116,7 +116,7 @@ rc=0; "$bo" run "$JOB" > n1.out 2>&1 || rc=$?
 
 # a workdir outside git: no commit to match, check off and logged
 new_job nogit 'done'
-plan '| 1 | p1 | x | done (earlier) |'
+plan '| 1 | p1 | x | done (earlier) · no PR |'
 rc=0; "$bo" run "$JOB" > g1.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "non-git done row: exit $rc: $(cat "$JOB/run.log")"
 grep -q 'receipt check off' "$JOB/run.log" || fail "receipt check off not logged: $(cat "$JOB/run.log")"
@@ -172,12 +172,12 @@ rm "$(dirname "$JOB")/wip.txt"
 new_job open 'done'
 repo
 log="$JOB/run.log"; s7="$(git -C "$(dirname "$JOB")" rev-parse --short HEAD)"
-plan "| 1 | p1 | x | done ($s7) |"$'\n'"| 2 | p2 | x | pending |"
+plan "| 1 | p1 | x | done ($s7) · no PR |"$'\n'"| 2 | p2 | x | pending |"
 gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
 rc=0; "$bo" run "$JOB" > o1.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q 'status done but phase row 2 is not done' "$log" || fail "done with a pending row: exit $rc: $(cat "$log")"
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "exit 9 at done changed the status"
-sed -i "s/^| 2 | p2 | x | pending |$/| 2.5 | p2 | x | Done ($s7) |/" "$JOB/checkpoint.md"
+sed -i "s/^| 2 | p2 | x | pending |$/| 2.5 | p2 | x | Done ($s7) · no PR |/" "$JOB/checkpoint.md"
 rc=0; "$bo" run "$JOB" > o2.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q "phase row 2.5 is done at $s7 but has no receipt" "$log" || fail "Done row 2.5: exit $rc: $(cat "$log")"
 gate 2.5 'GATE: PASS'; "$bo" receipt "$JOB" 2.5 > /dev/null  # a bare verdict, no tally, receipts a done row too (P4R2-1)

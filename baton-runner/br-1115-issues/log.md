@@ -20,3 +20,42 @@
 - 2026-11-15 side effect: a phase-2 reviewer deleted the session scratchpad dir rt (phase 1's kept work-dir tree, a temp artifact); nothing in the repo or the owner's config was touched; ExecStart check unchanged
 - 2026-11-15 phase 2/8 · draft PR https://github.com/z0rd0n88/blast-off/pull/35 (base phase-1) · phase DONE
 - 2026-11-15 phase 3/8 · WORK spawn (issue 26 + P2R1-1) · units 8/75
+- 2026-11-15 phase 3/8 · WORK return COMPLETE progress=5 · baton baton-runner/br-1115-issues/baton-phase-3-work.md
+- 2026-11-15 phase 3/8 · REVIEW iter1 spawn · units 9/75
+- 2026-11-15 phase 3/8 · commit b9c39ad (work)
+- 2026-11-15 phase 3/8 · REVIEW iter1 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 19 MEDIUM / 24 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-1.md · units 9/75
+- 2026-11-15 phase 3/8 · FIX iter1 spawn · units 10/75
+- 2026-11-15 phase 3/8 · FIX iter1 return COMPLETE progress=44 · baton baton-runner/br-1115-issues/baton-phase-3-fix-1.md · 8 tracked files (README.md, bin/blast-off, skills/blast-off/SKILL.md, templates/checkpoint.md, tests/51-templates.sh beyond the work unit's set)
+- 2026-11-15 phase 3/8 · REVIEW iter2 spawn · units 11/75
+- 2026-11-15 phase 3/8 · commit ecc6e90 (fix iter1)
+- 2026-11-15 phase 3/8 · REVIEW iter2 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 4 HIGH / 18 MEDIUM / 17 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-2.md · skill-sheriff: 0 Fail, 3 Gap (pre-existing) · units 11/75
+- 2026-11-15 PAUSE: owner ruling needed on P3R2-1 (which PRs done must read; criterion 3) and on which commit decides CI runs were due, before fix round 2; review round 3 is the cap
+- 2026-11-15 RESUME: owner rulings recorded in baton-runner/br-1115-issues/owner-rulings-phase-3.md (token or `no PR`; CI due decided at the PR's head commit)
+- 2026-11-15 phase 3/8 · FIX iter2 spawn · units 12/75
+- 2026-11-15 phase 3/8 · FIX iter2 unit died (API 529 overloaded), no baton written; 15 tracked files modified, uncommitted
+- 2026-11-15 phase 3/8 · FIX iter2 continuation spawn · units 13/75
+- 2026-11-16 phase 3/8 · FIX iter2 continuation return COMPLETE progress=39 · baton baton-runner/br-1115-issues/baton-phase-3-fix-2.md
+- 2026-11-16 phase 3/8 · REVIEW iter3 spawn (the cap) · units 14/75
+- 2026-11-16 phase 3/8 · commit d43324d (fix iter2)
+- 2026-11-16 phase 3/8 · REVIEW iter3 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 14 MEDIUM / 23 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-3.md · units 14/75
+- 2026-11-16 PAUSE: phase 3 review cap reached without CLEAN; failure baton baton-runner/br-1115-issues/failure-phase-3.md; owner to pick guide-resume / waive / abandon
+- 2026-11-16 RESUME: owner chose guide & resume for phase 3; review counter reset
+- 2026-11-16 phase 3/8 · FIX iter3 (guided) spawn · units 15/75
+- 2026-11-16 phase 3/8 · FIX iter3 (guided) return COMPLETE progress=17 · baton baton-runner/br-1115-issues/baton-phase-3-fix-3.md
+- 2026-11-16 phase 3/8 · REVIEW iter4 (1 of 3 after reset) spawn · units 16/75
+- 2026-11-16 phase 3/8 · commit e791f67 (fix iter3, guided)
+- 2026-11-16 phase 3/8 · REVIEW iter4 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 2 HIGH / 14 MEDIUM / 29 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-4.md · units 16/75
+- 2026-11-16 phase 3/8 · FIX iter4 spawn (strict allow-list direction) · units 17/75
+- 2026-11-16 phase 3/8 · FIX iter4 return COMPLETE progress=46 · baton baton-runner/br-1115-issues/baton-phase-3-fix-4.md · allow-list reader cp_scan replaces the deny-list
+- 2026-11-16 phase 3/8 · REVIEW iter5 (2 of 3 after reset) spawn · units 18/75
+- 2026-11-16 phase 3/8 · commit 15960ad (fix iter4, allow-list)
+- 2026-11-16 phase 3/8 · REVIEW iter5 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 8 HIGH / 6 MEDIUM / 18 LOW) · baton baton-runner/br-1115-issues/baton-phase-3-review-5.md · units 18/75
+- 2026-11-16 PAUSE (manager judgement): HIGH count rose 2 -> 8; the loop is not converging; owner to set the gate's threat model before the last allowed round
+- 2026-11-16 RESUME: owner ruling 3 (threat model: honest children); P3R5-1..7 out of scope; fix P3R5-8 and honest-checkpoint mediums; one final review round
+- 2026-11-16 phase 3/8 · FIX iter5 spawn · units 19/75
+- 2026-11-16 phase 3/8 · FIX iter5 return COMPLETE progress=32 · baton baton-runner/br-1115-issues/baton-phase-3-fix-5.md
+- 2026-11-16 phase 3/8 · REVIEW iter6 (3 of 3 after reset, final) spawn · units 20/75
+- 2026-11-16 phase 3/8 · commit c0517fb (fix iter5)
+- 2026-11-16 phase 3/8 · REVIEW iter6 (final) return COMPLETE · VERDICT ISSUES (in scope: 0 CRITICAL / 1 HIGH / 12 MEDIUM / 23 LOW; 3 out of scope by ruling 3) · baton baton-runner/br-1115-issues/baton-phase-3-review-6.md · units 20/75
+- 2026-11-16 PAUSE: phase 3 hit the second review cap; P3R6-1 HIGH open; owner picks
+- 2026-11-17 owner: phase 3 waived; follow-up rulings filed as #36; branch updated with origin/main (phases 1-2 merged)
