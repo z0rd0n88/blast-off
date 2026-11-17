@@ -1,10 +1,10 @@
 # zord-baton-runner run br-1115-issues
-status: PAUSED
+status: PAUSED (between phases)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 3 of 8  unit: REVIEW  review_iter: 3 of 3 (reset after guide & resume; files use iter6)
+phase: 4 of 8  unit: WORK  review_iter: 0 of 3
 current_baton: baton-runner/br-1115-issues/baton-phase-3-review-6.md
 units_used: 20
-pause_reason: phase 3 hit the second review cap (P3R6-1 HIGH open); owner picks narrow fix / waive / abandon
+pause_reason: phase 3 closed by owner waiver 2026-11-17; phases 1-2 merged to main; phase 4 not started, awaiting owner go
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -40,3 +40,6 @@ Nothing is running. Every unit has returned and every result is committed on fea
 - Open owner questions for the phase 3 PR body: P3R2-8 (which files count as workflows), P3R4-13, P3R4-15, P3R4-16 (another repo's /pull/N).
 - Rules learned this run (put them in every unit brief): only the review unit runs the full suite, once, alone; reviewers run single scenarios only; nobody runs two suites at once (the suite rewrites ~/.config/systemd/user/blast-off@.service with no lock); after each full run check ExecStart still names /home/alex/blast-off/.worktrees/blast-off-build/bin/blast-off; nobody deletes anything but their own temp dirs.
 - To resume: open a session in /home/alex/blast-off/.claude/worktrees/pending-items-53932d, invoke Z0rd0nZords:zord-baton-runner, point it at this file, give the phase 3 decision.
+
+## UPDATE 2026-11-17
+Phases 1-2 merged to main (#34, #35). Phase 3 waived and opened as a draft PR to main; follow-ups in #36. Phase 4 (issue 22) branches from main. The RESUME HERE section above is superseded on phase 3.
