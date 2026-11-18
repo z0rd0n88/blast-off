@@ -79,3 +79,5 @@
 - 2026-11-17 phase 5/9 · WORK spawn (issue 39) · units 25/75
 - 2026-11-17 phase 5/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-5-work.md
 - 2026-11-17 phase 5/9 · REVIEW iter1 spawn · units 26/75
+- 2026-11-17 phase 5/9 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 7 MEDIUM / 24 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-5-review-1.md
+- 2026-11-17 phase 5/9 · FIX iter1 spawn (P5R1-4 octal, P5R1-5 raw content echoed, P5R1-1 tests, P5R1-9 grep) · units 27/75
