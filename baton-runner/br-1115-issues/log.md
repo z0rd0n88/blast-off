@@ -75,3 +75,7 @@
 - 2026-11-17 owner: P4R2-4 reword docs; P4R2-11 document child-count delete as reset; follow-ups filed #39
 - 2026-11-17 PAUSE: phase 4 DONE; awaiting owner (merge 38 / phase 5)
 - 2026-11-17 owner: add issue 39 to the run; queued as phase 5 (builds on PR 38); 14/27/16/21 -> phases 6-9
+- 2026-11-17 owner: merge 38 and start phase 5; PR 38 merged c4e2a41; phase-4 branch deleted
+- 2026-11-17 phase 5/9 · WORK spawn (issue 39) · units 25/75
+- 2026-11-17 phase 5/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-5-work.md
+- 2026-11-17 phase 5/9 · REVIEW iter1 spawn · units 26/75

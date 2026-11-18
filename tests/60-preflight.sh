@@ -54,6 +54,7 @@ has '^flags: --model fake --effort low --foo bar$' p1.out
 has '^model: fake · effort: low$' p1.out
 has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev\)$' p1.out
 has '^cap: 9 \(soft: 3 Phase plan rows x JOB_CAP_FACTOR 3\)$' p1.out
+has '^child-count: none, a fresh job; first child 1; 9 left under cap 9$' p1.out
 has '^timeout: 7200 s per child$' p1.out
 has '^account: fake@example\.com \(max, Fake Org\)$' p1.out
 has '^GH_TOKEN: set$' p1.out
@@ -106,3 +107,19 @@ has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in
 has '^GH_TOKEN: unset \(start refuses\)$' p5.out
 has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p5.out
 has '^open PRs on the target set: 4 \(no Target set bullet in brief\.md; every open PR\)$' p5.out
+
+# --- the job's child count (P4R1-3): launched, base, next child, what is left under the cap; a garbled one refuses ---
+printf '9 0\n' > "$JOB/child-count"
+rc=0; "$bo" preflight "$JOB" > p7.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "child-count 9 0: exit $rc: $(cat p7.out)"
+has '^child-count: 9 launched, base 0; next child 10; 0 left under cap 9$' p7.out
+# a soft paused-cap job: the run gives it a fresh allotment (base moves to launched)
+sed -i 's/^status: .*/status: paused-cap/' "$JOB/checkpoint.md"
+rc=0; "$bo" preflight "$JOB" > p8.out 2>&1 || rc=$?
+has '^child-count: 9 launched, base 0; next child 10; 9 left under cap 9$' p8.out
+printf 'x\n' > "$JOB/child-count"
+rc=0; "$bo" preflight "$JOB" > p9.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "garbled child-count: exit $rc, want 1: $(cat p9.out)"
+has "^child-count: $JOB/child-count holds 'x', " p9.out
+has "^preflight: refused: $JOB/child-count holds 'x', " p9.out
+[ "$(cat "$JOB/child-count")" = x ] || fail "preflight rewrote child-count"

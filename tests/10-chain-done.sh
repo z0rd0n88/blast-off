@@ -73,6 +73,7 @@ rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > cap.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "cap run exit $rc: $(cat cap.out)"
 grep -q 'child cap 1 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)' "$JOB/run.log" || fail "hard cap source not logged: $(cat "$JOB/run.log")"
 grep -q 'child cap 1 reached' "$JOB/run.log" || fail "no cap line: $(cat "$JOB/run.log")"
+grep -q 'child-count: none, a fresh job; first child 1$' "$JOB/run.log" || fail "the count a fresh run starts from not logged (P4R1-5): $(cat "$JOB/run.log")"
 grep -q '^status: running$' "$JOB/checkpoint.md" || fail "hard cap changed the status"
 grep -q '^child=1 ' "$JOB/fake-marker" 2>/dev/null || fail "cap 1 stopped the job before child 1 ran: $(cat "$JOB/run.log")"
 grep -q 'child 2 launched' "$JOB/run.log" && fail "child 2 launched past the cap"
@@ -81,16 +82,19 @@ grep -q 'child 2 launched' "$JOB/run.log" && fail "child 2 launched past the cap
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > cap2.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "re-run at a reached cap exit $rc, want 4: $(cat cap2.out "$JOB/run.log")"
 [ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 1 ] || fail "re-run at a reached cap launched a child: $(cat "$JOB/run.log")"
+grep -q 'child-count: 1 launched, base 0; next child 2$' "$JOB/run.log" || fail "the count a re-run starts from not logged (P4R1-5): $(cat "$JOB/run.log")"
 rc=0; JOB_MAX_CHILDREN=2 "$bo" run "$JOB" > cap3.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "re-run at cap 2 exit $rc, want 4: $(cat cap3.out "$JOB/run.log")"
 [ "$(grep -c 'child 1 launched' "$JOB/run.log")" -eq 1 ] || fail "child numbering restarted at 1 on a re-run: $(cat "$JOB/run.log")"
 grep -q 'child 2 launched' "$JOB/run.log" || fail "re-run at cap 2 launched no child 2: $(cat "$JOB/run.log")"
 grep -q 'child 3 launched' "$JOB/run.log" && fail "child 3 launched past cap 2 counted over two runs"
 grep -q 'child cap 2 reached' "$JOB/run.log" || fail "no cap line after the re-run: $(cat "$JOB/run.log")"
-# a `status: paused-cap` (a child can write it) gives the hard cap no fresh allotment and moves no `base` (P4R1-1)
+# a `status: paused-cap` (a child can write it) gives the hard cap no fresh allotment and moves no `base` (P4R1-1);
+# the run has set it to `running` before the cap stops it (owner ruling P4R2-4; test 31 resumes through it)
 sed -i 's/^status: .*/status: paused-cap/' "$JOB/checkpoint.md"
 rc=0; JOB_MAX_CHILDREN=2 "$bo" run "$JOB" > cap4.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] && ! grep -q 'child 3 launched' "$JOB/run.log" && [ "$(cat "$JOB/child-count")" = "2 0" ] || fail "hard cap reset by paused-cap: exit $rc, child-count '$(cat "$JOB/child-count")': $(cat cap4.out "$JOB/run.log")"
+grep -q '^status: running$' "$JOB/checkpoint.md" || fail "hard cap exit 4 from paused-cap: status not running (P4R2-4): $(head -4 "$JOB/checkpoint.md")"
 # a child count file that is not two whole numbers stops the runner before any child; it never reads as 0,
 # and a number past 9 digits, which would wrap the counter negative, is garbled too (P4R1-6; noop children
 # so a wrapped count ends on two stalls, not on the harness timeout)
@@ -99,7 +103,14 @@ nbad=0; for bad in '' 'x' '1' '08 0' '1 2' '-1 0' '9223372036854775807 0'; do
   rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
   [ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && grep -q "$JOB/child-count" badcount.out || fail "child-count '$bad': exit $rc, want 1 before any child: $(cat badcount.out)"
   [ "$(cat "$JOB/child-count")" = "$bad" ] || fail "child-count '$bad' was rewritten"
+  # under start or the resume timer only the journal reads stderr: the reason goes to run.log too (P4R1-2)
+  grep -q "$JOB/child-count" "$JOB/run.log" || fail "child-count '$bad': the refusal is not in run.log: $(cat "$JOB/run.log" 2>&1)"
 done
+# a dangling symlink is no fresh job either: exit 1 before any child, the link left as it was (P4R1-5)
+new_job badcount-link noop; ln -s nowhere "$JOB/child-count"
+rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && [ "$(readlink "$JOB/child-count")" = nowhere ] && grep -q "$JOB/child-count" "$JOB/run.log" ||
+  fail "dangling child-count link: exit $rc, want 1 before any child, link kept, reason in run.log: $(cat badcount.out "$JOB/run.log" 2>&1)"
 # so is a zero-byte file (the '' case above holds a newline): it is not a fresh job (P4R1-11)
 new_job badcount-empty noop; : > "$JOB/child-count"
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
@@ -142,6 +153,17 @@ gone_dirs hup
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > hup2.out 2>&1 || rc=$?
 [ "$rc" -eq 4 ] || fail "re-run after a runner cut off child 1, cap 1: exit $rc, want 4: $(cat hup2.out "$JOB/run.log")"
 [ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 1 ] || fail "a child launched past cap 1 after a relaunch: $(cat "$JOB/run.log")"
+# the same with no EXIT trap at all (SIGKILL, as an OOM kill or power loss): the count is on disk while
+# child 1 runs, so a re-run at cap 1 exits 4 with no launch; it clears what the dead runner left (P4R1-7)
+new_job kill hang
+"$bo" run "$JOB" > kill.out 2>&1 & runner=$!
+wait_until 20 grep -q '^grandchild=' "$JOB/fake-marker" || fail "kill child never ran"
+[ "$(cat "$JOB/child-count")" = "1 0" ] || fail "child-count while child 1 runs: '$(cat "$JOB/child-count" 2>&1)', want '1 0'"
+kill -KILL "$runner"; rc=0; wait "$runner" || rc=$?
+[ "$rc" -eq 137 ] || fail "runner exit after SIGKILL: $rc, want 137"
+rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > kill2.out 2>&1 || rc=$?
+[ "$rc" -eq 4 ] && [ "$(grep -c 'child [0-9]* launched' "$JOB/run.log")" -eq 1 ] ||
+  fail "re-run after a SIGKILLed runner, cap 1: exit $rc, want 4 and no launch: $(cat kill2.out "$JOB/run.log")"
 
 # a runner abort is logged and never reads as a state: a python3 that exits 4 fails child_report
 # with the cap's code under set -e; the runner exits 1 and run.log ends with the abort line
