@@ -82,3 +82,6 @@
 - 2026-11-17 phase 5/9 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 7 MEDIUM / 24 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-5-review-1.md
 - 2026-11-17 phase 5/9 · FIX iter1 spawn (P5R1-4 octal, P5R1-5 raw content echoed, P5R1-1 tests, P5R1-9 grep) · units 27/75
 - 2026-11-17 phase 5/9 · FIX iter1 return COMPLETE · P5R1-1,4,5,9 fixed, mutants killed · baton baton-runner/br-1115-issues/baton-phase-5-fix-1.md
+- 2026-11-17 owner rulings phase 5: Q1 refuse at hard cap, Q2 check before launch, Q4 log only, Q6 check after lock -> follow-up issue; file owner-rulings-phase-5.md
+- 2026-11-17 phase 5/9 · REVIEW iter2 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 0 MEDIUM / 17 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-5-review-2.md
+- 2026-11-17 phase 5/9 · DELIVER: push + draft PR
