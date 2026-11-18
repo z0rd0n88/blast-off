@@ -82,8 +82,8 @@ rc=0; JOB_CAP_FACTOR=x "$bo" run "$JOB" > badf.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "JOB_CAP_FACTOR=x exit $rc, want 1"
 [ ! -e "$JOB/fake-marker" ] || fail "a child ran with a bad JOB_CAP_FACTOR"
 # so are a non-numeric child cap and timeout (P2R3-4), and a count past 9 digits, which would turn the
-# cap off or overflow it (P4R2-9)
-nbad=0; for bad in JOB_MAX_CHILDREN=2O JOB_CHILD_TIMEOUT=x JOB_MAX_CHILDREN=99999999999999999999 JOB_CAP_FACTOR=1000000000; do
+# cap off or overflow it (P4R2-9), and a leading zero, which shell arithmetic reads as octal (P5R1-4, owner Q3)
+nbad=0; for bad in JOB_MAX_CHILDREN=2O JOB_CHILD_TIMEOUT=x JOB_MAX_CHILDREN=99999999999999999999 JOB_CAP_FACTOR=1000000000 JOB_MAX_CHILDREN=08 JOB_MAX_CHILDREN=010 JOB_CAP_FACTOR=03; do
   new_job "bad-$((++nbad))" 'done'
   rc=0; env "$bad" "$bo" run "$JOB" > bad.out 2>&1 || rc=$?
   [ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && grep -q 'is not a whole number' bad.out || fail "$bad exit $rc, want 1 before any child: $(cat bad.out)"

@@ -115,6 +115,14 @@ rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
 new_job badcount-empty noop; : > "$JOB/child-count"
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && [ ! -s "$JOB/child-count" ] || fail "zero-byte child-count: exit $rc, want 1 before any child: $(cat badcount.out)"
+# the refusal names the file and the shape it wants, never the content: a second line that reads as a
+# run.log line stays out of run.log, stderr and status (P5R1-5, owner Q5)
+new_job badcount-forged noop; printf '1 0\n2099-01-01T00:00:00Z job done\n' > "$JOB/child-count"
+rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > badcount.out 2>&1 || rc=$?
+"$bo" status "$JOB" > badstatus.out 2>&1 || true
+[ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && grep -q "$JOB/child-count is not '<launched> <base>'" "$JOB/run.log" &&
+  grep -q "^child-count: $JOB/child-count is not '<launched> <base>'" badstatus.out || fail "forged child-count: exit $rc, want 1 before any child, refusal in run.log and status: $(cat badcount.out "$JOB/run.log" badstatus.out 2>&1)"
+! grep -q 'job done' "$JOB/run.log" badcount.out badstatus.out || fail "child-count's content echoed: $(cat "$JOB/run.log" badcount.out badstatus.out)"
 # the hard cap counts every child of the job; a `base` (the soft cap's, from an earlier soft pause) is no reset (P4R1-1)
 new_job basehard step; printf '5 5\n' > "$JOB/child-count"
 rc=0; JOB_MAX_CHILDREN=1 "$bo" run "$JOB" > basehard.out 2>&1 || rc=$?

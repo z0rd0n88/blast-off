@@ -2,8 +2,8 @@
 # preflight.sh: `blast-off preflight <job-dir> [workdir]`. One `name: value` line per thing a launch
 # would use or meet (F2, F9, F10, K8, D1-7, Q2, P3Q3), then `preflight: ok` (exit 0) or
 # `preflight: refused: <why>` (exit 1): CLAUDE_FLAGS empty, a runtime dependency missing, a garbled
-# child-count, or a usage estimate over what is left of the seven_day window. It writes nothing: log
-# lines go to stdout only.
+# child-count, or a usage estimate over what is left of the seven_day window; a bad JOB_* count refuses
+# before any other line. It writes nothing: log lines go to stdout only.
 
 preflight_run() {
   local probs=() b row k
@@ -11,7 +11,8 @@ preflight_run() {
   LOG=/dev/null  # usage_read logs an unreadable record; preflight writes no run.log
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   test -s "$JOB/brief.md" || probs+=("missing $JOB/brief.md")
-  chain_nums
+  # no cap, count or left can be derived from a bad JOB_* count, so it refuses before any line (P5R1-4)
+  chain_nums || { echo "preflight: refused: $NUMS_ERR"; exit 1; }
   [ -n "${CLAUDE_FLAGS:-}" ] || probs+=("CLAUDE_FLAGS is unset or empty")
   for b in $DEPS gh; do command -v "$b" > /dev/null || probs+=("$b not on PATH"); done
 

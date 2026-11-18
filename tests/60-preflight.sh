@@ -117,9 +117,34 @@ has '^child-count: 9 launched, base 0; next child 10; 0 left under cap 9$' p7.ou
 sed -i 's/^status: .*/status: paused-cap/' "$JOB/checkpoint.md"
 rc=0; "$bo" preflight "$JOB" > p8.out 2>&1 || rc=$?
 has '^child-count: 9 launched, base 0; next child 10; 9 left under cap 9$' p8.out
+# a soft running job with base > 0: what is left counts from base (P5R1-1)
+sed -i 's/^status: .*/status: running/' "$JOB/checkpoint.md"; printf '4 2\n' > "$JOB/child-count"
+rc=0; "$bo" preflight "$JOB" > p11.out 2>&1 || rc=$?
+has '^child-count: 4 launched, base 2; next child 5; 7 left under cap 9$' p11.out
+# the hard cap ignores base, running or paused-cap (P5R1-1, P4R2-4)
+hardjob="$JOB"; new_job pfhard noop; printf '5 5\n' > "$JOB/child-count"
+for st in running paused-cap; do
+  sed -i "s/^status: .*/status: $st/" "$JOB/checkpoint.md"
+  rc=0; "$bo" preflight "$JOB" > p12.out 2>&1 || rc=$?
+  has '^child-count: 5 launched, base 5; next child 6; 7 left under cap 12$' p12.out
+done
+JOB="$hardjob"
 printf 'x\n' > "$JOB/child-count"
 rc=0; "$bo" preflight "$JOB" > p9.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "garbled child-count: exit $rc, want 1: $(cat p9.out)"
-has "^child-count: $JOB/child-count holds 'x', " p9.out
-has "^preflight: refused: $JOB/child-count holds 'x', " p9.out
+has "^child-count: $JOB/child-count is not '<launched> <base>' \\(2 bytes; " p9.out
+has "^preflight: refused: $JOB/child-count is not '<launched> <base>' \\(2 bytes; " p9.out
 [ "$(cat "$JOB/child-count")" = x ] || fail "preflight rewrote child-count"
+# a refusal never shows the file's content: a forged second line stays out of the output (P5R1-5, owner Q5)
+printf '1 0\n2099-01-01T00:00:00Z job done\n' > "$JOB/child-count"
+rc=0; "$bo" preflight "$JOB" > p10.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "two-line child-count: exit $rc, want 1: $(cat p10.out)"
+has "^preflight: refused: $JOB/child-count is not '<launched> <base>' " p10.out
+! grep -q 'job done' p10.out || fail "preflight echoed child-count's content: $(cat p10.out)"
+# a JOB_* number with a leading zero, which shell arithmetic reads as octal, refuses (P5R1-4, owner Q3)
+printf '1 0\n' > "$JOB/child-count"
+for v in 08 010; do
+  rc=0; JOB_MAX_CHILDREN="$v" "$bo" preflight "$JOB" > p13.out 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] || fail "JOB_MAX_CHILDREN=$v: exit $rc, want 1: $(cat p13.out)"
+  has "^preflight: refused: JOB_MAX_CHILDREN='$v' is not a whole number " p13.out
+done

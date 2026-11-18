@@ -1,9 +1,9 @@
 # zord-baton-runner run br-1115-issues
 status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 5 of 9  unit: FIX  review_iter: 1 of 3
+phase: 5 of 9  unit: REVIEW  review_iter: 2 of 3
 phase_5_branch: feat/br-1115-issues/phase-5 (from main c4e2a41)
-current_baton: baton-runner/br-1115-issues/baton-phase-5-review-1.md
+current_baton: baton-runner/br-1115-issues/baton-phase-5-fix-1.md
 units_used: 27
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
@@ -27,7 +27,7 @@ phases:
     owner: P4-22a = fresh soft allotment on paused-cap resume (hard cap never resets); P4R2-4 = reword docs; P4R2-11 = deleting child-count is the reset, document it (both in #39)
   - id: phase-5  spec: issue 39 (child-count follow-ups from #22: owner rulings P4R2-4 reword docs, P4R2-11 document child-count delete as the reset; MEDIUMs P4R2-1, P4R2-2, P4R1-2, P4R1-3, P4R1-4, P4R1-5, P4R1-7)  readiness: READY  work_agent: general-purpose  base: main c4e2a41
     phase_branch: feat/br-1115-issues/phase-5  pr: -
-    units: 3  state: RUNNING
+    units: 4  state: RUNNING
     manager defaults (fix iter1): Q3 reject leading zeros in JOB_* numbers; Q5 refusals never echo child-count content
   - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING

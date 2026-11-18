@@ -83,12 +83,14 @@ chain_dirty() {
 # What the runner needs on PATH (preflight checks the same list, and gh).
 DEPS="claude tmux python3 jq systemd-run systemctl git realpath"
 
-# chain_nums: exit 1 on a JOB_* count that is not a whole number of at most 9 digits (P4R2-9: a longer
-# one overflows the arithmetic, or makes the cap test an error that reads as false, so no cap).
+# chain_nums: return 1 with NUMS_ERR on a JOB_* count that is not a whole number of at most 9 digits
+# (P4R2-9: a longer one overflows the arithmetic, or makes the cap test an error that reads as false, so
+# no cap) or has a leading zero (P5R1-4, owner Q3: shell arithmetic reads 010 as 8 and 08 as an error).
 chain_nums() {
   local v
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF; do
-    [[ ${!v:-0} =~ ^[0-9]{1,9}$ ]] || die "$v='${!v}' is not a whole number of at most 9 digits"
+    [[ ${!v:-0} =~ ^(0|[1-9][0-9]{0,8})$ ]] ||
+      { NUMS_ERR="$v='${!v}' is not a whole number of at most 9 digits with no leading zero"; return 1; }
   done
 }
 
@@ -116,13 +118,17 @@ chain_cap() {
 # fresh job, 0 0: deleting it is the owner's one reset (P4R2-11). Anything else but two whole numbers of at
 # most 9 digits with BASE <= LAUNCHED, a dangling symlink among them (P4R1-5), returns 1 with COUNT_ERR:
 # a garbled count must not reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
+# COUNT_ERR names the file and the shape it wants, never the content: it reaches run.log, status and
+# preflight, and a second line could forge a run.log line or a link show a secret (P5R1-5, owner Q5).
 chain_count() {
   local f="$JOB/child-count" c
   LAUNCHED=0 BASE=0 COUNT_ERR='' COUNT_SAY="child-count: none, a fresh job; first child 1"
   [ -e "$f" ] || [ -L "$f" ] || return 0
-  c="$(cat "$f" 2>&1)" || { COUNT_ERR="cannot read $f: $c"; return 1; }
+  c="$(cat "$f" 2>/dev/null)" || {
+    COUNT_ERR="cannot read $f (a dangling link, a directory, or no read permission); fix it, or delete it to count this job's children from 0 again"
+    return 1; }
   [[ $c =~ ^(0|[1-9][0-9]{0,8})\ (0|[1-9][0-9]{0,8})$ ]] && [ "${BASH_REMATCH[2]}" -le "${BASH_REMATCH[1]}" ] || {
-    COUNT_ERR="$f holds '$c', not '<launched> <base>' (whole numbers of at most 9 digits, base <= launched); fix it, or delete it to count this job's children from 0 again"
+    COUNT_ERR="$f is not '<launched> <base>' ($(stat -Lc %s "$f") bytes; want two whole numbers of at most 9 digits, no leading zero, base <= launched; content not shown); fix it, or delete it to count this job's children from 0 again"
     return 1; }
   LAUNCHED="${BASH_REMATCH[1]}" BASE="${BASH_REMATCH[2]}"
   COUNT_SAY="child-count: $LAUNCHED launched, base $BASE; next child $((LAUNCHED+1))"
@@ -137,7 +143,7 @@ chain_run() {
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
   local n stalls=0 s u before after rows w limited back=
-  chain_nums
+  chain_nums || die "$NUMS_ERR"
   # under start or the resume timer only the journal reads stderr, so the refusal goes to run.log too (P4R1-2)
   chain_count || { log "$COUNT_ERR" >&2; exit 1; }
 

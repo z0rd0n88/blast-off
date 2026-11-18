@@ -34,6 +34,6 @@ rc=0; "$bo" run "$JOB" > grow.out 2>&1 || rc=$?
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 2 ] || fail "grow: children $(grep -c '^child=' "$JOB/fake-marker"), want 2"
 n="$(sed -n 's/.*checkpoint.md is \([0-9]*\) lines, over 150.*/\1/p' "$JOB/run.log")"
 [ -n "$n" ] && [ "$n" -gt 150 ] || fail "grown checkpoint not warned: $(cat "$JOB/run.log")"
-w="$(grep -n 'over 150' "$JOB/run.log" | cut -d: -f1)" c2="$(grep -n 'child 2' "$JOB/run.log" | head -n 1 | cut -d: -f1)"
+w="$(grep -n 'over 150' "$JOB/run.log" | cut -d: -f1)" c2="$(grep -n 'child 2 launched' "$JOB/run.log" | head -n 1 | cut -d: -f1)"
 [ "$w" -lt "$c2" ] || fail "warning after child 2 started: $(cat "$JOB/run.log")"
 echo ok
