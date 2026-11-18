@@ -133,9 +133,9 @@ slips the gate.
 | 0 | job done | read the final report in `checkpoint.md` |
 | 1 | usage, dependency or runner error; `preflight` refused | read the message or the last `run.log` line, fix, run again |
 | 3 | blocked: the job needs the owner | answer what `Open or blocked` asks, set `status: running`, `start` again |
-| 4 | hard child cap (no Phase plan row the runner reads; such a job ends `done` only once its Phase plan table has its rows, else exit 10) | add a Phase plan table with a row per phase and start again; raising `JOB_MAX_CHILDREN` alone gives more children, not a way to `done` |
+| 4 | hard child cap, counted over every run of the job in its `child-count` (no Phase plan row the runner reads; such a job ends `done` only once its Phase plan table has its rows, else exit 10) | add a Phase plan table with a row per phase and start again; raising `JOB_MAX_CHILDREN` alone gives more children, not a way to `done` |
 | 5 | two children in a row left `checkpoint.md` unchanged | read the children's closing summaries in `run.log`; fix the brief or `Next action` |
-| 6 | soft cap reached, `status: paused-cap` | `blast-off resume <job-dir>` (fresh child count) |
+| 6 | soft cap reached, `status: paused-cap` | `blast-off resume <job-dir>` (a fresh allotment of the cap; child numbers go on) |
 | 7 | uncommitted paths the checkpoint does not name | commit, remove, or name them in the checkpoint; start again |
 | 8 | usage limit, `status: paused-limit until <time>` | nothing while `status` shows the resume timer active; else `blast-off resume <job-dir>` after `<time>` |
 | 9 | a done Phase plan row lacks its commit or a PASS receipt for it | run the gate, `blast-off receipt`, fix the row's sha |

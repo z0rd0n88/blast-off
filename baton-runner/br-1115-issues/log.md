@@ -59,3 +59,19 @@
 - 2026-11-16 phase 3/8 · REVIEW iter6 (final) return COMPLETE · VERDICT ISSUES (in scope: 0 CRITICAL / 1 HIGH / 12 MEDIUM / 23 LOW; 3 out of scope by ruling 3) · baton baton-runner/br-1115-issues/baton-phase-3-review-6.md · units 20/75
 - 2026-11-16 PAUSE: phase 3 hit the second review cap; P3R6-1 HIGH open; owner picks
 - 2026-11-17 owner: phase 3 waived; follow-up rulings filed as #36; branch updated with origin/main (phases 1-2 merged)
+- 2026-11-17 owner: merge PR 37 then phase 4; PR 37 merged 7867255; phase-3 branch deleted
+- 2026-11-17 phase 4/8 · WORK spawn (issue 22) · units 21/75
+- 2026-11-17 phase 4/8 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-4-work.md · owner questions P4-22a, P4-22b raised
+- 2026-11-17 phase 4/8 · commit f388962 (work)
+- 2026-11-17 phase 4/8 · REVIEW iter1 spawn · units 22/75
+- 2026-11-17 phase 4/8 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 11 MEDIUM / 19 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-4-review-1.md
+- 2026-11-17 owner: P4-22a = fresh soft allotment on resume
+- 2026-11-17 phase 4/8 · FIX iter1 spawn (manager: P4R1-1 hard cap reset is a reproduced criterion-1 hole; plus cheap test gaps 6,8,9,10,11) · units 23/75
+- 2026-11-17 phase 4/8 · FIX iter1 return COMPLETE · P4R1-1,6,8,9,10,11 fixed, each mutant killed · baton baton-runner/br-1115-issues/baton-phase-4-fix-1.md
+- 2026-11-17 phase 4/8 · REVIEW iter2 spawn (narrow: gate + 2 reviewers on the fix diff) · units 24/75
+- 2026-11-17 phase 4/8 · REVIEW iter2 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 2 MEDIUM / 11 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-4-review-2.md
+- 2026-11-17 phase 4/8 · DELIVER: push + draft PR
+- 2026-11-17 phase 4/8 · PR https://github.com/z0rd0n88/blast-off/pull/38 draft · CI gate pass (run 44153708487)
+- 2026-11-17 owner: P4R2-4 reword docs; P4R2-11 document child-count delete as reset; follow-ups filed #39
+- 2026-11-17 PAUSE: phase 4 DONE; awaiting owner (merge 38 / phase 5)
+- 2026-11-17 owner: add issue 39 to the run; queued as phase 5 (builds on PR 38); 14/27/16/21 -> phases 6-9

@@ -82,7 +82,7 @@ grep -q '^status: running$' "$cp" || fail "exit 9 changed the status"
 rc=0; "$bo" run "$JOB" > c1b.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 1 ] || fail "re-run without receipt: exit $rc, children $(grep -c '^child=' "$JOB/fake-marker")"
 
-# the receipt for row 1 lets the chain go on; child 1 of the re-run closes row 2 -> exit 9 on row 2
+# the receipt for row 1 lets the chain go on; the re-run's first child (child 2) closes row 2 -> exit 9 on row 2
 gate 1 'GATE: PASS passed=1 failed=0 shellcheck=ok'; "$bo" receipt "$JOB" 1 > /dev/null
 rc=0; "$bo" run "$JOB" > c2.out 2>&1 || rc=$?
 [ "$rc" -eq 9 ] && grep -q 'phase row 2 is done at .* but has no receipt' "$log" || fail "row 2: exit $rc: $(cat "$log")"
@@ -101,7 +101,7 @@ hh="$(git -C "$w" rev-parse HEAD)"  # P4R3-1: the advice clears exit 9 when foll
 grep -q "then make HEAD's commit the row's: the first 7 to 40 hex word in its Status cell counts, so replace, not append (the receipt names ${hh:0:7}; if that is HEAD, only the row needs it)" "$log" || fail "stale receipt advice: $(cat "$log")"
 [ "$(grep -c '^child=' "$JOB/fake-marker")" -eq 2 ] || fail "a child ran past a refused receipt: $(cat "$JOB/fake-marker")"
 
-# row 2 names the new commit: the receipt matches, child 1 finds nothing pending, done -> exit 0
+# row 2 names the new commit: the receipt matches, the re-run's child finds nothing pending, done -> exit 0
 sed -i "s/^\(| 2 | p2 | x | done (\)[0-9a-f]*/\1$(git -C "$w" rev-parse --short HEAD)/" "$cp"
 rc=0; "$bo" run "$JOB" > c5.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "all rows receipted: exit $rc: $(cat c5.out "$log")"
