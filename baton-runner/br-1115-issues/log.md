@@ -91,3 +91,6 @@
 - 2026-11-17 phase 6/9 · WORK spawn (issue 14) · units 29/75
 - 2026-11-17 phase 6/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-6-work.md
 - 2026-11-17 phase 6/9 · REVIEW iter1 spawn · units 30/75
+- 2026-11-18 phase 6/9 · REVIEW iter1 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 13 MEDIUM / 21 LOW) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-6-review-1.md
+- 2026-11-18 owner: P6R1-1 trust run.log
+- 2026-11-18 phase 6/9 · FIX iter1 spawn · units 31/75
