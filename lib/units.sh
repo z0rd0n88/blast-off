@@ -93,34 +93,61 @@ unit_logs() {
   journalctl --user -u "$UNIT.service" -n 40 --no-pager || true
 }
 
-# wait: block until the job changes, then print one line (issue 14): exit 0 at done or blocked, 11 on a change
-# while it still runs or is scheduled, 12 when nothing runs or is scheduled (runner and resume timer down) but
-# the status is not final: stopped, crashed, rebooted, paused-cap or an unarmed paused-limit, which never
-# change on their own. It compares state, never the clock, so a machine sleep is one more poll, not a stall.
+# wait: block until the job changes, then print one line (issue 14): exit 0 at a done or blocked the runner logged
+# (P6R1-1), 11 on a change while it still runs or is scheduled, 12 when on two polls in a row nothing runs or is
+# scheduled (runner and resume timer down) and the runner logged no end: stopped, crashed, rebooted, done refused,
+# paused-cap or an unarmed paused-limit, which never change on their own. 1 when it cannot start watching. It compares state, never the clock, so a machine sleep is one more poll, not a stall.
 # ponytail: polls every BLAST_OFF_WAIT_POLL (5) s, no inotify (not a dependency); one process, no tokens
 unit_wait() {
-  local was
-  wait_snap; was="$SNAP"
+  local p="${BLAST_OFF_WAIT_POLL:-5}" ms='' was down=0
+  # 0.1 to 3600 s, at most 3 decimals: 0 spins on systemctl, inf never polls again, a word is sleep's error (P6R1-6)
+  if [[ $p =~ ^([0-9]{1,4})(\.([0-9]{1,3}))?$ ]]; then ms="${BASH_REMATCH[3]}000"; ms=$((10#${BASH_REMATCH[1]}${ms:0:3})); fi
+  [ -n "$ms" ] && [ "$ms" -ge 100 ] && [ "$ms" -le 3600000 ] || die "BLAST_OFF_WAIT_POLL='$p' is not a number of seconds from 0.1 to 3600"
+  wait_snap || die "$WAIT_ERR"; was="$SNAP"
   while :; do
-    case "$WAIT_STATUS" in done|blocked) echo "wait: final · $SNAP"; exit 0 ;; esac
+    case "$WAIT_STATUS" in done|blocked) ! wait_logged "$WAIT_STATUS" || { echo "wait: final · $SNAP"; exit 0; } ;; esac
     case "$WAIT_UNIT $WAIT_TIMER" in
-      *' active') ;;
-      inactive*|failed*|deactivating*) echo "wait: stuck · $SNAP; see blast-off status $JOB"; exit 12 ;;
+      *' active') down=0 ;;
+      inactive*|failed*|deactivating*) down=$((down + 1)) ;;
+      *) down=0 ;;
     esac
-    [ "$SNAP" = "$was" ] || { echo "wait: changed · $SNAP"; exit 11; }
-    sleep "${BLAST_OFF_WAIT_POLL:-5}"
-    wait_snap
+    if [ "$down" -ge 2 ]; then  # paused-cap shares 12 (owner Q1), so the line says its own next step (P6R1-2)
+      [ "$WAIT_STATUS" = paused-cap ] && echo "wait: stuck · $SNAP; paused-cap: run blast-off resume $JOB" ||
+        echo "wait: stuck · $SNAP; see blast-off status $JOB"
+      exit 12
+    fi
+    # Not on the first poll with both down: a fired resume timer is gone before its runner is up (P6R1-3). Nor on a
+    # done or blocked the runner has not logged: it may still refuse it, and then its unit goes down (stuck).
+    [ "$down" = 1 ] || [[ $WAIT_STATUS =~ ^(done|blocked)$ ]] || [ "$SNAP" = "$was" ] || { echo "wait: changed · $SNAP"; exit 11; }
+    sleep "$p"
+    until wait_snap; do sleep "$p"; done  # mid-watch a failed read is retried (P6R1-5)
   done
 }
 # SNAP: the status and phase lines, the last child's number (child-count), the runner unit's and resume timer's
-# state; WAIT_STATUS: the status word, as cp_status reads it, from the same read of checkpoint.md
+# state; WAIT_STATUS: the status word, as cp_status reads it, from the same read of checkpoint.md. A failed read
+# returns 1 with WAIT_ERR.
 wait_snap() {
   local cp c='?' s
-  cp="$(cat "$JOB/checkpoint.md" 2>/dev/null)" && [ -n "$cp" ] || die "missing $JOB/checkpoint.md"
+  cp="$(cat "$JOB/checkpoint.md" 2>/dev/null)" && [ -n "$cp" ] || { WAIT_ERR="missing $JOB/checkpoint.md"; return 1; }
   if chain_count; then c="$LAUNCHED"; fi
-  WAIT_UNIT="$(systemctl --user show "$UNIT.service" -p ActiveState --value)"
-  WAIT_TIMER="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value)"
+  WAIT_UNIT="$(systemctl --user show "$UNIT.service" -p ActiveState --value 2>/dev/null)" &&
+    WAIT_TIMER="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value 2>/dev/null)" ||
+    { WAIT_ERR="systemctl --user show $UNIT.service or .resume.timer failed (no user bus?)"; return 1; }
   s="$(sed -n '/^status:/{p;q}' <<<"$cp")"
   WAIT_STATUS="$(sed 's/^status: *\([a-z-]*\).*/\1/' <<<"$s")"
-  SNAP="$s · $(sed -n '/^phase:/{p;q}' <<<"$cp") · child $c · unit $WAIT_UNIT · timer $WAIT_TIMER"
+  # child-written text reaches a session's context (P6R1-7): of the status line only its word and a paused-limit's
+  # `until <time>`; the phase line with no control characters and no ` · ` field separator; each cut to 80 characters
+  local re='^status: *[a-z-]+ +(until [0-9TZ:.+-]{1,40})' u='' ph
+  [[ ! $s =~ $re ]] || u=" ${BASH_REMATCH[1]}"
+  ph="$(sed -n '/^phase:/{p;q}' <<<"$cp")"; ph="${ph//[[:cntrl:]]/}"; ph="${ph//·/-}"
+  SNAP="status: ${WAIT_STATUS:0:80}$u · ${ph:0:80} · child $c · unit $WAIT_UNIT · timer $WAIT_TIMER"
+}
+# wait_logged <done|blocked>: run.log's last runner line (a timestamp first, as log writes it) is the runner's end
+# for that status, `job done` or `job blocked; see ...` (P6R1-1). A child's text in run.log has a runner line after
+# it (`child <n> usage`, chain_run), so a child cannot end the watch, unless the runner is killed between the two.
+wait_logged() {
+  local t='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z ' e='job done$' l
+  [ "$1" = 'done' ] || e='job blocked; see '
+  l="$(grep -E "$t" "$LOG" 2>/dev/null | tail -n 1)" || return 1
+  [[ $l =~ $t$e ]]
 }

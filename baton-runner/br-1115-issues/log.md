@@ -94,3 +94,5 @@
 - 2026-11-18 phase 6/9 · REVIEW iter1 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 13 MEDIUM / 21 LOW) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-6-review-1.md
 - 2026-11-18 owner: P6R1-1 trust run.log
 - 2026-11-18 phase 6/9 · FIX iter1 spawn · units 31/75
+- 2026-11-18 phase 6/9 · FIX iter1 return COMPLETE · P6R1-1 (HIGH) + -2..-8, -10, -11 fixed; 12/12 mutants killed · baton baton-runner/br-1115-issues/baton-phase-6-fix-1.md
+- 2026-11-18 phase 6/9 · REVIEW iter2 spawn (narrow + skill-sheriff-cc on SKILL.md) · units 32/75

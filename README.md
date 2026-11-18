@@ -99,14 +99,17 @@ Re-running is always safe: the next child resumes from the checkpoint's `Next ac
 recurring loop or cron: the session wakes only when it returns. It reads the checkpoint's `status:` and
 `phase:` lines, the last child's number and the runner unit's and resume timer's state every 5 s
 (`BLAST_OFF_WAIT_POLL`), and compares state, never the clock, so a machine sleep is not an event. It
-prints one line, `wait: <final|changed|stuck> · status: ... · phase: ... · child <n> · unit <state> · timer <state>`:
+prints one line, `wait: <final|changed|stuck> · status: ... · phase: ... · child <n> · unit <state> · timer <state>`
+(the status word and a `paused-limit`'s `until <time>` only; the phase line without control characters or ` · `; each at
+most 80 characters):
 
 | Line | Exit | What to do |
 |---|---|---|
-| `final`: status `done` or `blocked` (at once when already there) | 0 | stop watching; read `checkpoint.md` |
+| `final`: status `done` or `blocked` and the runner logged the job's end (`run.log`'s last runner line `job done` or `job blocked`; at once when already there). A `done` it has not logged yet keeps `wait` waiting: the runner may still refuse it (receipts, CI) | 0 | stop watching; read `checkpoint.md` |
 | `changed`: a child launched, the phase or status moved, or the unit's or timer's state changed, and the job still runs or is scheduled | 11 | run `blast-off wait <job-dir>` again |
-| `stuck`: neither the runner unit nor a resume timer runs, and the status is not final (stopped, crashed, a reboot, `paused-cap`, `paused-limit` with no timer); it never changes on its own | 12 | `blast-off status` and `logs`, then `resume` or `start` |
-| no job dir or no `checkpoint.md` | 1 | fix the path |
+| `stuck · status: paused-cap ...; paused-cap: run blast-off resume <job-dir>`: the soft cap paused the job and nothing runs | 12 | `blast-off resume <job-dir>`, then `wait` again |
+| `stuck ...; see blast-off status <job-dir>`: on two polls in a row neither the runner unit nor a resume timer runs, and the runner logged no end (stopped, crashed, a reboot, a refused `done`, `paused-limit` with no timer); it never changes on its own | 12 | `blast-off status` and `logs`, then `resume` or `start` |
+| no job dir or no `checkpoint.md`, a `BLAST_OFF_WAIT_POLL` outside 0.1 to 3600, or `systemctl --user` failing, at its start (a failed read later is retried at the next poll) | 1 | fix the cause, then `wait` again |
 
 `wait` watches the unit, so run it after `start`; a foreground `blast-off run` reads as `stuck`.
 

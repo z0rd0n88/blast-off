@@ -67,9 +67,13 @@ resume; `templates/` holds the brief and checkpoint you fill.
    blast-off stop <job-dir>
    ```
 
-8. **End your turn.** The chain runs without you. Asked to watch it, run `blast-off wait <job-dir>` as
-   a background command, never a recurring loop or cron; when it returns, exit 11 means run it again,
-   0 means `done` or `blocked`, 12 means nothing is running and the owner must act (README, Watch).
+8. **End your turn.** The chain runs without you. Asked to watch it, run `blast-off wait <job-dir>` after
+   `start` (or `resume`) returns, as a background command, never a recurring loop or cron; it watches the
+   unit, so before `start` it reads as stuck. When it returns, exit 11 means run it again, 0 means the
+   runner ended the job `done` or `blocked`, 12 means nothing is running and the owner must act (the line
+   says `run blast-off resume` at `paused-cap`), 1 means it could not start watching (wrong job dir, no
+   `checkpoint.md`, a bad `BLAST_OFF_WAIT_POLL`, no systemd user bus; the reason is on stderr): fix that,
+   do not run it again unchanged (README, Watch).
 
 ## The start line and permissions
 
