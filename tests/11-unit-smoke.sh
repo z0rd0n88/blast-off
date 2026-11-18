@@ -39,6 +39,7 @@ cg="$(cat "/proc/$pid/cgroup")"; echo "$cg"
 grep -q 'gh_token=set' "$JOB/fake-marker" || fail "child did not see GH_TOKEN"
 "$bo" status "$JOB" > status.out 2>&1 || fail "status: $(cat status.out)"
 grep -q '^status: running' status.out && grep -q '^ActiveState=active' status.out || fail "status output: $(cat status.out)"
+grep -qx 'child-count: 1 launched, base 0; next child 2' status.out || fail "status lacks the child count (P4R1-3): $(cat status.out)"
 
 wait_until 30 not_active "$unit" || fail "runner unit still $(unit_state "$unit")"
 grep -q '^status: done' "$JOB/checkpoint.md" || fail "job not done under the unit: $(cat "$JOB/run.log")"
@@ -59,6 +60,7 @@ start_hang() {
   "$bo" start "$JOB" > "start-$1.out" 2>&1 || fail "start ($1): $(cat "start-$1.out")"
   wait_until 20 grep -q '^grandchild=' "$JOB/fake-marker" || fail "hanging child never ran ($1)"
   pid="$(sed -n 's/^child=1 pid=\([0-9]*\) .*/\1/p' "$JOB/fake-marker")"
+  [ -n "$pid" ] || fail "hanging child 1 left no pid ($1): $(cat "$JOB/fake-marker")"  # else gone "" passes vacuously (P4R2-10)
   gc="$(sed -n 's/^grandchild=\([0-9]*\)$/\1/p' "$JOB/fake-marker")"
 }
 gone() { ! kill -0 "$1" 2>/dev/null; }

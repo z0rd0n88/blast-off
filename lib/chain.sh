@@ -83,18 +83,22 @@ chain_dirty() {
 # What the runner needs on PATH (preflight checks the same list, and gh).
 DEPS="claude tmux python3 jq systemd-run systemctl git realpath"
 
-# chain_nums: exit 1 on a JOB_* count that is not a whole number.
+# chain_nums: return 1 with NUMS_ERR on a JOB_* count that is not a whole number of at most 9 digits
+# (P4R2-9: a longer one overflows the arithmetic, or makes the cap test an error that reads as false, so
+# no cap) or has a leading zero (P5R1-4, owner Q3: shell arithmetic reads 010 as 8 and 08 as an error).
 chain_nums() {
   local v
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF; do
-    [[ ${!v:-0} =~ ^[0-9]+$ ]] || die "$v='${!v}' is not a whole number"
+    [[ ${!v:-0} =~ ^(0|[1-9][0-9]{0,8})$ ]] ||
+      { NUMS_ERR="$v='${!v}' is not a whole number of at most 9 digits with no leading zero"; return 1; }
   done
 }
 
 # chain_cap: MAXC, CAP_WHY and CAP_SOFT (empty for the hard cap). The soft cap (F2): the checkpoint's
 # phase count times JOB_CAP_FACTOR, or JOB_MAX_CHILDREN. Reaching it pauses the job (paused-cap, exit 6)
 # and a re-run continues. With no Phase plan row the runner reads there is no phase count, the soft cap is
-# disabled, and the cap is the hard one of phase 1 (exit 4, status kept). Such a job ends done only once a
+# disabled, and the cap is the hard one of phase 1 (exit 4, status kept, but a paused-cap one already reads
+# running: the run sets it before the cap check, owner ruling P4R2-4). Such a job ends done only once a
 # child adds its rows: ci_check wants a done row (exit 10). CAP_WHY says so at start and in preflight (P3R3-12).
 chain_cap() {
   local phases; phases="$(cp_phases)"
@@ -110,17 +114,24 @@ chain_cap() {
 
 # chain_count: LAUNCHED (children this job has launched, so the last one's number) and BASE (LAUNCHED at
 # the last paused-cap -> running under the soft cap; the hard cap ignores it) from $JOB/child-count, so the
-# cap and run.log's numbering survive a relaunch (issue 22). No file is a fresh job, 0 0. Anything else but
-# two whole numbers of at most 9 digits with BASE <= LAUNCHED stops the runner: a garbled count must not
-# reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
+# cap and run.log's numbering survive a relaunch (issue 22), and COUNT_SAY, one line on it. No file is a
+# fresh job, 0 0: deleting it is the owner's one reset (P4R2-11). Anything else but two whole numbers of at
+# most 9 digits with BASE <= LAUNCHED, a dangling symlink among them (P4R1-5), returns 1 with COUNT_ERR:
+# a garbled count must not reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
+# COUNT_ERR names the file and the shape it wants, never the content: it reaches run.log, status and
+# preflight, and a second line could forge a run.log line or a link show a secret (P5R1-5, owner Q5).
 chain_count() {
   local f="$JOB/child-count" c
-  LAUNCHED=0 BASE=0
-  [ -e "$f" ] || return 0
-  c="$(cat "$f")" || die "cannot read $f"
-  [[ $c =~ ^(0|[1-9][0-9]{0,8})\ (0|[1-9][0-9]{0,8})$ ]] && [ "${BASH_REMATCH[2]}" -le "${BASH_REMATCH[1]}" ] ||
-    die "$f holds '$c', not '<launched> <base>' (whole numbers of at most 9 digits, base <= launched); fix it, or delete it to count this job's children from 0 again"
+  LAUNCHED=0 BASE=0 COUNT_ERR='' COUNT_SAY="child-count: none, a fresh job; first child 1"
+  [ -e "$f" ] || [ -L "$f" ] || return 0
+  c="$(cat "$f" 2>/dev/null)" || {
+    COUNT_ERR="cannot read $f (a dangling link, a directory, or no read permission); fix it, or delete it to count this job's children from 0 again"
+    return 1; }
+  [[ $c =~ ^(0|[1-9][0-9]{0,8})\ (0|[1-9][0-9]{0,8})$ ]] && [ "${BASH_REMATCH[2]}" -le "${BASH_REMATCH[1]}" ] || {
+    COUNT_ERR="$f is not '<launched> <base>' ($(stat -Lc %s "$f") bytes; want two whole numbers of at most 9 digits, no leading zero, base <= launched; content not shown); fix it, or delete it to count this job's children from 0 again"
+    return 1; }
   LAUNCHED="${BASH_REMATCH[1]}" BASE="${BASH_REMATCH[2]}"
+  COUNT_SAY="child-count: $LAUNCHED launched, base $BASE; next child $((LAUNCHED+1))"
 }
 # chain_count_set: LAUNCHED and BASE to $JOB/child-count by rename, so a reboot mid-write leaves one or the other.
 chain_count_set() { echo "$LAUNCHED $BASE" > "$JOB/child-count.tmp" && mv -f "$JOB/child-count.tmp" "$JOB/child-count"; }
@@ -132,8 +143,9 @@ chain_run() {
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
   local n stalls=0 s u before after rows w limited back=
-  chain_nums
-  chain_count
+  chain_nums || die "$NUMS_ERR"
+  # under start or the resume timer only the journal reads stderr, so the refusal goes to run.log too (P4R1-2)
+  chain_count || { log "$COUNT_ERR" >&2; exit 1; }
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays
   # constant and the chain never depends on a hand-written handoff.
@@ -151,6 +163,7 @@ chain_run() {
 
   chain_cap
   log "child cap $MAXC ($CAP_WHY)"
+  log "$COUNT_SAY"  # the count this run starts from: a missing file reads as a fresh job (P4R1-5)
   # Only "not a git repository" turns the dirty-tree check off; any other git failure (dubious
   # ownership, a broken repo) is an error, not a reason to skip it.
   if ! TOP="$(LC_ALL=C git -C "$WORKDIR" rev-parse --show-toplevel 2>&1)"; then
@@ -182,7 +195,8 @@ chain_run() {
       blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((LAUNCHED+1))
-    # base is the soft cap's alone; the hard cap counts every child of the job and never resets (P4-22a)
+    # base is the soft cap's alone; the hard cap counts every child of the job and never resets (P4-22a),
+    # unless the owner deletes child-count (P4R2-11)
     if [ $((n - (CAP_SOFT ? BASE : 0))) -gt "$MAXC" ]; then
       [ -n "$CAP_SOFT" ] || chain_end 4 "child cap $MAXC reached ($LAUNCHED children launched for this job, $JOB/child-count); a larger JOB_MAX_CHILDREN goes on"
       cp_set_status paused-cap; chain_end 6 "soft cap $MAXC reached; status paused-cap; run again to continue"

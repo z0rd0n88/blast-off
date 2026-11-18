@@ -1,8 +1,9 @@
 # shellcheck shell=bash
 # preflight.sh: `blast-off preflight <job-dir> [workdir]`. One `name: value` line per thing a launch
 # would use or meet (F2, F9, F10, K8, D1-7, Q2, P3Q3), then `preflight: ok` (exit 0) or
-# `preflight: refused: <why>` (exit 1): CLAUDE_FLAGS empty, a runtime dependency missing, or a usage
-# estimate over what is left of the seven_day window. It writes nothing: log lines go to stdout only.
+# `preflight: refused: <why>` (exit 1): CLAUDE_FLAGS empty, a runtime dependency missing, a garbled
+# child-count, or a usage estimate over what is left of the seven_day window; a bad JOB_* count refuses
+# before any other line. It writes nothing: log lines go to stdout only.
 
 preflight_run() {
   local probs=() b row k
@@ -10,7 +11,8 @@ preflight_run() {
   LOG=/dev/null  # usage_read logs an unreadable record; preflight writes no run.log
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   test -s "$JOB/brief.md" || probs+=("missing $JOB/brief.md")
-  chain_nums
+  # no cap, count or left can be derived from a bad JOB_* count, so it refuses before any line (P5R1-4)
+  chain_nums || { echo "preflight: refused: $NUMS_ERR"; exit 1; }
   [ -n "${CLAUDE_FLAGS:-}" ] || probs+=("CLAUDE_FLAGS is unset or empty")
   for b in $DEPS gh; do command -v "$b" > /dev/null || probs+=("$b not on PATH"); done
 
@@ -24,6 +26,15 @@ preflight_run() {
   else echo "level: phase $k: static CLAUDE_FLAGS under start ($JEV_WHY; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev)"; fi
   chain_cap
   echo "cap: $MAXC ($CAP_WHY)"
+  # P4R1-3: what child-count holds and what is left under that cap; a paused-cap run under the soft cap
+  # gets a fresh allotment (base moves to launched), as chain_run gives it. A garbled one refuses.
+  if chain_count; then
+    local b="$BASE"; [ -z "$CAP_SOFT" ] || [ "$(cp_status)" != paused-cap ] || b="$LAUNCHED"
+    local left=$((MAXC - LAUNCHED + (CAP_SOFT ? b : 0)))
+    echo "$COUNT_SAY; $((left > 0 ? left : 0)) left under cap $MAXC"
+  else
+    echo "child-count: $COUNT_ERR"; probs+=("$COUNT_ERR")
+  fi
   echo "timeout: ${JOB_CHILD_TIMEOUT:-7200} s per child"
   pf_account
   echo "GH_TOKEN: $([ -n "${GH_TOKEN:-}" ] && echo set || echo 'unset (start refuses)')"

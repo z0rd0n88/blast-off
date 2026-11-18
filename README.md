@@ -53,7 +53,7 @@ scoping, writing both files and handing over the start line.
 
 ```bash
 export GH_TOKEN CLAUDE_FLAGS="--model opus --effort high"   # plus any flags the owner allows
-blast-off preflight <worktree>/.big-next-job   # prints flags, model level, cap, timeout, account, usage, estimate, open PRs, behind count
+blast-off preflight <worktree>/.big-next-job   # prints flags, model level, cap, child count, timeout, account, usage, estimate, open PRs, behind count
 blast-off start <worktree>/.big-next-job       # transient unit blast-off-<name>.service in blast-off.slice
 ```
 
@@ -83,7 +83,7 @@ the classifier.
 ## Watch, stop, resume
 
 ```bash
-blast-off status <job-dir>    # checkpoint header, unit state, resume timer
+blast-off status <job-dir>    # checkpoint header, unit state, child count, resume timer
 blast-off logs <job-dir>      # run.log tail and the unit's journal
 tail -f <job-dir>/run.log     # the chain's own log: children, picks, pauses, refusals
 tmux -L blast-off-<name> attach -t job-<name>   # watch the live child (detach: C-b d)
@@ -133,7 +133,7 @@ slips the gate.
 | 0 | job done | read the final report in `checkpoint.md` |
 | 1 | usage, dependency or runner error; `preflight` refused | read the message or the last `run.log` line, fix, run again |
 | 3 | blocked: the job needs the owner | answer what `Open or blocked` asks, set `status: running`, `start` again |
-| 4 | hard child cap, counted over every run of the job in its `child-count` (no Phase plan row the runner reads; such a job ends `done` only once its Phase plan table has its rows, else exit 10) | add a Phase plan table with a row per phase and start again; raising `JOB_MAX_CHILDREN` alone gives more children, not a way to `done` |
+| 4 | hard child cap, counted over every run of the job in its `child-count` (no Phase plan row the runner reads; such a job ends `done` only once its Phase plan table has its rows, else exit 10) | add a Phase plan table with a row per phase and start again; that start can pause at `paused-cap` before any child, since the children already launched count against the first soft allotment, so `blast-off resume <job-dir>` then; raising `JOB_MAX_CHILDREN` alone gives more children, not a way to `done`; deleting `child-count` is the one reset of the count |
 | 5 | two children in a row left `checkpoint.md` unchanged | read the children's closing summaries in `run.log`; fix the brief or `Next action` |
 | 6 | soft cap reached, `status: paused-cap` | `blast-off resume <job-dir>` (a fresh allotment of the cap; child numbers go on) |
 | 7 | uncommitted paths the checkpoint does not name | commit, remove, or name them in the checkpoint; start again |

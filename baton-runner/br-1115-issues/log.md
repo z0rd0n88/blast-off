@@ -75,3 +75,15 @@
 - 2026-11-17 owner: P4R2-4 reword docs; P4R2-11 document child-count delete as reset; follow-ups filed #39
 - 2026-11-17 PAUSE: phase 4 DONE; awaiting owner (merge 38 / phase 5)
 - 2026-11-17 owner: add issue 39 to the run; queued as phase 5 (builds on PR 38); 14/27/16/21 -> phases 6-9
+- 2026-11-17 owner: merge 38 and start phase 5; PR 38 merged c4e2a41; phase-4 branch deleted
+- 2026-11-17 phase 5/9 · WORK spawn (issue 39) · units 25/75
+- 2026-11-17 phase 5/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-5-work.md
+- 2026-11-17 phase 5/9 · REVIEW iter1 spawn · units 26/75
+- 2026-11-17 phase 5/9 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 7 MEDIUM / 24 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-5-review-1.md
+- 2026-11-17 phase 5/9 · FIX iter1 spawn (P5R1-4 octal, P5R1-5 raw content echoed, P5R1-1 tests, P5R1-9 grep) · units 27/75
+- 2026-11-17 phase 5/9 · FIX iter1 return COMPLETE · P5R1-1,4,5,9 fixed, mutants killed · baton baton-runner/br-1115-issues/baton-phase-5-fix-1.md
+- 2026-11-17 owner rulings phase 5: Q1 refuse at hard cap, Q2 check before launch, Q4 log only, Q6 check after lock -> follow-up issue; file owner-rulings-phase-5.md
+- 2026-11-17 phase 5/9 · REVIEW iter2 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 0 MEDIUM / 17 LOW) · gate PASS 18/18 · baton baton-runner/br-1115-issues/baton-phase-5-review-2.md
+- 2026-11-17 phase 5/9 · DELIVER: push + draft PR
+- 2026-11-17 phase 5/9 · PR https://github.com/z0rd0n88/blast-off/pull/41 draft · CI gate pass (run 44237681774) · follow-ups #40
+- 2026-11-17 PAUSE: phase 5 DONE; awaiting owner (merge 41 / phase 6)

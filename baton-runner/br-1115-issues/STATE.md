@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
 status: PAUSED (between phases)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 5 of 9  unit: WORK  review_iter: 0 of 3
-phase_4_branch: feat/br-1115-issues/phase-4 (from main 7867255)
-current_baton: baton-runner/br-1115-issues/baton-phase-4-review-2.md
-units_used: 24
-pause_reason: phase 4 delivered as draft PR 38 (CI green); owner to merge 38 or say go for phase 5 (issue 39)
+phase: 6 of 9  unit: WORK  review_iter: 0 of 3
+phase_5_branch: feat/br-1115-issues/phase-5 (from main c4e2a41)
+current_baton: baton-runner/br-1115-issues/baton-phase-5-review-2.md
+units_used: 28
+pause_reason: phase 5 delivered as draft PR 41 (CI green); owner to merge 41 or say go for phase 6 (issue 14)
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -23,9 +23,12 @@ phases:
     units: 15  state: DONE (owner waiver; merged 7867255; P3R6-1, P3R6-2 and rulings 2-5 tracked in #36)
   - id: phase-4  spec: issue 22  readiness: READY  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-4  pr: https://github.com/z0rd0n88/blast-off/pull/38
-    units: 4  state: DONE (CLEAN iter 2; CI green; 7 MEDIUM open in #39)
+    units: 4  state: DONE (CLEAN iter 2; merged c4e2a41; 7 MEDIUM open in #39 = phase 5)
     owner: P4-22a = fresh soft allotment on paused-cap resume (hard cap never resets); P4R2-4 = reword docs; P4R2-11 = deleting child-count is the reset, document it (both in #39)
-  - id: phase-5  spec: issue 39 (child-count follow-ups from #22: owner rulings P4R2-4 reword docs, P4R2-11 document child-count delete as the reset; MEDIUMs P4R2-1, P4R2-2, P4R1-2, P4R1-3, P4R1-4, P4R1-5, P4R1-7)  readiness: READY  work_agent: general-purpose  base: phase-4 tip (or main once PR 38 merges)  state: PENDING
+  - id: phase-5  spec: issue 39 (child-count follow-ups from #22: owner rulings P4R2-4 reword docs, P4R2-11 document child-count delete as the reset; MEDIUMs P4R2-1, P4R2-2, P4R1-2, P4R1-3, P4R1-4, P4R1-5, P4R1-7)  readiness: READY  work_agent: general-purpose  base: main c4e2a41
+    phase_branch: feat/br-1115-issues/phase-5  pr: https://github.com/z0rd0n88/blast-off/pull/41
+    units: 4  state: DONE (CLEAN iter 2; CI green; follow-ups in #40)
+    manager defaults (fix iter1): Q3 reject leading zeros in JOB_* numbers; Q5 refusals never echo child-count content
   - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
@@ -54,3 +57,6 @@ Owner: merge PR 37, then begin phase 4. PR 37 merged (7867255), phase-3 branch d
 
 ## UPDATE 2026-11-17 (3)
 Owner added issue 39 to the run. It is phase 5 (it changes the code PR 38 adds); issues 14, 27, 16, 21 are now phases 6-9.
+
+## UPDATE 2026-11-17 (4)
+Owner: merge 38 and start phase 5. PR 38 merged (c4e2a41), phase-4 branch deleted, phase 5 (issue 39) WORK spawned on feat/br-1115-issues/phase-5 from main.

@@ -70,6 +70,8 @@ unit_resume() {
 unit_status() {
   sed -n '1,/^## /p' "$JOB/checkpoint.md" | sed '$d'
   systemctl --user show "$UNIT.service" -p ActiveState
+  # no "left under the cap": the unit's JOB_* env, which sets the cap, is not this shell's (P4R1-3)
+  if chain_count; then echo "$COUNT_SAY"; else echo "child-count: $COUNT_ERR"; fi
   # the resume timer is transient: a reboot or user-manager exit deletes it and nothing resumes (spec §4)
   local t u; t="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value)"; u="$(usage_until)"
   echo "resume timer: $t"

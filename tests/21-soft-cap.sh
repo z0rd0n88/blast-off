@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 21-soft-cap: the child cap is the checkpoint's Phase plan rows times JOB_CAP_FACTOR (default 3),
 # or JOB_MAX_CHILDREN when set; reaching it writes `status: paused-cap` and exits 6, and a re-run
-# continues the chain. No Phase plan table keeps the hard cap: exit 4, status unchanged (test 10).
+# continues the chain. No Phase plan table keeps the hard cap: exit 4, status unchanged, except that a
+# `paused-cap` already reads `running` by then (owner ruling P4R2-4; test 10).
 source "$REPO/tests/lib.sh"
 use_fakes
 export CLAUDE_FLAGS="--model fake --effort low" GH_TOKEN=dummy-not-a-token JOB_CHILD_TIMEOUT=30
@@ -24,10 +25,12 @@ grep -q 'soft cap 2 reached; status paused-cap; run again to continue' "$log" ||
 grep -q 'child 2 launched' "$log" || fail "cap 2 stopped before child 2"
 grep -q 'child 3 launched' "$log" && fail "child 3 launched past the soft cap"
 # the paused-cap resume saves its new base itself (P4R1-8): at cap 0 it pauses again before any launch, so
-# only that save can make the file '2 2'; the re-run below then starts from base == launched (P4R1-9)
+# only that save can make the file '2 2' (a run from base == launched, P4R1-9: the `base` job below)
 rc=0; JOB_MAX_CHILDREN=0 "$bo" run "$JOB" > zero.out 2>&1 || rc=$?
 [ "$rc" -eq 6 ] && [ "$(cat "$JOB/child-count")" = "2 2" ] && [ "$(grep -c 'child [0-9]* launched' "$log")" -eq 2 ] ||
   fail "paused-cap resume at cap 0: exit $rc, child-count '$(cat "$JOB/child-count")', want 6 and '2 2': $(cat zero.out "$log")"
+# back to the first pause's '2 0', so the re-run below must move the in-memory base itself, not only the file (P4R2-2)
+printf '2 0\n' > "$JOB/child-count"
 
 printf 'done\n' > "$JOB/fake-mode"; sed -i 's/| pending |$/| done · no PR |/' "$JOB/checkpoint.md"  # done needs every row done (D4-4), each with its PR or `no PR`
 printf 'done\n' > "$JOB/fake-mode"
@@ -38,6 +41,15 @@ grep -q 'status paused-cap -> running; the chain continues' "$log" || fail "re-r
 grep -q '^status: done$' "$JOB/checkpoint.md" || fail "re-run did not finish the job"
 # the re-run gets a fresh allotment of 2, but its child is child 3: numbering goes on (issue 22)
 grep -q 'child 3 launched' "$log" && [ "$(grep -c 'child 1 launched' "$log")" -eq 1 ] || fail "child numbering did not go on after paused-cap: $(cat "$log")"
+
+# a soft relaunch with status running reads `base` back from child-count: from '2 2' at cap 2 it launches
+# child 3 and child 4, then pauses (P4R2-1)
+new_job base step
+plan 2
+printf '2 2\n' > "$JOB/child-count"
+rc=0; JOB_CAP_FACTOR=1 "$bo" run "$JOB" > base.out 2>&1 || rc=$?
+[ "$rc" -eq 6 ] && grep -q 'child 3 launched' "$JOB/run.log" && grep -q 'child 4 launched' "$JOB/run.log" && ! grep -q 'child 5 launched' "$JOB/run.log" &&
+  [ "$(cat "$JOB/child-count")" = "4 2" ] || fail "soft run from '2 2' at cap 2: exit $rc, child-count '$(cat "$JOB/child-count")', want 6, children 3 and 4, '4 2': $(cat base.out "$JOB/run.log")"
 
 # a relaunch that is no paused-cap re-run keeps the count (issue 22): two stalls end the first run at
 # cap 2's last child, so the re-run pauses before launching one
@@ -69,8 +81,9 @@ plan 1
 rc=0; JOB_CAP_FACTOR=x "$bo" run "$JOB" > badf.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "JOB_CAP_FACTOR=x exit $rc, want 1"
 [ ! -e "$JOB/fake-marker" ] || fail "a child ran with a bad JOB_CAP_FACTOR"
-# so are a non-numeric child cap and timeout (P2R3-4)
-nbad=0; for bad in JOB_MAX_CHILDREN=2O JOB_CHILD_TIMEOUT=x; do
+# so are a non-numeric child cap and timeout (P2R3-4), and a count past 9 digits, which would turn the
+# cap off or overflow it (P4R2-9), and a leading zero, which shell arithmetic reads as octal (P5R1-4, owner Q3)
+nbad=0; for bad in JOB_MAX_CHILDREN=2O JOB_CHILD_TIMEOUT=x JOB_MAX_CHILDREN=99999999999999999999 JOB_CAP_FACTOR=1000000000 JOB_MAX_CHILDREN=08 JOB_MAX_CHILDREN=010 JOB_CAP_FACTOR=03; do
   new_job "bad-$((++nbad))" 'done'
   rc=0; env "$bad" "$bo" run "$JOB" > bad.out 2>&1 || rc=$?
   [ "$rc" -eq 1 ] && [ ! -e "$JOB/fake-marker" ] && grep -q 'is not a whole number' bad.out || fail "$bad exit $rc, want 1 before any child: $(cat bad.out)"
