@@ -61,12 +61,15 @@ resume; `templates/` holds the brief and checkpoint you fill.
    ```
 
    ```bash
+   blast-off wait <job-dir>     # to watch: a background command; returns on a change, prints one line
    blast-off status <job-dir>
    tmux -L blast-off-<name> attach -t job-<name>   # watch the live child
    blast-off stop <job-dir>
    ```
 
-8. **End your turn.** The chain runs without you.
+8. **End your turn.** The chain runs without you. Asked to watch it, run `blast-off wait <job-dir>` as
+   a background command, never a recurring loop or cron; when it returns, exit 11 means run it again,
+   0 means `done` or `blocked`, 12 means nothing is running and the owner must act (README, Watch).
 
 ## The start line and permissions
 

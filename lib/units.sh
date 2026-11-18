@@ -92,3 +92,35 @@ unit_logs() {
   tail -n 40 "$LOG" 2>/dev/null || echo "(no $LOG yet)"
   journalctl --user -u "$UNIT.service" -n 40 --no-pager || true
 }
+
+# wait: block until the job changes, then print one line (issue 14): exit 0 at done or blocked, 11 on a change
+# while it still runs or is scheduled, 12 when nothing runs or is scheduled (runner and resume timer down) but
+# the status is not final: stopped, crashed, rebooted, paused-cap or an unarmed paused-limit, which never
+# change on their own. It compares state, never the clock, so a machine sleep is one more poll, not a stall.
+# ponytail: polls every BLAST_OFF_WAIT_POLL (5) s, no inotify (not a dependency); one process, no tokens
+unit_wait() {
+  local was
+  wait_snap; was="$SNAP"
+  while :; do
+    case "$WAIT_STATUS" in done|blocked) echo "wait: final · $SNAP"; exit 0 ;; esac
+    case "$WAIT_UNIT $WAIT_TIMER" in
+      *' active') ;;
+      inactive*|failed*|deactivating*) echo "wait: stuck · $SNAP; see blast-off status $JOB"; exit 12 ;;
+    esac
+    [ "$SNAP" = "$was" ] || { echo "wait: changed · $SNAP"; exit 11; }
+    sleep "${BLAST_OFF_WAIT_POLL:-5}"
+    wait_snap
+  done
+}
+# SNAP: the status and phase lines, the last child's number (child-count), the runner unit's and resume timer's
+# state; WAIT_STATUS: the status word, as cp_status reads it, from the same read of checkpoint.md
+wait_snap() {
+  local cp c='?' s
+  cp="$(cat "$JOB/checkpoint.md" 2>/dev/null)" && [ -n "$cp" ] || die "missing $JOB/checkpoint.md"
+  if chain_count; then c="$LAUNCHED"; fi
+  WAIT_UNIT="$(systemctl --user show "$UNIT.service" -p ActiveState --value)"
+  WAIT_TIMER="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value)"
+  s="$(sed -n '/^status:/{p;q}' <<<"$cp")"
+  WAIT_STATUS="$(sed 's/^status: *\([a-z-]*\).*/\1/' <<<"$s")"
+  SNAP="$s · $(sed -n '/^phase:/{p;q}' <<<"$cp") · child $c · unit $WAIT_UNIT · timer $WAIT_TIMER"
+}

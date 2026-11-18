@@ -83,6 +83,7 @@ the classifier.
 ## Watch, stop, resume
 
 ```bash
+blast-off wait <job-dir>      # blocks until the status, phase, child or unit changes; prints one line
 blast-off status <job-dir>    # checkpoint header, unit state, child count, resume timer
 blast-off logs <job-dir>      # run.log tail and the unit's journal
 tail -f <job-dir>/run.log     # the chain's own log: children, picks, pauses, refusals
@@ -93,6 +94,21 @@ blast-off run <job-dir>       # the same chain in the foreground (what the unit 
 ```
 
 Re-running is always safe: the next child resumes from the checkpoint's `Next action`; nothing is redone.
+
+**Watching from a Claude session.** Run `blast-off wait <job-dir>` as a background command, not a
+recurring loop or cron: the session wakes only when it returns. It reads the checkpoint's `status:` and
+`phase:` lines, the last child's number and the runner unit's and resume timer's state every 5 s
+(`BLAST_OFF_WAIT_POLL`), and compares state, never the clock, so a machine sleep is not an event. It
+prints one line, `wait: <final|changed|stuck> · status: ... · phase: ... · child <n> · unit <state> · timer <state>`:
+
+| Line | Exit | What to do |
+|---|---|---|
+| `final`: status `done` or `blocked` (at once when already there) | 0 | stop watching; read `checkpoint.md` |
+| `changed`: a child launched, the phase or status moved, or the unit's or timer's state changed, and the job still runs or is scheduled | 11 | run `blast-off wait <job-dir>` again |
+| `stuck`: neither the runner unit nor a resume timer runs, and the status is not final (stopped, crashed, a reboot, `paused-cap`, `paused-limit` with no timer); it never changes on its own | 12 | `blast-off status` and `logs`, then `resume` or `start` |
+| no job dir or no `checkpoint.md` | 1 | fix the path |
+
+`wait` watches the unit, so run it after `start`; a foreground `blast-off run` reads as `stuck`.
 
 **Usage limits.** At each child's end the runner reads that session's usage record,
 `~/.claude/state/usage-limits-<session>.json`, which a status-line hook (`usage-limit-tee.sh`, not part

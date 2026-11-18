@@ -87,3 +87,7 @@
 - 2026-11-17 phase 5/9 · DELIVER: push + draft PR
 - 2026-11-17 phase 5/9 · PR https://github.com/z0rd0n88/blast-off/pull/41 draft · CI gate pass (run 44237681774) · follow-ups #40
 - 2026-11-17 PAUSE: phase 5 DONE; awaiting owner (merge 41 / phase 6)
+- 2026-11-17 owner: merge 41 and start phase 6; PR 41 merged 62eeb5c; phase-5 branch deleted
+- 2026-11-17 phase 6/9 · WORK spawn (issue 14) · units 29/75
+- 2026-11-17 phase 6/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-6-work.md
+- 2026-11-17 phase 6/9 · REVIEW iter1 spawn · units 30/75
