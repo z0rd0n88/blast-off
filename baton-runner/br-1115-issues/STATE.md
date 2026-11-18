@@ -1,10 +1,10 @@
 # zord-baton-runner run br-1115-issues
 status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 6 of 9  unit: FIX  review_iter: 2 of 3
+phase: 6 of 9  unit: REVIEW  review_iter: 3 of 3
 phase_6_branch: feat/br-1115-issues/phase-6 (from main 62eeb5c)
-current_baton: baton-runner/br-1115-issues/baton-phase-6-review-2.md
-units_used: 33
+current_baton: baton-runner/br-1115-issues/baton-phase-6-fix-2.md
+units_used: 34
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -31,7 +31,7 @@ phases:
     manager defaults (fix iter1): Q3 reject leading zeros in JOB_* numbers; Q5 refusals never echo child-count content
   - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-6  pr: -
-    units: 5  state: RUNNING
+    units: 6  state: RUNNING
     owner: P6R1-1 = final only when the runner has recorded the end (2026-11-18); round-2 ruling: one more fix round, runner writes its end to its own file in the job dir and wait reads it
     manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING

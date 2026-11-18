@@ -18,6 +18,8 @@ grep -q "(watch: tmux -L $TEST_ID-ok attach -t job-test-$$-ok)" "$log" || fail "
 grep -q '^child 2 session=fake-2 transcript=/dev/null$' "$log" || fail "done.json not logged: $(cat "$log")"
 grep -q '^fake child 2 did done$' "$log" || fail "last message not logged"
 grep -q 'job done$' "$log" || fail "no 'job done' line"
+ts='[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z'
+[[ $(cat "$JOB/runner-end" 2>/dev/null) =~ ^done\ $ts$ ]] || fail "runner-end after an accepted done: $(cat "$JOB/runner-end" 2>&1)"
 [ "$(grep -c 'gh_token=set' "$JOB/fake-marker")" -eq 2 ] || fail "fake child marker: $(cat "$JOB/fake-marker" 2>&1)"
 [ "$(grep -c '^claude_env=0$' "$JOB/fake-marker")" -eq 2 ] || fail "a child saw a CLAUDE* name (CLAUDE_FLAGS is exported above): $(cat "$JOB/fake-marker")"
 grep -q '^child=2 .* prev_alive=no$' "$JOB/fake-marker" || fail "finished child 1 still alive when child 2 launched: $(cat "$JOB/fake-marker")"
@@ -40,6 +42,18 @@ rc=0; "$bo" run "$JOB" > blocked.out 2>&1 || rc=$?
 [ "$rc" -eq 3 ] || fail "blocked run exit $rc: $(cat blocked.out)"
 grep -q "job blocked; see $JOB/checkpoint.md" "$JOB/run.log" || fail "no blocked line: $(cat "$JOB/run.log")"
 grep -q 'mode=blocked' "$JOB/fake-marker" || fail "fake child never ran"
+[[ $(cat "$JOB/runner-end" 2>/dev/null) =~ ^blocked\ $ts$ ]] || fail "runner-end after an accepted blocked: $(cat "$JOB/runner-end" 2>&1)"
+# a re-run clears runner-end first (wait reads it, P6R2-1): the job re-opened as done, with no Phase plan row, is
+# refused with exit 10 before child 1, and the earlier run's end is gone
+sed -i 's/^status: .*/status: done/' "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > reopen.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && [ ! -e "$JOB/runner-end" ] ||
+  fail "re-run on a done the runner refuses: exit $rc, want 10 and no runner-end: $(cat "$JOB/runner-end" reopen.out 2>&1)"
+# a done the runner refuses (exit 9 or 10) writes no runner-end
+new_job refused noop; sed -i 's/^status: .*/status: done/' "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > refused.out 2>&1 || rc=$?
+[ "$rc" -eq 10 ] && [ ! -e "$JOB/runner-end" ] ||
+  fail "a refused done: exit $rc, want 10 and no runner-end: $(cat "$JOB/runner-end" refused.out 2>&1)"
 
 # child 1 hangs past the timeout (stall 1), child 2 changes nothing (stall 2) -> exit 5
 new_job stall hang noop

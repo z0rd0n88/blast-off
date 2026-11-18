@@ -9,9 +9,10 @@
 #        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
 #        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: running, then start
 #        blast-off wait <job-dir>             block until the status, phase, child or unit changes, print one line:
-#                                             exit 0 the runner ended it done or blocked, 11 changed (wait again), 12
-#                                             nothing runs or is scheduled and the runner logged no end (stopped,
-#                                             crashed, done refused, paused-cap)
+#                                             exit 0 the runner accepted done or blocked (its runner-end file), 11
+#                                             changed (wait again), 12 for 10 s nothing runs or is scheduled and no
+#                                             runner-end matches (stopped, crashed, done or blocked refused,
+#                                             paused-cap), or no read for 60 s
 #        blast-off install                    write the template and slice to ~/.config/systemd/user
 #        blast-off preflight <job-dir> [workdir]  print start's flags and level, cap, account, usage, estimate, slice, PRs, behind; exit 1 to refuse
 #        blast-off receipt <job-dir> <phase> [workdir]  last GATE: line of gate-logs/phase-<phase>.log + HEAD -> phase-<phase>.json
@@ -30,7 +31,7 @@
 #        BLAST_OFF_CI_APPEAR=60    seconds ci-wait waits for a PR head's runs to be listed (not to finish)
 #        BLAST_OFF_CI_WATCH=3600   seconds ci-wait watches one run; one still running is recorded as not success
 #        BLAST_OFF_CI_HEAD=60      seconds the runner's gh pr view of a PR head may take at done; past it, CI is unread
-#        BLAST_OFF_WAIT_POLL=5     seconds (0.1 to 3600) between wait's reads of the job; it compares state, never the clock
+#        BLAST_OFF_WAIT_POLL=5     seconds (0.1 to 3600) between wait's reads of the job; a change is state, never the clock
 #        JOB_JEV=1                 0: no Jev; children get CLAUDE_FLAGS as given
 #        OPENROUTER_API_KEY        Jev's key (sk-or- only; never TypeSafe); without it, CLAUDE_FLAGS as given. start does not pass it
 #        JOB_BASE=main             preflight's behind count: git rev-list --count HEAD..origin/<JOB_BASE>

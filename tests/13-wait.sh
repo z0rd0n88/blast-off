@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # 13-wait: `blast-off wait <job-dir>` blocks until the status line, the phase, the child number or the unit
-# changes, then prints one line: exit 0 at a done or blocked the runner logged in run.log, 11 on a change while
-# the job still runs or is scheduled, 12 when on two polls nothing runs or is scheduled and the runner logged no
-# end (stopped, crashed, rebooted, done refused, paused-cap), 1 when it cannot start watching. It compares state,
-# never the clock (issue 14).
-# systemctl is a fake local to this scenario: no real unit is read, started or installed.
+# changes, then prints one line: exit 0 at a done or blocked the runner accepted (its runner-end file), 11 on a
+# change while the job still runs or is scheduled, 12 when for 10 s nothing runs or is scheduled and no runner-end
+# matches (stopped, crashed, rebooted, done or blocked refused, paused-cap) or no read succeeds for 60 s, 1 when it
+# cannot start watching. A change is state, never the clock (issue 14).
+# systemctl and date are fakes local to this scenario: no real unit is read, started or installed.
 # shellcheck source=tests/lib.sh
 source "$REPO/tests/lib.sh"
 
@@ -21,6 +21,16 @@ echo "$3" >> "$FAKE_SD/calls"
 [[ $s != inactive || $3 != *.resume.timer || ! -e $FAKE_SD/next ]] || { bash "$FAKE_SD/next"; rm "$FAKE_SD/next"; }
 EOF
 chmod +x sd/bin/systemctl
+# fake date: `date +%s` (wait's clock for its 10 s and 60 s limits) is the real clock plus $FAKE_SD/skew, and each such
+# read adds $FAKE_SD/step to the skew: at step 5 those limits pass in a few polls, at 0 the clock is real. Any other
+# date call is the real one.
+cat > sd/bin/date <<EOF
+#!/usr/bin/env bash
+[ "\$*" = +%s ] || exec $(command -v date) "\$@"
+k=\$(( \$(cat "\$FAKE_SD/skew" 2>/dev/null || echo 0) + \$(cat "\$FAKE_SD/step") )); echo "\$k" > "\$FAKE_SD/skew"
+echo \$(( \$($(command -v date) +%s) + k ))
+EOF
+chmod +x sd/bin/date; echo 5 > sd/step
 FAKE_SD="$PWD/sd"; export FAKE_SD
 PATH="$PWD/sd/bin:$PATH"; export PATH
 export BLAST_OFF_WAIT_POLL=0.1
@@ -85,22 +95,33 @@ l="$(cat e.out)"; f="${l#*phase: }"; f="phase: ${f%% · child 1 ·*}"
 [[ $l =~ ^'wait: changed · status: running · phase: 1 of 1 [31mred]0;t - child 9 'x+' · child 1 · unit active · timer inactive'$ ]] ||
   fail "child-written fields reached the line: $l"
 
-# --- done and blocked: exit 0 only once the runner logged the job's end in run.log (owner ruling P6R1-1) ---
+# --- done and blocked: exit 0 only once the runner accepted the end and wrote the same word to its own runner-end
+# file (owner rulings P6R1-1, P6R2-1); run.log is not read, so a child's text there cannot end the watch ---
+rend() { echo "$1 $(date -u +%FT%TZ)" > "$JOB/runner-end"; }
 job fin
 bw d; blocks d "running"
 ck status "done"
-blocks d "status done the runner has not logged: it may still refuse it (receipts, CI)"
-echo "$(date -u +%FT%TZ) job done" >> "$JOB/run.log"
-ends d 0 'wait: final · status: done' "the runner logged job done"
+blocks d "status done the runner has not accepted: it may still refuse it (receipts, CI)"
+echo "$(date -u +%FT%TZ) job done" >> "$JOB/run.log"  # child text the runner copies into run.log can hold this (P6R2-1)
+blocks d "a forged job done line in run.log, no runner-end"
+rend 'done'
+ends d 0 'wait: final · status: done' "the runner wrote runner-end done"
 echo inactive > "sd/$UNIT.service"
-bw d2; ends d2 0 'status: done' "already done at start"
-# refused (exit 9 or 10, status left done): the runner's last line is the refusal; a child's text after it has
-# no timestamp. Nothing will move: stuck, never final.
-{ echo "$(date -u +%FT%TZ) phase row 1 is done but names no commit; fix it"; echo 'job done'; } >> "$JOB/run.log"
-bw d3; ends d3 12 'wait: stuck · status: done' "done refused by the runner"
+echo "$(date -u +%FT%TZ) receipt phase 1: GATE: PASS passed=1 failed=0 shellcheck=ok at abc1234" >> "$JOB/run.log"
+bw d2; ends d2 0 'status: done' "already done at start, a receipt line in run.log after the end (P6R2-3)"
+rend blocked
+bw d3; ends d3 12 'wait: stuck · status: done' "runner-end says blocked, the status done"
+rm "$JOB/runner-end"
+bw d4; ends d4 12 'wait: stuck · status: done' "done refused by the runner (exit 9 or 10): no runner-end"
+# blocked the same way: the runner can refuse it too (receipt check exit 9, dirty tree exit 7) (P6R2-5)
+job blk
+bw b; blocks b "running"
 ck status blocked
-echo "$(date -u +%FT%TZ) job blocked; see $JOB/checkpoint.md" >> "$JOB/run.log"
-bw b; ends b 0 'wait: final · status: blocked' "already blocked at start"
+blocks b "status blocked the runner has not accepted"
+echo inactive > "sd/$UNIT.service"
+ends b 12 'wait: stuck · status: blocked' "blocked refused by the runner: no runner-end"
+rend blocked
+bw b2; ends b2 0 'wait: final · status: blocked' "already blocked at start"
 
 # --- unit gone but status still running (stop, crash, reboot): nothing will change on its own ---
 job gone
@@ -111,6 +132,8 @@ grep -qF "blast-off status $JOB" g.out || fail "stuck line does not say what to 
 bw g2; ends g2 12 'unit inactive' "already stuck at start"
 echo failed > "sd/$UNIT.service"
 bw g3; ends g3 12 'unit failed' "a failed unit is not running"
+echo deactivating > "sd/$UNIT.service"
+bw g4; ends g4 12 'unit deactivating' "a deactivating unit is going down (P6R2-8)"
 
 # --- paused: paused-cap with nothing running needs the owner; paused-limit waits for its timer ---
 job pause
@@ -146,6 +169,14 @@ echo "echo active > '$PWD/sd/$UNIT.service'" > sd/next  # runs right after the f
 rm "sd/$UNIT.resume.timer"
 ends h 11 'unit active · timer inactive' "one poll with the timer gone and the unit not up yet"
 [ ! -e sd/next ] || fail "no poll read the timer gone: the handoff was not exercised"
+# stuck is time-based, not a poll count (P6R2-4): six polls (0.6 s, the real clock) with nothing up is not stuck
+job slow; ck status 'paused-limit until 2099-01-01T00:00:00Z'
+echo inactive > "sd/$UNIT.service"; echo active > "sd/$UNIT.resume.timer"; echo 0 > sd/step
+bw sl; blocks sl "paused-limit with its resume timer active"
+rm "sd/$UNIT.resume.timer"
+blocks sl "timer gone, unit not up yet, 3 polls"; blocks sl "timer gone, unit not up yet, 6 polls"
+echo active > "sd/$UNIT.service"; echo 5 > sd/step
+ends sl 11 'unit active · timer inactive' "a slow handoff, well under 10 s"
 
 # --- nothing to watch: exit 1 with the reason ---
 set +e
@@ -176,17 +207,37 @@ for v in 0 inf abc 0.05 3601 --help; do  # the unit is up, so a wait that took t
     fail "BLAST_OFF_WAIT_POLL=$v: exit $rc, want 1 before watching: $out"
 done
 
-# --- a read that fails mid-watch (checkpoint.md empty mid-rewrite, systemctl failing) is retried, not exit 1 ---
+# --- a read that fails mid-watch (checkpoint.md empty mid-rewrite, systemctl failing) is retried, not exit 1; the
+# 60 s limit is per spell of failed reads (P6R2-2): two spells of 8 failed reads (35 s each on wait's clock, step 5)
+# with good reads between are not stuck ---
+# skewed <n>: wait until the fake clock's skew is at least n (only a down or failed-read poll reads that clock), or r
+# returned
+skewed() {
+  local i; for ((i = 0; i < 500; i++)); do [ ! -e r.rc ] && [ "$(cat sd/skew 2>/dev/null || echo 0)" -lt "$1" ] || return 0; sleep 0.02; done
+  fail "wait read its clock too few times (skew $(cat sd/skew 2>/dev/null), want $1): $(cat r.out)"
+}
 job retry
 bw r; blocks r "running"
-: > "$JOB/checkpoint.md"; sleep 1
-[ ! -e r.rc ] || fail "an empty checkpoint.md mid-watch ended wait: rc $(cat r.rc): $(cat r.out)"
+k="$(cat sd/skew 2>/dev/null || echo 0)"
+: > "$JOB/checkpoint.md"; skewed $((k + 40))
 printf '# Checkpoint: test\n\nstatus: running\nphase: 1 of 1\n\n## Next action\nnone\n' > "$JOB/checkpoint.md"
-touch sd/fail; sleep 1
-[ ! -e r.rc ] || fail "systemctl failing mid-watch ended wait: rc $(cat r.rc): $(cat r.out)"
-rm sd/fail; blocks r "reads back, nothing changed"
+[ ! -e r.rc ] || fail "an empty checkpoint.md mid-watch ended wait: rc $(cat r.rc): $(cat r.out)"
+blocks r "reads back, nothing changed"
+k="$(cat sd/skew)"; touch sd/fail; skewed $((k + 40)); rm sd/fail
+[ ! -e r.rc ] || fail "systemctl failing mid-watch, a second spell under 60 s, ended wait: rc $(cat r.rc): $(cat r.out)"
+blocks r "reads back, nothing changed"
 echo '1 0' > "$JOB/child-count"
 ends r 11 'wait: changed · status: running · phase: 1 of 1 · child 1' "a change after failed reads"
+# --- one that never clears (job dir deleted or moved, user bus gone) is stuck after 60 s, with the reason (P6R2-2) ---
+job del
+bw dl; blocks dl "running"
+rm -r "$JOB"
+ends dl 12 "wait: stuck · no read for 60 s: missing $JOB/checkpoint.md; see blast-off status $JOB" "job dir deleted mid-watch"
+job nobus
+bw nb; blocks nb "running"
+touch sd/fail
+ends nb 12 "wait: stuck · no read for 60 s: systemctl --user show $UNIT.service" "systemctl failing mid-watch, for good"
+rm sd/fail
 
 # --- a machine sleep is no change: each poll sees the clock 10 h on, the state the same; wait keeps blocking ---
 job sleep
