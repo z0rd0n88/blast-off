@@ -74,3 +74,4 @@
 - 2026-11-17 phase 4/8 · PR https://github.com/z0rd0n88/blast-off/pull/38 draft · CI gate pass (run 44153708487)
 - 2026-11-17 owner: P4R2-4 reword docs; P4R2-11 document child-count delete as reset; follow-ups filed #39
 - 2026-11-17 PAUSE: phase 4 DONE; awaiting owner (merge 38 / phase 5)
+- 2026-11-17 owner: add issue 39 to the run; queued as phase 5 (builds on PR 38); 14/27/16/21 -> phases 6-9
