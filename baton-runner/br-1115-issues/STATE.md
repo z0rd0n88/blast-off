@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 8 work)
+status: RUNNING (phase 8 review round 1)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 8 of 10  unit: WORK  review_iter: 0 of 3
+phase: 8 of 10  unit: REVIEW  review_iter: 1 of 3
 phase_8_branch: feat/br-1115-issues/phase-8 (from main ec15714)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 38
+units_used: 40
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -100,3 +100,6 @@ Review round 2 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDIUM / 16 LOW (
 
 ## UPDATE 2026-11-19 (8)
 Owner: merge 45 and start phase 8. PR 45 merged (ec15714), phase-7 branch deleted. Phase 8 (issue 16) on feat/br-1115-issues/phase-8 from main. Records moved off phase branches: phase 8 untracks baton-runner/ once (202 files, all this run), records now live on run/br-1115-issues via rec.sh. Resume: read STATE.md from the working copy or `git show origin/run/br-1115-issues:baton-runner/br-1115-issues/STATE.md`.
+
+## UPDATE 2026-11-19 (9)
+Phase 8 work done: 71abdef (templates/brief.md stop condition, tests/51-templates.sh, spec row 51). Red/green in baton-phase-8-work.md. Split check: code diff (records excluded) 3 files +7/-3, under 750, no split. Review round 1 running.
