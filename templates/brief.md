@@ -15,7 +15,7 @@ finish the independent work, and record it under "Open or blocked".
 Settled before launch; children quote the row number, never re-ask.
 | # | Decision | Choice |
 |---|---|---|
-| D1 | Child model and flags | `CLAUDE_FLAGS` from the launch line (`--model <m> --effort <e>`); children never change or widen it |
+| D1 | Child model and flags | `CLAUDE_FLAGS` from the launch line (`--model <m> --effort <e>`; when the runner holds Jev's key, Jev may pick each phase's `--model`/`--effort`, and `JOB_JEV=0` keeps them); children never change or widen it |
 | D2 | Codex lanes | off (a phase turns them on only with the owner's override quoted here) |
 | D3 | Per-commit LLM hooks and plugins | each one in §4's inventory, opted in or out by the owner |
 | D4 | <question> | <owner's answer or accepted recommendation> |

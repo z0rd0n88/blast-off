@@ -35,7 +35,7 @@
 #        JOB_JEV=1                 0: no Jev; children get CLAUDE_FLAGS as given
 #        JOB_JEV_MIN_CONF=0.7      a Jev pick below this confidence (0 to 1, at most 3 decimals) keeps CLAUDE_FLAGS
 #        OPENROUTER_API_KEY        Jev's key (sk-or- only; never TypeSafe); without it, CLAUDE_FLAGS as given. start and the
-#                                  resume timer pass it by name when it is set (systemd stores it as it stores GH_TOKEN)
+#                                  resume timer pass it by name when Jev can use it (sk-or-, JOB_JEV not 0; stored as GH_TOKEN is)
 #        JOB_BASE=main             preflight's behind count: git rev-list --count HEAD..origin/<JOB_BASE>
 #        BLAST_OFF_ESTIMATE_FROM   preflight's usage estimate from that checkpoint.md's phase rows (default: this job's)
 # Exit:  0 done · 1 usage, dependency or runner error · 3 blocked (needs the owner) · 4 hard child cap reached

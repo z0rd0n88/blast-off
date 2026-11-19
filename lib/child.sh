@@ -6,6 +6,7 @@
 # JOB_* reach every child with no value on any command line (D14). The default server is the owner's
 # and would hand children the owner's PATH and no GH_TOKEN. CLAUDE* names are scrubbed so a child does
 # not inherit a parent session's state; CLAUDE_FLAGS is expanded by the runner, not read by the child.
+# OPENROUTER_API_KEY is dropped too: only the runner calls Jev (owner, issue 27 review Q2).
 # What an earlier run of this job left (its server holds a stale environment; its scopes hold the
 # names child_launch reuses) is stopped first. Both the socket and the scopes belong to this job.
 child_server() {
@@ -18,7 +19,7 @@ child_server() {
   # tool rebuilds PATH from the owner's profile and drops it (phase 8 smoke), while other variables
   # pass through, so BLAST_OFF names this checkout's blast-off and the brief calls "$BLAST_OFF".
   # shellcheck disable=SC2086
-  env $scrub PATH="$BLAST_OFF_HOME/bin:$PATH" BLAST_OFF="$BLAST_OFF_HOME/bin/blast-off" \
+  env $scrub -u OPENROUTER_API_KEY PATH="$BLAST_OFF_HOME/bin:$PATH" BLAST_OFF="$BLAST_OFF_HOME/bin/blast-off" \
     tmux -f /dev/null -L "$UNIT" new-session -d -s "$SESSION" -c "$WORKDIR"
   # A child's pane outlives its claude (tmux(1) remain-on-exit), so child_wait sees the death as
   # #{pane_dead} and the last screen, the only record of why it died, is still there to log.

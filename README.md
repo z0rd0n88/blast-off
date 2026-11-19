@@ -60,12 +60,15 @@ blast-off start <worktree>/.big-next-job       # transient unit blast-off-<name>
 `preflight` exits 1 and says why when `CLAUDE_FLAGS` is empty, a dependency is missing, or the
 estimated usage is more than the 7-day window has left. `start` passes `PATH`, `GH_TOKEN`,
 `CLAUDE_FLAGS` and every set `JOB_*` name to the unit by name (`systemd-run --setenv=NAME`), never by
-value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty. With `OPENROUTER_API_KEY`
-set it passes that name too, so Jev picks each phase's model level under the unit; unset, every child
+value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, or a bad `JOB_*` number. With `OPENROUTER_API_KEY`
+set to an `sk-or-` key and `JOB_JEV` not `0`, it passes that name too, so Jev picks each phase's
+model level under the unit; otherwise every child
 gets `CLAUDE_FLAGS` as given. Each pick or fallback is a `run.log` line (`model level for phase 2: light
-(jev, confidence 0.87, threshold 0.7): ...`), never with the key. The resume timer passes the same names.
+(jev, confidence 0.87, threshold 0.7): ...`), never with the key. The resume timer passes the same names,
+with the values they had when it was armed: a key exported or rotated later never reaches it.
 systemd keeps the resolved values, the secrets too, in the transient unit's file under
-`$XDG_RUNTIME_DIR` until the unit is collected.
+`$XDG_RUNTIME_DIR` until the unit is collected. Children never get `OPENROUTER_API_KEY`: only the runner
+calls Jev.
 
 A hand-started template instance (`systemctl --user start blast-off@<escaped job dir>.service`) sees
 only the user manager's environment, which has no `CLAUDE_FLAGS` and no `claude` on `PATH`, so it

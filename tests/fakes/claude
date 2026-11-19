@@ -57,6 +57,8 @@ echo "settings=$settings" >> "$JOB_DIR/fake-marker"
 [ -z "$pd" ] || echo "prev_dir=$([ -e "$(dirname "$pd")" ] && echo left || echo gone)" >> "$JOB_DIR/fake-marker"
 # claude_env: how many CLAUDE* names reached this child (the runner scrubs them, spec §4)
 echo "claude_env=$(env | grep -c '^CLAUDE' || true)" >> "$JOB_DIR/fake-marker"
+# openrouter: whether OPENROUTER_API_KEY reached this child (the runner's tmux server drops it, P7R1-1)
+echo "openrouter=$([ -n "${OPENROUTER_API_KEY:-}" ] && echo set || echo unset)" >> "$JOB_DIR/fake-marker"
 # flags: the words before --settings, as the runner's pane shell split them (Jev's pick, phase 6)
 echo "flags=${flags[*]}" >> "$JOB_DIR/fake-marker"
 u="$JOB_DIR/fake-usage-$JOB_CHILD"; [ -e "$u" ] || u="$JOB_DIR/fake-usage"

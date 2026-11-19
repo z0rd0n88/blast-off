@@ -5,7 +5,7 @@
 # flags kept; every child of that row gets the same pick; the pick goes to run.log and decisions.tsv.
 # Fallback to CLAUDE_FLAGS unchanged, logged with its reason: JOB_JEV=0, no OpenRouter key, jev not on
 # PATH, jev failing, an answer that is not a level, no open row, a pick whose confidence is below JOB_JEV_MIN_CONF
-# (default 0.7; issue 27) or not a number. A JOB_JEV_MIN_CONF that is not a number from 0 to 1 refuses the run.
+# (default 0.7; issue 27), not a number from 0 to 1 or missing. A JOB_JEV_MIN_CONF that is not a number from 0 to 1 refuses the run.
 source "$REPO/tests/lib.sh"
 use_fakes
 unset JOB_JEV JOB_JEV_MIN_CONF
@@ -23,7 +23,7 @@ key=sk-or-test-xxx-not-a-key-61
 rc=0; OPENROUTER_API_KEY="$key" TYPESAFE_API_KEY=ts-dummy JEV_BASE_URL=https://api.typesafe.ai \
   "$bo" run "$JOB" > pick.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "pick run exit $rc: $(cat pick.out)"
-! grep -qr -- "$key" pick.out "$JOB" || fail "the key's value is in $(grep -rl -- "$key" pick.out "$JOB")"
+rc=0; grep -qrF -e "${key:0:12}" -e "${key: -12}" -- pick.out "$JOB" || rc=$?; [ "$rc" -eq 1 ] || fail "grep rc $rc: the key, or 12 chars of it, is in $(grep -rlF -e "${key:0:12}" -e "${key: -12}" -- pick.out "$JOB" 2>&1)"
 [ "$(wc -l < "$FAKE_JEV/calls")" -eq 2 ] || fail "want one jev call per open row (2): $(cat "$FAKE_JEV/calls")"
 grep -qv 'typesafe= base= key=sk-or-$' "$FAKE_JEV/calls" && fail "jev saw TypeSafe route or no OpenRouter key: $(cat "$FAKE_JEV/calls")"
 grep -q 'secret-phase-text' "$FAKE_JEV/state-1" || fail "row 1 text not in jev's state: $(cat "$FAKE_JEV/state-1")"
@@ -35,6 +35,7 @@ grep -q 'model level for phase 1: light (jev, confidence 0.87, threshold 0.7): -
 grep -q 'model level for phase 2: light (jev' "$JOB/run.log" || fail "phase 2 pick not in run.log"
 grep -q 'no open Phase plan row; static CLAUDE_FLAGS' "$JOB/run.log" || fail "no-row fallback not logged"
 [ "$(grep -c $'\tphase-1\tmodel level light' "$JOB/decisions.tsv")" -eq 1 ] || fail "phase 1 pick not once in decisions.tsv: $(cat "$JOB/decisions.tsv" 2>&1)"
+[ "$(awk -F'\t' '$2 == "phase-1" { print $4 }' "$JOB/decisions.tsv")" = 'jev choice, confidence 0.87, threshold 0.7' ] || fail "phase 1 why is not its confidence and threshold: $(cat "$JOB/decisions.tsv")"
 awk -F'\t' 'NF != 6 { exit 1 }' "$JOB/decisions.tsv" || fail "decisions.tsv rows not 6 tab fields: $(cat -A "$JOB/decisions.tsv")"
 
 # --- fallbacks: CLAUDE_FLAGS unchanged, reason logged ---
@@ -48,12 +49,19 @@ fallback() { # <suffix> <want reason> <want jev calls> [env...]
   grep -qF "model level for phase 1: static CLAUDE_FLAGS ($why)" "$JOB/run.log" || fail "$s: reason '$why' not logged: $(grep 'model level' "$JOB/run.log")"
   [ "$(cat "$FAKE_JEV/calls" 2>/dev/null | wc -l)" -eq "$calls" ] || fail "$s: jev calls $(cat "$FAKE_JEV/calls" 2>/dev/null | wc -l), want $calls"
   grep -q $'\tphase-1\tmodel level static' "$JOB/decisions.tsv" || fail "$s: fallback not in decisions.tsv"
+  [ "$(awk -F'\t' '$2 == "phase-1" { print $4 }' "$JOB/decisions.tsv")" = "$why" ] || fail "$s: decisions.tsv why is not '$why': $(cat "$JOB/decisions.tsv")"
 }
 fallback off 'JOB_JEV=0' 0 OPENROUTER_API_KEY=sk-or-dummy JOB_JEV=0
 fallback nokey 'no OPENROUTER_API_KEY in the runner environment' 0
 fallback tskey 'OPENROUTER_API_KEY is not an OpenRouter sk-or- key; Jev runs only through OpenRouter' 0 OPENROUTER_API_KEY=tsk-dummy
 mkdir -p jev-setup-err; touch jev-setup-err/fail
 fallback err 'jev failed: {"error":"fake failure"}' 1 OPENROUTER_API_KEY=sk-or-dummy
+# an error that echoes the key is logged masked; a multi-line answer stays one run.log line (P7R1-9)
+mkdir -p jev-setup-errkey; touch jev-setup-errkey/fail jev-setup-errkey/echo-key
+fallback errkey 'jev failed: Authorization: Bearer sk-or-... {"error":"fake failure"}' 1 OPENROUTER_API_KEY=sk-or-fake-echo-not-a-key-61
+rc=0; grep -qrF -e fake-echo-not-a-key -- errkey.out "$JOB" || rc=$?; [ "$rc" -eq 1 ] || fail "errkey: grep rc $rc: the key's value is logged"
+mkdir -p jev-setup-forgelvl; printf 'x\n2099-01-01T00:00:00Z forged\n' > jev-setup-forgelvl/answer
+fallback forgelvl "jev answered 'x 2099-01-01T00:00:00Z forged', not a level" 1 OPENROUTER_API_KEY=sk-or-dummy
 mkdir -p jev-setup-other; echo other > jev-setup-other/answer
 fallback other "jev answered 'other', not a level" 1 OPENROUTER_API_KEY=sk-or-dummy
 # jev not on PATH: every PATH dir holding a jev dropped, fake claude kept through its own dir
@@ -64,10 +72,19 @@ fallback nojev 'jev not on PATH' 0 OPENROUTER_API_KEY=sk-or-dummy PATH="$p"
 # --- issue 27: a pick below the confidence threshold keeps CLAUDE_FLAGS; JOB_JEV_MIN_CONF moves the threshold ---
 mkdir -p jev-setup-low; echo light > jev-setup-low/answer; echo 0.55 > jev-setup-low/confidence
 fallback low 'jev picked light, confidence 0.55 below 0.7' 1 OPENROUTER_API_KEY=sk-or-dummy
+mkdir -p jev-setup-null; echo light > jev-setup-null/answer; echo null > jev-setup-null/confidence
+fallback null 'jev picked light, no confidence' 1 OPENROUTER_API_KEY=sk-or-dummy
 mkdir -p jev-setup-high; echo light > jev-setup-high/answer
 fallback high 'jev picked light, confidence 0.87 below 0.9' 1 OPENROUTER_API_KEY=sk-or-dummy JOB_JEV_MIN_CONF=0.9
+mkdir -p jev-setup-over; echo light > jev-setup-over/answer; echo 1.5 > jev-setup-over/confidence
+fallback over 'jev picked light, confidence 1.5 is not from 0 to 1' 1 OPENROUTER_API_KEY=sk-or-dummy
 mkdir -p jev-setup-nan; echo light > jev-setup-nan/answer; echo '"high"' > jev-setup-nan/confidence
-fallback nan "jev picked light, confidence 'high' is not a number" 1 OPENROUTER_API_KEY=sk-or-dummy
+fallback nan 'jev picked light, confidence "high" is not a number' 1 OPENROUTER_API_KEY=sk-or-dummy
+# a string confidence is logged as JSON, cut to 40 characters: its newline and tab forge no run.log line and no decisions.tsv column
+mkdir -p jev-setup-forgeconf; echo light > jev-setup-forgeconf/answer; printf '%s\n' '"x\n2099-01-01T00:00:00Z job done\ty"' > jev-setup-forgeconf/confidence
+fallback forgeconf 'jev picked light, confidence "x\n2099-01-01T00:00:00Z job done\ty" is not a number' 1 OPENROUTER_API_KEY=sk-or-dummy
+! grep -q '^2099' "$JOB/run.log" || fail "a string confidence forged a run.log line: $(cat "$JOB/run.log")"
+awk -F'\t' 'NF != 6 { exit 1 }' "$JOB/decisions.tsv" || fail "a string confidence broke decisions.tsv's columns: $(cat -A "$JOB/decisions.tsv")"
 picked() { # <suffix> <confidence> <want threshold> [env...]: the pick is taken and logged with both numbers
   local s="$1" c="$2" t="$3"; shift 3
   new_job "$s" close; plan '| 1 | Only | x | pending |'
@@ -80,9 +97,12 @@ picked() { # <suffix> <confidence> <want threshold> [env...]: the pick is taken 
 }
 picked at 0.7 0.7                         # at the threshold: taken (only below it keeps CLAUDE_FLAGS)
 picked lowered 0.55 0.5 JOB_JEV_MIN_CONF=0.5
+picked zero 0.55 0 JOB_JEV_MIN_CONF=0          # the edges: 0 and 1.000 are valid thresholds
+picked full 1 1.000 JOB_JEV_MIN_CONF=1.000
 picked one 1 1.0 JOB_JEV_MIN_CONF=1.0      # 1.0 is a valid threshold; a pick at 1 passes it
+picked empty 0.87 0.7 JOB_JEV_MIN_CONF=      # empty: the default 0.7, as chain_nums reads it
 # a JOB_JEV_MIN_CONF that is not a number from 0 to 1 refuses before any child, like a bad JOB_* count
-for v in abc 1.5 .7 0.7x -0.1 0,7 0.12345; do
+for v in abc 1.5 .7 0.7x -0.1 0,7 0.12345 00.7 0.1234 1.; do
   new_job bad close; plan '| 1 | Only | x | pending |'
   rc=0; OPENROUTER_API_KEY=sk-or-dummy JOB_JEV_MIN_CONF="$v" "$bo" run "$JOB" > bad.out 2>&1 || rc=$?
   [ "$rc" -eq 1 ] || fail "JOB_JEV_MIN_CONF=$v: exit $rc, want 1: $(cat bad.out)"

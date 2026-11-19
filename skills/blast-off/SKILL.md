@@ -60,6 +60,13 @@ resume; `templates/` holds the brief and checkpoint you fill.
    blast-off start <job-dir>          # transient unit blast-off-<name>.service
    ```
 
+   Tell the owner with it: when the shell that runs `start` has `OPENROUTER_API_KEY` (an OpenRouter
+   `sk-or-` key), `start` passes it to the unit by name and Jev then picks `--model` and `--effort` for
+   each phase in place of those in `CLAUDE_FLAGS` (its other flags stay; a pick below `JOB_JEV_MIN_CONF`,
+   default 0.7, keeps them); `JOB_JEV=0`, exported before `start`, keeps `CLAUDE_FLAGS` for every phase.
+   Step 6's `level` line is preflight's own Jev call from your environment, a forecast: the runner asks
+   again with the environment `start` passes from the owner's shell, so the two can differ.
+
    ```bash
    blast-off wait <job-dir>     # to watch: a background command; returns on a change, prints one line
    blast-off status <job-dir>

@@ -94,11 +94,11 @@ chain_nums() {
   local v
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF; do
     [[ ${!v:-0} =~ ^(0|[1-9][0-9]{0,8})$ ]] ||
-      { NUMS_ERR="$v='${!v}' is not a whole number of at most 9 digits with no leading zero"; return 1; }
+      { NUMS_ERR="$v=${!v@Q} is not a whole number of at most 9 digits with no leading zero"; return 1; }
   done
   # Jev's confidence threshold (issue 27): 0 to 1, at most 3 decimals, a leading digit (jq reads it as JSON)
   [[ ${JOB_JEV_MIN_CONF:-0.7} =~ ^(0(\.[0-9]{1,3})?|1(\.0{1,3})?)$ ]] ||
-    { NUMS_ERR="JOB_JEV_MIN_CONF='$JOB_JEV_MIN_CONF' is not a number from 0 to 1 with at most 3 decimals (0.7, 0.85, 1)"; return 1; }
+    { NUMS_ERR="JOB_JEV_MIN_CONF=${JOB_JEV_MIN_CONF@Q} is not a number from 0 to 1 with at most 3 decimals (0.7, 0.85, 1)"; return 1; }
 }
 
 # chain_cap: MAXC, CAP_WHY and CAP_SOFT (empty for the hard cap). The soft cap (F2): the checkpoint's
@@ -150,8 +150,8 @@ chain_run() {
   test -s "$JOB/checkpoint.md" || die "missing $JOB/checkpoint.md"
   TIMEOUT="${JOB_CHILD_TIMEOUT:-7200}"
   local n stalls=0 s u before after rows w limited back=
-  chain_nums || die "$NUMS_ERR"
-  # under start or the resume timer only the journal reads stderr, so the refusal goes to run.log too (P4R1-2)
+  # under start or the resume timer only the journal reads stderr, so a refusal goes to run.log too (P4R1-2)
+  chain_nums || { log "$NUMS_ERR" >&2; exit 1; }
   chain_count || { log "$COUNT_ERR" >&2; exit 1; }
 
   # The child's whole instruction. The brief and checkpoint carry everything else, so this stays

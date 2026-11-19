@@ -81,10 +81,17 @@ rc=0; JOB_JEV_MIN_CONF=0.9 "$bo" preflight "$JOB" > p14.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "JOB_JEV_MIN_CONF=0.9: exit $rc: $(cat p14.out)"
 has '^flags: --model fake --effort low --foo bar$' p14.out
 has '^level: phase 2: static CLAUDE_FLAGS under start \(jev picked deep, confidence 0\.87 below 0\.9\)$' p14.out
+# no temp file for jev's stderr: a logged fallback, not a dead preflight (jev_flags never fails)
+rc=0; XDG_RUNTIME_DIR="$PWD/no-such-dir" "$bo" preflight "$JOB" > p-notmp.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "no temp dir for jev: exit $rc: $(cat p-notmp.out)"
+has '^level: phase 2: static CLAUDE_FLAGS under start \(jev not asked: no temp file in .*/no-such-dir\)$' p-notmp.out
 # a JOB_JEV_MIN_CONF that is no number from 0 to 1 refuses before any line, like a bad JOB_* count
 rc=0; JOB_JEV_MIN_CONF=2 "$bo" preflight "$JOB" > p15.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "JOB_JEV_MIN_CONF=2: exit $rc, want 1: $(cat p15.out)"
 has "^preflight: refused: JOB_JEV_MIN_CONF='2' is not a number from 0 to 1" p15.out
+[ "$(wc -l < p15.out)" -eq 1 ] || fail "JOB_JEV_MIN_CONF=2 printed more than its refusal: $(cat p15.out)"
+[ "$(wc -l < "$FAKE_JEV/calls")" -eq 2 ] || fail "JOB_JEV_MIN_CONF=2 asked jev (p1 and p14 ask once each): $(cat "$FAKE_JEV/calls")"
+! grep -q -- "$key" p14.out || fail "preflight printed the key's value on a low-confidence pick"
 
 # --- an estimate over what is left of the seven_day window refuses ---
 echo '{"seven_day":{"used_percentage":70,"resets_at":'$((now+259200))'}}' > "$BLAST_OFF_STATE_DIR/usage-limits-s3.json"
@@ -119,6 +126,9 @@ rc=0; env -u OPENROUTER_API_KEY -u GH_TOKEN CLAUDE_FLAGS= "$bo" preflight "$JOB"
 has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; start passes none\)$' p5.out
 has '^GH_TOKEN: unset \(start refuses\)$' p5.out
 has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p5.out
+rc=0; env -u CLAUDE_FLAGS "$bo" preflight "$JOB" > p-unset.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "CLAUDE_FLAGS unset: exit $rc, want 1: $(cat p-unset.out)"
+has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p-unset.out
 has '^open PRs on the target set: 4 \(no Target set bullet in brief\.md; every open PR\)$' p5.out
 
 # --- the job's child count (P4R1-3): launched, base, next child, what is left under the cap; a garbled one refuses ---
@@ -161,3 +171,7 @@ for v in 08 010; do
   [ "$rc" -eq 1 ] || fail "JOB_MAX_CHILDREN=$v: exit $rc, want 1: $(cat p13.out)"
   has "^preflight: refused: JOB_MAX_CHILDREN='$v' is not a whole number " p13.out
 done
+# a value holding a newline is quoted on one line, so it prints no line of its own (P7R1-26)
+rc=0; JOB_JEV_MIN_CONF=$'x\npreflight: ok\n' "$bo" preflight "$JOB" > p-nl.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "JOB_JEV_MIN_CONF with a newline: exit $rc, want 1: $(cat p-nl.out)"
+! grep -qx 'preflight: ok' p-nl.out || fail "JOB_JEV_MIN_CONF's newline printed a line of its own: $(cat p-nl.out)"

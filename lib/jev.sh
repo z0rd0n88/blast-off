@@ -20,14 +20,15 @@ JEV_Q='{"level":{"type":"choice","instructions":"The state is one row of a multi
 # jev_flags <row>: CHILD_FLAGS (the flags children of that row get), JEV_LEVEL (a level, or static),
 # JEV_CONF, JEV_MIN (the confidence threshold) and JEV_WHY (why static). Never fails: every problem is a
 # logged fallback. A pick whose confidence is below JOB_JEV_MIN_CONF (default 0.7; chain_nums checks it is a
-# number from 0 to 1), or not a number, keeps CLAUDE_FLAGS (owner, issue 27).
+# number from 0 to 1), or not a number from 0 to 1, or missing, keeps CLAUDE_FLAGS (owner, issue 27). One that is
+# no number is logged as JSON, cut to 40 characters, so it adds no line to run.log and no column to decisions.tsv.
 # The key must be OpenRouter's (sk-or-): jev routes by key prefix and reads TYPESAFE_API_KEY first, so
 # that name and JEV_BASE_URL are dropped from its environment. The runner reads no secret file (D21):
 # the key is whatever OPENROUTER_API_KEY the runner was given; `start` and the resume timer pass it by
-# name when it is set (unit_env, issue 27). Its value is never logged.
+# name when Jev can use it (unit_env, issue 27). Its value is never logged.
 jev_flags() {
   local row="$1" out err level pair rest
-  CHILD_FLAGS="$CLAUDE_FLAGS" JEV_LEVEL=static JEV_CONF='' JEV_WHY='' JEV_MIN="${JOB_JEV_MIN_CONF:-0.7}"
+  CHILD_FLAGS="${CLAUDE_FLAGS:-}" JEV_LEVEL=static JEV_CONF='' JEV_WHY='' JEV_MIN="${JOB_JEV_MIN_CONF:-0.7}"
   if [ -z "$row" ]; then JEV_WHY="no open Phase plan row"; return 0; fi
   if [ "${JOB_JEV:-1}" = 0 ]; then JEV_WHY="JOB_JEV=0"; return 0; fi
   if [ -z "${OPENROUTER_API_KEY:-}" ]; then JEV_WHY="no OPENROUTER_API_KEY in the runner environment"; return 0; fi
@@ -35,20 +36,23 @@ jev_flags() {
     JEV_WHY="OPENROUTER_API_KEY is not an OpenRouter sk-or- key; Jev runs only through OpenRouter"; return 0
   fi
   command -v jev > /dev/null || { JEV_WHY="jev not on PATH"; return 0; }
-  err="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/blast-off-jev.XXXXXX")"
+  err="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/blast-off-jev.XXXXXX")" || { JEV_WHY="jev not asked: no temp file in ${XDG_RUNTIME_DIR:-/tmp}"; return 0; }
   if ! out="$(printf '%s\n' "$row" | env -u TYPESAFE_API_KEY -u JEV_BASE_URL timeout 60 jev -q "$JEV_Q" level 2> "$err")"; then
-    JEV_WHY="jev failed: $(head -c 200 "$err" | tr '\n\t' '  ' | sed 's/ *$//')"; rm -f "$err"; return 0
+    JEV_WHY="jev failed: $(head -c 200 "$err" | tr -c '[:print:]' ' ' | sed 's/sk-or-[^[:space:]"]*/sk-or-.../g; s/ *$//')"; rm -f "$err"; return 0
   fi
   rm -f "$err"
   level="$(jq -r '.level.choice // empty | strings' <<< "$out" 2>/dev/null || true)"
-  if ! pair="$(jev_level "$level")"; then JEV_WHY="jev answered '${level:-nothing}', not a level"; return 0; fi
-  JEV_CONF="$(jq -r '.level.confidence // "?"' <<< "$out" 2>/dev/null || echo '?')"
-  case "$(jq -r --argjson t "$JEV_MIN" '.level.confidence | if type != "number" then "nan" elif . < $t then "low" else "ok" end' <<< "$out" 2>/dev/null)" in
+  if ! pair="$(jev_level "$level")"; then level="${level//[![:print:]]/ }"; JEV_WHY="jev answered '${level:-nothing}', not a level"; return 0; fi
+  JEV_CONF="$(jq -r '.level.confidence | if type == "number" then . else tojson | .[:40] end' <<< "$out" 2>/dev/null || echo '?')"
+  case "$(jq -r --argjson t "$JEV_MIN" '.level.confidence | if . == null then "none" elif type != "number" then "nan" elif . < 0 or . > 1 then "range" elif . < $t then "low" else "ok" end' <<< "$out" 2>/dev/null)" in
     ok) ;;
     low) JEV_WHY="jev picked $level, confidence $JEV_CONF below $JEV_MIN"; return 0 ;;
-    *) JEV_WHY="jev picked $level, confidence '$JEV_CONF' is not a number"; return 0 ;;
+    none) JEV_WHY="jev picked $level, no confidence"; return 0 ;;
+    nan) JEV_WHY="jev picked $level, confidence $JEV_CONF is not a number"; return 0 ;;
+    range) JEV_WHY="jev picked $level, confidence $JEV_CONF is not from 0 to 1"; return 0 ;;
+    *) JEV_WHY="jev picked $level, its confidence could not be checked"; return 0 ;;
   esac
-  rest="$(sed -E 's/(^|[[:space:]])--(model|effort)(=|[[:space:]]+)[^[:space:]]+//g; s/^[[:space:]]+//' <<< "$CLAUDE_FLAGS")"
+  rest="$(sed -E 's/(^|[[:space:]])--(model|effort)(=|[[:space:]]+)[^[:space:]]+//g; s/^[[:space:]]+//' <<< "${CLAUDE_FLAGS:-}")"
   # shellcheck disable=SC2034  # CHILD_FLAGS: read by child_launch
   CHILD_FLAGS="$pair${rest:+ $rest}" JEV_LEVEL="$level"
 }

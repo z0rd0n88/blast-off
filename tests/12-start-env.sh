@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # 12-start-env: every entry point refuses a child with no CLAUDE_FLAGS (K8, D8): `run` exits 1
-# before the first child and launches nothing.
+# before the first child and launches nothing. start refuses an empty GH_TOKEN, and start and resume a bad
+# JOB_JEV_MIN_CONF, before any unit. Through a stub systemd-run (argv only, no real unit): start, resume
+# and the resume timer pass OPENROUTER_API_KEY by name, never its value (issue 27).
 source "$REPO/tests/lib.sh"
 use_fakes
 export GH_TOKEN=dummy-not-a-token
@@ -27,7 +29,7 @@ rc=0; CLAUDE_FLAGS="--model fake --effort low" env -u GH_TOKEN "$bo" start "$JOB
 [ "$(systemctl --user show "$TEST_ID-start.service" -p LoadState --value)" = not-found ] || fail "a refused start left a unit"
 [ ! -e "$JOB/fake-marker" ] || fail "a refused start launched a child"
 
-# --- issue 27: start, resume and the resume timer pass OPENROUTER_API_KEY by name when it is set, never its value ---
+# --- issue 27: start, resume and the resume timer pass OPENROUTER_API_KEY by name when Jev can use it, never its value ---
 # A stub systemd-run records its argv and whether the key reached it; any other call (a child scope) goes to the real one.
 key=sk-or-test-xxx-not-a-key-27
 mkdir -p stub
@@ -36,23 +38,38 @@ mkdir -p stub
   printf 'printf "%%s\\n" "$@" "key=${OPENROUTER_API_KEY:+set}" > %q/argv-$$\n' "$PWD/stub"; } > stub/systemd-run
 chmod +x stub/systemd-run
 export CLAUDE_FLAGS="--model fake --effort low"
-argv() { cat stub/argv-* 2>/dev/null; rm -f stub/argv-*; }
-nokey() { ! grep -qr -- "$key" "$@" || fail "the key's value is in $(grep -rl -- "$key" "$@")"; }
+argv() {  # one systemd-run call a step: records merged from two calls could each satisfy a different grep
+  local f=(stub/argv-*); [ "${#f[@]}" -le 1 ] || fail "${#f[@]} systemd-run calls in one step: $(cat "${f[@]}")"
+  cat "${f[@]}" 2>/dev/null; rm -f stub/argv-*; }
+nokey() { local rc=0; grep -qrF -e "${key:0:12}" -e "${key: -12}" -- "$@" || rc=$?; [ "$rc" -eq 1 ] || fail "grep rc $rc: the key, or 12 chars of it, is in $(grep -rlF -e "${key:0:12}" -e "${key: -12}" -- "$@" 2>&1)"; }
+
+# a bad JOB_JEV_MIN_CONF: start and resume refuse on the terminal before any systemd-run; run logs it to run.log (P7R1-5)
+new_job badconf 'done'
+rc=0; JOB_JEV_MIN_CONF=.7 PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > b1.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && grep -qF "JOB_JEV_MIN_CONF='.7'" b1.out || fail "start with JOB_JEV_MIN_CONF=.7: exit $rc: $(cat b1.out)"
+sed -i 's/^status: .*/status: paused-cap/' "$JOB/checkpoint.md"
+rc=0; JOB_JEV_MIN_CONF=.7 PATH="$PWD/stub:$PATH" "$bo" resume "$JOB" > b2.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && grep -qF "JOB_JEV_MIN_CONF='.7'" b2.out || fail "resume with JOB_JEV_MIN_CONF=.7: exit $rc: $(cat b2.out)"
+! compgen -G 'stub/argv-*' > /dev/null || fail "a refused start or resume called systemd-run: $(argv)"
+rc=0; JOB_JEV_MIN_CONF=.7 "$bo" run "$JOB" > b3.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] && grep -qF "JOB_JEV_MIN_CONF='.7'" "$JOB/run.log" || fail "run with JOB_JEV_MIN_CONF=.7: exit $rc, run.log: $(cat "$JOB/run.log" 2>&1)"
+[ ! -e "$JOB/fake-marker" ] || fail "a child launched with JOB_JEV_MIN_CONF=.7"
 
 new_job keyed 'done'
-rc=0; OPENROUTER_API_KEY="$key" PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > k1.out 2>&1 || rc=$?
+rc=0; OPENROUTER_API_KEY="$key" JOB_JEV_MIN_CONF=0.9 PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > k1.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "start with the key: exit $rc: $(cat k1.out)"
 a="$(argv)"
 grep -qx -- '--setenv=OPENROUTER_API_KEY' <<<"$a" || fail "start does not pass --setenv=OPENROUTER_API_KEY: $a"
+grep -qx -- '--setenv=JOB_JEV_MIN_CONF' <<<"$a" || fail "start does not pass --setenv=JOB_JEV_MIN_CONF: $a"
 grep -qx 'key=set' <<<"$a" || fail "systemd-run did not get the key in its environment: $a"
 grep -q -- '--setenv=OPENROUTER_API_KEY ' k1.out || fail "start's printed launch line has no --setenv=OPENROUTER_API_KEY: $(cat k1.out)"
 grep -q -- "$key" <<<"$a" && fail "the key's value is on systemd-run's argv"
 nokey k1.out "$JOB"
 
-for e in unset empty; do
-  rc=0
-  if [ $e = unset ]; then PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > k2.out 2>&1 || rc=$?
-  else OPENROUTER_API_KEY='' PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > k2.out 2>&1 || rc=$?; fi
+for e in unset empty off tskey; do
+  case $e in unset) set -- ;; empty) set -- OPENROUTER_API_KEY= ;; off) set -- OPENROUTER_API_KEY="$key" JOB_JEV=0 ;;
+    tskey) set -- OPENROUTER_API_KEY=tsk-fake-not-a-key-27 ;; esac
+  rc=0; env "$@" PATH="$PWD/stub:$PATH" "$bo" start "$JOB" > k2.out 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || fail "start with the key $e: exit $rc: $(cat k2.out)"
   a="$(argv)"; grep -q -- '--setenv=GH_TOKEN' <<<"$a" || fail "start with the key $e: no launch recorded: $a"
   ! grep -q OPENROUTER <<<"$a" || fail "start with the key $e passes it: $a"
@@ -64,16 +81,22 @@ sed -i 's/^status: .*/status: paused-cap/' "$JOB/checkpoint.md"
 rc=0; OPENROUTER_API_KEY="$key" PATH="$PWD/stub:$PATH" "$bo" resume "$JOB" > k3.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "resume with the key: exit $rc: $(cat k3.out)"
 a="$(argv)"; grep -qx -- '--setenv=OPENROUTER_API_KEY' <<<"$a" || fail "resume does not pass --setenv=OPENROUTER_API_KEY: $a"
+grep -qx 'key=set' <<<"$a" || fail "resume's systemd-run did not get the key in its environment: $a"
+! grep -q -- "$key" <<<"$a" || fail "the key's value is on resume's systemd-run argv"
 nokey k3.out "$JOB"
 
 # the resume timer armed at a usage pause carries the name, so its later resume (and start) gets the key
 new_job keytimer die75
-rc=0; OPENROUTER_API_KEY="$key" FAKE_JEV="$PWD/jev" JOB_CHILD_TIMEOUT=30 BLAST_OFF_STATE_DIR="$PWD/state" PATH="$PWD/stub:$PATH" \
+rc=0; OPENROUTER_API_KEY="$key" JOB_JEV_MIN_CONF=0.9 JOB_CHILD_TIMEOUT=30 BLAST_OFF_STATE_DIR="$PWD/state" PATH="$PWD/stub:$PATH" \
   "$bo" run "$JOB" > k4.out 2>&1 || rc=$?
 [ "$rc" -eq 8 ] || fail "die75 run with the key: exit $rc, want 8: $(cat k4.out)"
 a="$(argv)"
 grep -q -- '--on-calendar' <<<"$a" || fail "no resume timer armed: $a; $(cat "$JOB/run.log")"
 grep -qx -- '--setenv=OPENROUTER_API_KEY' <<<"$a" || fail "the resume timer does not pass --setenv=OPENROUTER_API_KEY: $a"
+grep -qx -- '--setenv=JOB_JEV_MIN_CONF' <<<"$a" || fail "the resume timer does not pass --setenv=JOB_JEV_MIN_CONF: $a"
 grep -q -- "$key" <<<"$a" && fail "the key's value is on the timer's systemd-run argv"
+grep -qx 'key=set' <<<"$a" || fail "the timer's systemd-run did not get the key in its environment: $a"
 nokey k4.out "$JOB"
+# the runner held the key (the timer's --setenv name above); its child did not (P7R1-1: only the runner calls Jev)
+grep -qx 'openrouter=unset' "$JOB/fake-marker" || fail "a child saw OPENROUTER_API_KEY: $(cat "$JOB/fake-marker" 2>&1)"
 echo ok
