@@ -1,4 +1,0 @@
-FAIL 70-docs
-  | FAIL: README does not say 'row keys (0, 1, 2a)'
-PASS shellcheck (33 files)
-GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=70-docs

@@ -1,4 +1,0 @@
-FAIL 51-templates
-  | FAIL: checkpoint.md lacks: Notes go under the table after a blank line, as plain text with no `|` and no code fence. At done the runner refuses (exit 10) a Phase plan that is not written this way, naming the line.
-PASS shellcheck (33 files)
-GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=51-templates

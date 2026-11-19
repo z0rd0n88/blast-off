@@ -1,9 +1,0 @@
-FAIL 41-ci-wait
-  | FAIL: escaped pipe in a cell (P3R5-9): exit 10, want 10 and 'holds `\|`': 2026-11-16T13:41:11Z child cap 12 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)
-  | 2026-11-16T13:41:11Z workdir /tmp/tmp.WxSJJOrfZ4/cwd/test-3323714-ur20 is not in a git repo; dirty-tree check off, receipt check off
-  | 2026-11-16T13:41:11Z checkpoint.md line 12 '| 0 | a | `x \| y` | done (abc1234) · no PR |' is in the Phase plan table and is no phase row: write each phase as a row from the left margin, `| <key> | ... | <Status> |`, with the header's 4 cells; delete anything else; then run again; done refused, status unchanged
-  | 2026-11-16T13:41:11Z child cap 12 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)
-  | 2026-11-16T13:41:11Z workdir /tmp/tmp.WxSJJOrfZ4/cwd/test-3323714-ur20 is not in a git repo; dirty-tree check off, receipt check off
-  | 2026-11-16T13:41:11Z checkpoint.md line 12 '| 0 | a | `x \| y` | done (abc1234) · no PR |' is in the Phase plan table and is no phase row: write each phase as a row from the left margin, `| <key> | ... | <Status> |`, with the header's 4 cells; delete anything else; then run again; done refused, status unchanged
-PASS shellcheck (33 files)
-GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=41-ci-wait

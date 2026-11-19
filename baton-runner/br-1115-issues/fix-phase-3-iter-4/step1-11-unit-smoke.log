@@ -1,3 +1,0 @@
-PASS 11-unit-smoke
-PASS shellcheck (33 files)
-GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=11-unit-smoke
