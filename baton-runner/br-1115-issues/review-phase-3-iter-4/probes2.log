@@ -1,0 +1,14 @@
+tmp: /tmp/p3r4-probe2.brr9Mb
+PROBE OK         tmpl-as-brief              exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-crlf                  exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-ci-green              exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-two-prs               exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-Done-caps             exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-sha-backtick          exit 10 want refuse | END 10: phase row 0 Status cell holds '(`abc1234`) ·  ' beside done, its sha and its PRs, a number or PR the runner does not read: write `d
+PROBE OK         tmpl-sha-noparen           exit 10 want refuse | END 10: phase row 0 Status cell holds 'abc1234 ·  ' beside done, its sha and its PRs, a number or PR the runner does not read: write `done 
+PROBE OK         tmpl-sha-space             exit 10 want refuse | END 10: phase row 0 Status cell holds '(abc1234 ) ·  ' beside done, its sha and its PRs, a number or PR the runner does not read: write `do
+PROBE OK         tmpl-ci-count              exit 10 want refuse | END 10: phase row 0 Status cell holds ' ·  · CI 3/3 green ' beside done, its sha and its PRs, a number or PR the runner does not read: wri
+PROBE OK         tmpl-pr-merged-date        exit 10 want refuse | END 10: phase row 0 Status cell holds ' ·  merged 11-16 ' beside done, its sha and its PRs, a number or PR the runner does not read: write 
+PROBE OK         tmpl-h3-completed          exit 10 want refuse | END 10: checkpoint.md line 54 '### Phase plan changes' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its 
+PROBE OK         tmpl-row-notes-pipe        exit 10 want refuse | END 10: checkpoint.md line 19 '| | | | |' holds a '|' in the Phase plan and is not its header, separator or a row the runner reads: keep one
+tmp left: /tmp/p3r4-probe2.brr9Mb

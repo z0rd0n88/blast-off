@@ -1,0 +1,54 @@
+tmp: /tmp/p3r4-probe.wAS4wc
+== baselines
+PROBE OK         base-green                   exit 0  want pass   | END 0: job done
+PROBE OK         base-red                     exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+== fail-open hunt (want refuse: each hides a done row naming red PR #7)
+PROBE UNEXPECTED html-table                   exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED html-table-ml                exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED cmt-h2-then-table            exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED fence-h2-then-table          exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED h2-visible-then-table        exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED gfm-pipeless-cont            exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED fullwidth-pipe               exit 0  want refuse | END 0: job done
+PROBE UNEXPECTED box-pipe                     exit 0  want refuse | END 0: job done
+PROBE OK         blank-then-rows              exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         trailing-text-pipe           exit 10 want refuse | END 10: checkpoint.md line 13 'see a | b' holds a '|' in the Phase plan and is not its header, separator or a row the runner reads: keep one `## Phase
+PROBE OK         fenced-row                   exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         fenced-badrow                exit 10 want refuse | END 10: checkpoint.md line 13 '| P1 | a | b | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a row the r
+PROBE OK         crlf-file                    exit 0  want pass   | END 0: job done
+PROBE OK         crlf-badrow                  exit 10 want refuse | END 10: checkpoint.md line 12 '| P1 | a | b | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a row the r
+PROBE OK         h3-phase-plan-2nd            exit 10 want refuse | END 10: checkpoint.md line 12 '### phase PLAN' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header first (firs
+PROBE OK         h1-phase-plan-2nd            exit 10 want refuse | END 10: checkpoint.md line 12 '# Phase plan' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header first (first 
+PROBE OK         setext-2nd                   exit 10 want refuse | END 10: checkpoint.md line 13 'Phase plan' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header first (first ce
+PROBE OK         heading-trailing-hash        exit 10 want refuse | END 10: checkpoint.md line 12 '## Phase Plan' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header first (first
+PROBE OK         phase-plans-heading          exit 10 want refuse | END 10: checkpoint.md line 12 '## Phase plans (cont.)' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header fir
+PROBE OK         sep-noleading-pipe           exit 10 want refuse | END 10: checkpoint.md line 12 '---|---|---|---' holds a '|' in the Phase plan and is not its header, separator or a row the runner reads: keep one `##
+PROBE UNEXPECTED key-1-space-a                exit 10 want pass   | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         key-1paren                   exit 9  want refuse | END 9: status done but phase row 1) is not done; close it (run the gate on HEAD into gate-logs/phase-1).log, blast-off receipt <job-dir> 1), then a St
+PROBE OK         status-not-last              exit 9  want refuse | END 9: status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Statu
+PROBE OK         escaped-pipe                 exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         nbsp-key                     exit 10 want refuse | END 10: checkpoint.md line 12 '|  1 | a | b | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a row the 
+PROBE OK         tab-cell                     exit 10 want refuse | END 10: checkpoint.md line 12 '|	1 | a | b | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a row the ru
+PROBE OK         no-trailing-pipe             exit 9  want refuse | END 9: status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Statu
+PROBE OK         done-in-header-pos           exit 10 want refuse | END 10: checkpoint.md line 9 '| # | Phase | Done when | done (abc1234) · PR #7 |' holds a '|' in the Phase plan and is not its header, separator or a
+PROBE OK         2nd-sep-later                exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+== false-refusal hunt (want pass: lines a template-following checkpoint may hold)
+PROBE OK         tmpl-full                    exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-aligned-sep             exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-sub-heading             exit 0  want pass   | END 0: job done
+PROBE OK         tmpl-prose-noPipe            exit 0  want pass   | END 0: job done
+PROBE OK         hdr-5col                     exit 0  want pass   | END 0: job done
+PROBE OK         hdr-digit                    exit 10 want refuse | END 10: checkpoint.md line 9 '| # | Phase | Done when (by 2026) | Status |' holds a '|' in the Phase plan and is not its header, separator or a row th
+PROBE OK         hdr-key-cell-num             exit 10 want refuse | END 10: checkpoint.md line 9 '| No. | Phase | Done when | Status |' holds a '|' in the Phase plan and is not its header, separator or a row the runner
+PROBE OK         hdr-key-cell-phase           exit 10 want refuse | END 10: checkpoint.md line 9 '| Phase | Name | Done when | Status |' holds a '|' in the Phase plan and is not its header, separator or a row the runne
+PROBE OK         usage-unknown                exit 0  want pass   | END 0: job done
+PROBE OK         status-done-date             exit 10 want refuse | END 10: phase row 0 Status cell holds ' 2026-11-16 ·  ' beside done, its sha and its PRs, a number or PR the runner does not read: write `done (<sha>
+PROBE OK         status-pr-link               exit 0  want pass   | END 0: job done
+PROBE UNEXPECTED status-md-link               exit 0  want refuse | END 0: job done
+PROBE OK         status-sha40                 exit 0  want pass   | END 0: job done
+PROBE OK         status-pr-draft              exit 0  want pass   | END 0: job done
+PROBE OK         phase-plan-in-prose          exit 0  want pass   | END 0: job done
+PROBE UNEXPECTED prose-line-phase-plan        exit 10 want pass   | END 10: checkpoint.md line 13 'Phase plan notes: none' is a second Phase plan heading: keep one `## Phase plan` heading over one table, its header fir
+PROBE OK         nextaction-phase-plan        exit 0  want pass   | END 0: job done
+== done
+tmp left: /tmp/p3r4-probe.wAS4wc

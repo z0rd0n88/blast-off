@@ -1,0 +1,39 @@
+copy: /tmp/p3r4-mut.hYMZJn   keep: /tmp/p3r4-keep.BMbaTQ   base: /tmp/p3r4-base.uzRCXv
+/tmp/p3r4-mut.hYMZJn/tests/41-ci-wait.sh:0
+/tmp/p3r4-mut.hYMZJn/tests/51-templates.sh:0
+/tmp/p3r4-mut.hYMZJn/tests/70-docs.sh:0
+== real runner: escapes appended to scenario 41
+PASS 41-ci-wait
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=41-ci-wait
+PROBE green-only exit 0: 2026-11-16T11:45:59Z job done
+PROBE red-row exit 10: 2026-11-16T11:45:59Z PR #7 CI red or unfinished at 1111111111111111111111111111111111111111 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <job-dir
+PROBE html-table exit 0: 2026-11-16T11:45:59Z job done
+PROBE cmt-h2-then-table exit 0: 2026-11-16T11:45:59Z job done
+PROBE fence-h2-then-table exit 0: 2026-11-16T11:45:59Z job done
+PROBE gfm-pipeless-cont exit 0: 2026-11-16T11:45:59Z job done
+== phase-2 base: the same unit probes
+PROBE OK         base-green                   exit 0  want pass   | END 0: job done
+PROBE OK         base-red                     exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         html-table                   exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         html-table-ml                exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         cmt-h2-then-table            exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         fence-h2-then-table          exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+PROBE OK         gfm-pipeless-cont            exit 10 want refuse | END 10: PR #7 CI red or unfinished at 7777777777777777777777777777777777777777 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <
+== mutants (each must be KILLED)
+u1 cp_unread call dropped: KILLED: FAIL 41-ci-wait
+u2 second-heading refusal dropped: KILLED: FAIL 41-ci-wait
+u3 mid-line CR guard dropped: KILLED: FAIL 41-ci-wait
+u4 header may be any later line: KILLED: FAIL 41-ci-wait
+u5 header may hold done: SURVIVED
+w1 P3R3-3 whitelist dropped: KILLED: FAIL 41-ci-wait
+m1 C1: absent+workflow refusal dropped: KILLED: FAIL 41-ci-wait
+m2 C2: absent pass not logged: KILLED: FAIL 41-ci-wait
+m5 C4: dispatch filter dropped: KILLED: FAIL 41-ci-wait
+t1 a literal pipe back in the template comment: KILLED: FAIL 51-templates
+d1 README second-heading clause cut: KILLED: FAIL 70-docs
+d2 SKILL 'no way out' cut: KILLED: FAIL 70-docs
+d3 README 'only from those cells' cut: KILLED: FAIL 70-docs
+== done
+ExecStart=/home/alex/blast-off/.worktrees/blast-off-build/bin/blast-off run %f
+EXIT=0

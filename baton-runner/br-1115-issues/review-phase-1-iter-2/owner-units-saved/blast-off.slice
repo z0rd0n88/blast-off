@@ -1,0 +1,15 @@
+# blast-off.slice: every blast-off runner and every child scope, under shared limits (spec §4,
+# guide §4). Sized for this box (23 GB RAM, 20 cores); change with a drop-in, not here.
+# Installed by `blast-off install` to ~/.config/systemd/user/; slices need no [Install].
+[Unit]
+Description=blast-off job runners and their Claude children
+
+[Slice]
+MemoryAccounting=yes
+CPUAccounting=yes
+MemoryHigh=14G
+MemoryMax=18G
+CPUQuota=1600%
+TasksMax=4096
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=65%

@@ -1,0 +1,4 @@
+FAIL 41-ci-wait
+  | FAIL: E2E-MIXED exit=0; record7={"pr":7,"verdict":"failure"}; log: 2026-11-16T05:10:18Z CI read for the PRs Phase plan Status cells name: 8; named elsewhere in checkpoint.md and not read: 7;2026-11-16T05:10:18Z job done;
+PASS shellcheck (33 files)
+GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=41-ci-wait

@@ -1,0 +1,106 @@
+copy: /tmp/p3r3-mut.C4bVdg   keep: /tmp/p3r3-keep.58TMZW
+/tmp/p3r3-mut.C4bVdg/tests/41-ci-wait.sh:0
+/tmp/p3r3-mut.C4bVdg/tests/51-templates.sh:0
+== baseline 41 (+probes)
+PASS 41-ci-wait
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=41-ci-wait
+PROBE q1 [| 0 | a | b | done (abc1234) · no PR | ;; | P1 | a | b | done (abc1234) · PR #7 | ;; ]: exit 0: 2026-11-16T08:07:55Z job done
+PROBE q1 readline: 2026-11-16T08:07:55Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q2 [| 0 | a | b | done (abc1234) · no PR | ;; | **1** | a | b | done (abc1234) · PR #7 | ;; ]: exit 0: 2026-11-16T08:07:55Z job done
+PROBE q2 readline: 2026-11-16T08:07:55Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q3 [| 0 | a | b | done (abc1234) · no PR | ;;   | 1 | a | b | done (abc1234) · PR #7 | ;; ]: exit 0: 2026-11-16T08:07:55Z job done
+PROBE q3 readline: 2026-11-16T08:07:55Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q4 [| P1 | a | b | done (abc1234) · PR #7 | ;; ]: exit 10: 2026-11-16T08:07:55Z status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a `## Phase plan` table with a row per phase (first cell a digit, Status cell last) that ends `done (
+PROBE q4 readline: 
+PROBE q5 [| 0 | a | b | done (abc1234) · no PR | ;; |1 | a | b | done (abc1234) · PR #7 | ;; ]: exit 10: 2026-11-16T08:07:55Z PR #7 CI red or unfinished at 1111111111111111111111111111111111111111 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <job-dir> 7 (once its runs finish, if one was only unfinished), then
+PROBE q5 readline: 2026-11-16T08:07:55Z CI at done: PRs read: 7; rows that say no PR: 0
+PROBE q6 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | done (abc1234) · PR #7 ;; ]: exit 9: 2026-11-16T08:07:55Z status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Status cell of done and HEAD's commit, replacing any older sha) or set 
+PROBE q6 readline: 
+PROBE q7 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | ✅ done (abc1234) · PR #7 | ;; ]: exit 9: 2026-11-16T08:07:55Z status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Status cell of done and HEAD's commit, replacing any older sha) or set 
+PROBE q7 readline: 
+PROBE q8 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | **done** (abc1234) · PR #7 | ;; ]: exit 9: 2026-11-16T08:07:56Z status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Status cell of done and HEAD's commit, replacing any older sha) or set 
+PROBE q8 readline: 
+PROBE q9 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | complete (abc1234) · PR #7 | ;; ]: exit 9: 2026-11-16T08:07:56Z status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Status cell of done and HEAD's commit, replacing any older sha) or set 
+PROBE q9 readline: 
+PROBE q10 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | DONE (abc1234) · PR #7 | ;; ]: exit 10: 2026-11-16T08:07:56Z PR #7 CI red or unfinished at 1111111111111111111111111111111111111111 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <job-dir> 7 (once its runs finish, if one was only unfinished), then
+PROBE q10 readline: 2026-11-16T08:07:56Z CI at done: PRs read: 7; rows that say no PR: 0
+PROBE q11 [| 0 | a | b | done (abc1234) · no PR | ;; | 1) | a | b | done (abc1234) · PR #7 | ;; ]: exit 9: 2026-11-16T08:07:56Z status done but phase row 1) is not done; close it (run the gate on HEAD into gate-logs/phase-1).log, blast-off receipt <job-dir> 1), then a Status cell of done and HEAD's commit, replacing any older sha) or s
+PROBE q11 readline: 
+PROBE q12 [| 0 | a | b | done (abc1234) · no PR | ;; | 1 | a | b | done (abc1234) · PR #7 | extra note | ;; ]: exit 9: 2026-11-16T08:07:56Z status done but phase row 1 is not done; close it (run the gate on HEAD into gate-logs/phase-1.log, blast-off receipt <job-dir> 1, then a Status cell of done and HEAD's commit, replacing any older sha) or set 
+PROBE q12 readline: 
+PROBE q13 [| 0 | a | b | done (abc1234) · no PR, see PR 7 | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q13 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q14 [| 0 | a | b | done (abc1234) · no PR (was pull request 7) | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q14 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q21 [| 0 | a | b | done (abc1234) · No PR | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q21 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q22 [| 0 | a | b | done (abc1234) · NO PR | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q22 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q23 [| 0 | a | b | done (abc1234) · no pr | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q23 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q24 [| 0 | a | b | done (abc1234) · no  PR | ;; ]: exit 10: 2026-11-16T08:07:56Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q24 readline: 
+PROBE q25 [| 0 | a | b | done (abc1234) · no-PR | ;; ]: exit 10: 2026-11-16T08:07:56Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q25 readline: 
+PROBE q26 [| 0 | a | b | done (abc1234) · noPR | ;; ]: exit 10: 2026-11-16T08:07:56Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q26 readline: 
+PROBE q27 [| 0 | a | b | done (abc1234) · no PRs | ;; ]: exit 10: 2026-11-16T08:07:56Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q27 readline: 
+PROBE q28 [| 0 | a | b | done (abc1234) · none | ;; ]: exit 10: 2026-11-16T08:07:56Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q28 readline: 
+PROBE q29 [| 0 | a | b | done (abc1234) · no PR. | ;; ]: exit 0: 2026-11-16T08:07:56Z job done
+PROBE q29 readline: 2026-11-16T08:07:56Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q30 [| 0 | a | b | done (abc1234) · (no PR) | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q30 readline: 2026-11-16T08:07:57Z CI at done: PRs read: none; rows that say no PR: 0
+PROBE q31 [| 0 | a | b | done (abc1234) · PR#8 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q31 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q32 [| 0 | a | b | done (abc1234) · pr #8 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q32 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q33 [| 0 | a | b | done (abc1234) · Pr #008 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q33 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q34 [| 0 | a | b | done (abc1234) · https://github.com/o/r/pull/8 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q34 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q35 [| 0 | a | b | done (abc1234) · PR #0 | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q35 readline: 
+PROBE q36 [| 0 | a | b | done (abc1234) · PR #8 (no PR for docs) | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 Status cell says `no PR` and names PR #8: keep the one that is true, then run again; done refused, status unchanged
+PROBE q36 readline: 
+PROBE q37 [| 0 | a | b | done (abc1234) · no PR (https://github.com/o/other/pull/99) | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 Status cell says `no PR` and names PR #99: keep the one that is true, then run again; done refused, status unchanged
+PROBE q37 readline: 
+PROBE q38 [| 0 | a | b | done (abc1234) · PR #8 · issue #26 | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 Status cell holds a '#<n>' or /pull/ the runner does not read as a PR: write each of the phase's PRs as `PR #<n>` and no other '#<n>' there, then run again; done refused, status unchanged
+PROBE q38 readline: 
+PROBE q39 [| 0 | a | b | done (abc1234) · PR #8 · PR #8 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q39 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q40 [| 0 | a | b | done (abc1234) · PR # 8 | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q40 readline: 
+PROBE q41 [| 0 | a | b | done (abc1234) · PR №8 | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 is done but its Status cell says neither `PR #<n>` nor `no PR`: after the sha write `PR #<n>` (the phase's own PR) or `no PR` (the phase opened none), then run again; done refused, status unchanged
+PROBE q41 readline: 
+PROBE q42 [| 0 | a | b | done (abc1234) · PR #8 see /pull/x | ;; ]: exit 10: 2026-11-16T08:07:57Z phase row 0 Status cell holds a '#<n>' or /pull/ the runner does not read as a PR: write each of the phase's PRs as `PR #<n>` and no other '#<n>' there, then run again; done refused, status unchanged
+PROBE q42 readline: 
+PROBE q43 [| 0 | a | b | done (abc1234) · PR #8.5 | ;; ]: exit 0: 2026-11-16T08:07:57Z job done
+PROBE q43 readline: 2026-11-16T08:07:57Z CI at done: PRs read: 8; rows that say no PR: none
+PROBE q60 CRLF red PR: exit 10: 2026-11-16T08:07:57Z PR #7 CI red or unfinished at 1111111111111111111111111111111111111111 (gate-logs/ci-pr-7.json); fix and push if red, then blast-off ci-wait <job-dir> 7 (once its runs finish, if 
+PROBE q61 doubled heading red PR: exit 10: 2026-11-16T08:07:58Z status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a `## Phase plan` table with a row per phase (first cell a digit, Statu
+== baseline 51
+PASS 51-templates
+PASS shellcheck (33 files)
+GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=51-templates
+== mutants, scenario 41
+m1 C1: absent+workflow refusal dropped: KILLED:   | FAIL: absent CI, workflow file at the PR's head: exit 0, want 10 and 'PR #17 CI absent: no runs, but its head 262f859 has a workflow file (.github/workflows/release.yaml)': 2026-11-16T08:08:22Z ch
+m2 C2: absent pass not logged: KILLED:   | FAIL: absent pass not logged: 2026-11-16T08:08:41Z receipt phase 1: GATE: PASS passed=1 failed=0 shellcheck=ok at 784f4e60de31ba913008b6bf9df8eded51157727
+m3 no PR matched case-sensitively: SURVIVED
+m4 both (no PR and a PR) refusal dropped: KILLED:   | FAIL: no PR and a PR in one cell: exit 0, want 10 and 'phase row 0 Status cell says `no PR` and names PR #8': 2026-11-16T08:09:26Z child cap 3 (soft: 1 Phase plan rows x JOB_CAP_FACTOR 3)
+m5 C4: dispatch filter dropped: KILLED:   | FAIL: green dispatch run counted: exit 0: {
+m6 absent: head check dropped: KILLED:   | FAIL: absent record gh could not check: exit 10: 2026-11-16T08:09:56Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+m7 pathspec narrowed to ci.yml: KILLED:   | FAIL: absent CI, workflow file at the PR's head: exit 0, want 10 and 'PR #17 CI absent: no runs, but its head 0f98e92 has a workflow file (.github/workflows/release.yaml)': 2026-11-16T08:10:18Z ch
+m8 stray check without /pull/: SURVIVED
+m9 C3: PRs read from the whole table section, not done cells: KILLED:   | FAIL: green records: exit 10: 2026-11-16T08:11:00Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+m10 cells: whole row printed, not the Status cell: KILLED:   | FAIL: green records: exit 10: 2026-11-16T08:11:18Z child cap 6 (soft: 2 Phase plan rows x JOB_CAP_FACTOR 3)
+== mutants, scenario 51
+t1 'only for a phase that opened no PR' cut from checkpoint.md: KILLED:   | FAIL: checkpoint.md lacks: Write `no PR` only for a phase that opened no PR.
+t2 bypass sentence put back: KILLED:   | FAIL: checkpoint.md still says: gets no CI check
+t3 brief: 'only for a phase that opened no PR' cut: KILLED:   | FAIL: brief section 9 lacks: `done (<sha>) · no PR` only for a phase that opened no PR
+t4 brief: blocked-on-absent cut: KILLED:   | FAIL: brief section 9 lacks: leave the row open, set `status: blocked`
+t5 'refuses done (exit 10) for a closed row with neither' cut: KILLED:   | FAIL: checkpoint.md lacks: The runner refuses done (exit 10) for a closed row with neither
+== done
+ExecStart=/home/alex/blast-off/.worktrees/blast-off-build/bin/blast-off run %f

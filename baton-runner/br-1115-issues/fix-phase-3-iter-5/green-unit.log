@@ -1,0 +1,12 @@
+== p10 (after fix)
+unread: 
+cells: 0|done (abc1234) · PR #8 ;
+mawk: 0|done (abc1234) · PR #8 ;
+== p11 (after fix)
+unread: line 2 '| # | Phase | Status | Status |' is the Phase plan header and has more than one Status cell: keep one Status column, the last
+cells: 0|done (abc1234) · no PR ;
+mawk: line 2 '| # | Phase | Status | Status |' is the Phase plan header and has more than one Status cell: keep one Status column, the last;0|done (abc1234) · no PR ;
+== p12 (after fix)
+unread: 
+cells: 0|done (abc1234) · PR #8 ;
+mawk: 0|done (abc1234) · PR #8 ;

@@ -1,0 +1,36 @@
+# --- review round 3 probes (appended to a /tmp copy of scenario 41 only; nothing here calls fail) ---
+prow() { # <suffix> <record or ''> <row>...
+  local s="$1" r="$2"; shift 2
+  done_job "$s" "${plan[@]}" "$@"; [ -z "$r" ] || rec "$r"
+  rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?
+  echo "PROBE $s [$(printf '%s ;; ' "$@")]: exit $rc: $(tail -n 1 "$log" | cut -c1-230)"
+  echo "PROBE $s readline: $(grep 'CI at done' "$log" | tail -n 1 | cut -c1-160)"
+}
+ok0='| 0 | a | b | done (abc1234) · no PR |'
+prow q1 7 "$ok0" '| P1 | a | b | done (abc1234) · PR #7 |'
+prow q2 7 "$ok0" '| **1** | a | b | done (abc1234) · PR #7 |'
+prow q3 7 "$ok0" '  | 1 | a | b | done (abc1234) · PR #7 |'
+prow q4 7 '| P1 | a | b | done (abc1234) · PR #7 |'
+prow q5 7 "$ok0" '|1 | a | b | done (abc1234) · PR #7 |'
+prow q6 7 "$ok0" '| 1 | a | b | done (abc1234) · PR #7'
+prow q7 7 "$ok0" '| 1 | a | b | ✅ done (abc1234) · PR #7 |'
+prow q8 7 "$ok0" '| 1 | a | b | **done** (abc1234) · PR #7 |'
+prow q9 7 "$ok0" '| 1 | a | b | complete (abc1234) · PR #7 |'
+prow q10 7 "$ok0" '| 1 | a | b | DONE (abc1234) · PR #7 |'
+prow q11 7 "$ok0" '| 1) | a | b | done (abc1234) · PR #7 |'
+prow q12 7 "$ok0" '| 1 | a | b | done (abc1234) · PR #7 | extra note |'
+prow q13 7 '| 0 | a | b | done (abc1234) · no PR, see PR 7 |'
+prow q14 7 '| 0 | a | b | done (abc1234) · no PR (was pull request 7) |'
+i=20
+for c in 'No PR' 'NO PR' 'no pr' 'no  PR' 'no-PR' 'noPR' 'no PRs' 'none' 'no PR.' '(no PR)' 'PR#8' 'pr #8' 'Pr #008' \
+         'https://github.com/o/r/pull/8' 'PR #0' 'PR #8 (no PR for docs)' 'no PR (https://github.com/o/other/pull/99)' \
+         'PR #8 · issue #26' 'PR #8 · PR #8' 'PR # 8' 'PR №8' 'PR #8 see /pull/x' 'PR #8.5'; do
+  prow "q$((++i))" 8 "| 0 | a | b | done (abc1234) · $c |"
+done
+# CRLF checkpoint: a done row with a red PR
+done_job q60 "${plan[@]}" '| 0 | a | b | done (abc1234) · PR #7 |'; rec 7; sed -i 's/$/\r/' "$JOB/checkpoint.md"
+rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?; echo "PROBE q60 CRLF red PR: exit $rc: $(tail -n 1 "$log" | cut -c1-200)"
+# a second '## Phase plan' heading directly after the first (P3R2-12, pre-existing): rows after it
+done_job q61 '## Phase plan' '## Phase plan' "${plan[@]:1}" '| 0 | a | b | done (abc1234) · PR #7 |'; rec 7
+rc=0; "$bo" run "$JOB" > r.out 2>&1 || rc=$?; echo "PROBE q61 doubled heading red PR: exit $rc: $(tail -n 1 "$log" | cut -c1-200)"
+echo ok
