@@ -87,3 +87,21 @@
 - 2026-11-17 phase 5/9 · DELIVER: push + draft PR
 - 2026-11-17 phase 5/9 · PR https://github.com/z0rd0n88/blast-off/pull/41 draft · CI gate pass (run 44237681774) · follow-ups #40
 - 2026-11-17 PAUSE: phase 5 DONE; awaiting owner (merge 41 / phase 6)
+- 2026-11-17 owner: merge 41 and start phase 6; PR 41 merged 62eeb5c; phase-5 branch deleted
+- 2026-11-17 phase 6/9 · WORK spawn (issue 14) · units 29/75
+- 2026-11-17 phase 6/9 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-6-work.md
+- 2026-11-17 phase 6/9 · REVIEW iter1 spawn · units 30/75
+- 2026-11-18 phase 6/9 · REVIEW iter1 return COMPLETE · VERDICT ISSUES (0 CRITICAL / 1 HIGH / 13 MEDIUM / 21 LOW) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-6-review-1.md
+- 2026-11-18 owner: P6R1-1 trust run.log
+- 2026-11-18 phase 6/9 · FIX iter1 spawn · units 31/75
+- 2026-11-18 phase 6/9 · FIX iter1 return COMPLETE · P6R1-1 (HIGH) + -2..-8, -10, -11 fixed; 12/12 mutants killed · baton baton-runner/br-1115-issues/baton-phase-6-fix-1.md
+- 2026-11-18 phase 6/9 · REVIEW iter2 spawn (narrow + skill-sheriff-cc on SKILL.md) · units 32/75
+- 2026-11-18 phase 6/9 · REVIEW iter2 return COMPLETE · VERDICT CLEAN, narrow (0 CRITICAL / 0 HIGH / 5 MEDIUM / 14 LOW; skill-sheriff 3 Gap) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-6-review-2.md
+- 2026-11-18 owner: one more fix round (end file; P6R2-1..5)
+- 2026-11-18 phase 6/9 · FIX iter2 spawn · units 33/75
+- 2026-11-18 phase 6/9 · FIX iter2 return COMPLETE · runner-end file; P6R2-1..5, -8 fixed, docs -9..-11, -19; 12/12 mutants killed · baton baton-runner/br-1115-issues/baton-phase-6-fix-2.md
+- 2026-11-18 phase 6/9 · REVIEW iter3 (final) spawn · units 34/75
+- 2026-11-18 phase 6/9 · REVIEW iter3 (final) return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 1 MEDIUM / 13 LOW) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-6-review-3.md
+- 2026-11-18 phase 6/9 · DELIVER: push + draft PR + follow-up issue
+- 2026-11-18 phase 6/9 · PR https://github.com/z0rd0n88/blast-off/pull/43 draft · CI gate pass (run 44316874152) · follow-ups #42
+- 2026-11-18 PAUSE: phase 6 DONE; awaiting owner (merge 43 / phase 7)

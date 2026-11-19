@@ -92,3 +92,64 @@ unit_logs() {
   tail -n 40 "$LOG" 2>/dev/null || echo "(no $LOG yet)"
   journalctl --user -u "$UNIT.service" -n 40 --no-pager || true
 }
+
+# wait: block until the job changes, then print one line (issue 14): exit 0 at a done or blocked the runner accepted
+# (its runner-end file holds the same word, owner rulings P6R1-1, P6R2-1), 11 on a change while it still runs or is
+# scheduled, 12 when for 10 s (so at least two polls) nothing runs or is scheduled (runner and resume timer down) and
+# the runner accepted no end: stopped, crashed, rebooted, done or blocked refused, paused-cap or an unarmed
+# paused-limit, which never change on their own; 12 too when no read succeeds for 60 s. 1 when it cannot start
+# watching. A change is state, never the clock, so a machine sleep is one more poll, not a change; the clock only
+# times the down and failed-read spells, which a sleep may end in stuck when the job is down on both sides of it.
+# ponytail: polls every BLAST_OFF_WAIT_POLL (5) s, no inotify (not a dependency); one process, no tokens
+unit_wait() {
+  local p="${BLAST_OFF_WAIT_POLL:-5}" ms='' was down='' bad now
+  # 0.1 to 3600 s, at most 3 decimals: 0 spins on systemctl, inf never polls again, a word is sleep's error (P6R1-6)
+  if [[ $p =~ ^([0-9]{1,4})(\.([0-9]{1,3}))?$ ]]; then ms="${BASH_REMATCH[3]}000"; ms=$((10#${BASH_REMATCH[1]}${ms:0:3})); fi
+  [ -n "$ms" ] && [ "$ms" -ge 100 ] && [ "$ms" -le 3600000 ] || die "BLAST_OFF_WAIT_POLL='$p' is not a number of seconds from 0.1 to 3600"
+  wait_snap || die "$WAIT_ERR"; was="$SNAP"
+  while :; do
+    case "$WAIT_STATUS" in  # the runner's own end file, never run.log, which holds child text (owner ruling P6R2-1)
+      done|blocked) [ "$(cut -d' ' -f1 "$JOB/runner-end" 2>/dev/null)" != "$WAIT_STATUS" ] || { echo "wait: final · $SNAP"; exit 0; } ;;
+    esac
+    # down: when this spell of unit and timer both down began; a time, not a poll count (P6R2-4)
+    case "$WAIT_UNIT $WAIT_TIMER" in
+      *' active') down='' ;;
+      inactive*|failed*|deactivating*) now="$(date +%s)"; down="${down:-$now}" ;;
+      *) down='' ;;
+    esac
+    if [ -n "$down" ] && [ $((now - down)) -ge 10 ]; then  # paused-cap shares 12 (owner Q1), so its line says its own next step (P6R1-2)
+      [ "$WAIT_STATUS" = paused-cap ] && echo "wait: stuck · $SNAP; paused-cap: run blast-off resume $JOB" ||
+        echo "wait: stuck · $SNAP; see blast-off status $JOB"
+      exit 12
+    fi
+    # No change while down and not yet stuck: a fired resume timer is gone before its runner is up (P6R1-3), maybe
+    # for a while (P6R2-4). Nor on a done or blocked the runner has not accepted: it may still refuse it, and then its
+    # unit goes down (stuck).
+    [ -n "$down" ] || [[ $WAIT_STATUS =~ ^(done|blocked)$ ]] || [ "$SNAP" = "$was" ] || { echo "wait: changed · $SNAP"; exit 11; }
+    sleep "$p"; bad=''
+    until wait_snap; do  # mid-watch a failed read is retried for 60 s (P6R1-5, P6R2-2)
+      now="$(date +%s)"; bad="${bad:-$now}"
+      [ $((now - bad)) -lt 60 ] || { echo "wait: stuck · no read for 60 s: $WAIT_ERR; see blast-off status $JOB"; exit 12; }
+      sleep "$p"
+    done
+  done
+}
+# SNAP: the status and phase lines, the last child's number (child-count), the runner unit's and resume timer's
+# state; WAIT_STATUS: the status word, as cp_status reads it, from the same read of checkpoint.md. A failed read
+# returns 1 with WAIT_ERR.
+wait_snap() {
+  local cp c='?' s
+  cp="$(cat "$JOB/checkpoint.md" 2>/dev/null)" && [ -n "$cp" ] || { WAIT_ERR="missing $JOB/checkpoint.md"; return 1; }
+  if chain_count; then c="$LAUNCHED"; fi
+  WAIT_UNIT="$(systemctl --user show "$UNIT.service" -p ActiveState --value 2>/dev/null)" &&
+    WAIT_TIMER="$(systemctl --user show "$UNIT.resume.timer" -p ActiveState --value 2>/dev/null)" ||
+    { WAIT_ERR="systemctl --user show $UNIT.service or .resume.timer failed (no user bus?)"; return 1; }
+  s="$(sed -n '/^status:/{p;q}' <<<"$cp")"
+  WAIT_STATUS="$(sed 's/^status: *\([a-z-]*\).*/\1/' <<<"$s")"
+  # child-written text reaches a session's context (P6R1-7): of the status line only its word and a paused-limit's
+  # `until <time>`; the phase line with no control characters and no ` · ` field separator; each cut to 80 characters
+  local re='^status: *[a-z-]+ +(until [0-9TZ:.+-]{1,40})' u='' ph
+  [[ ! $s =~ $re ]] || u=" ${BASH_REMATCH[1]}"
+  ph="$(sed -n '/^phase:/{p;q}' <<<"$cp")"; ph="${ph//[[:cntrl:]]/}"; ph="${ph//·/-}"
+  SNAP="status: ${WAIT_STATUS:0:80}$u · ${ph:0:80} · child $c · unit $WAIT_UNIT · timer $WAIT_TIMER"
+}

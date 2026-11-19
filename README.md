@@ -83,6 +83,7 @@ the classifier.
 ## Watch, stop, resume
 
 ```bash
+blast-off wait <job-dir>      # blocks until the status, phase, child or unit changes; prints one line
 blast-off status <job-dir>    # checkpoint header, unit state, child count, resume timer
 blast-off logs <job-dir>      # run.log tail and the unit's journal
 tail -f <job-dir>/run.log     # the chain's own log: children, picks, pauses, refusals
@@ -93,6 +94,26 @@ blast-off run <job-dir>       # the same chain in the foreground (what the unit 
 ```
 
 Re-running is always safe: the next child resumes from the checkpoint's `Next action`; nothing is redone.
+
+**Watching from a Claude session.** Run `blast-off wait <job-dir>` as a background command, not a
+recurring loop or cron: the session wakes only when it returns. It reads the checkpoint's `status:` and
+`phase:` lines, the last child's number and the runner unit's and resume timer's state every 5 s
+(`BLAST_OFF_WAIT_POLL`), and, at `done` or `blocked`, the job dir's `runner-end`, which the runner writes only when
+it accepts that end. It never reads `run.log`, which holds child text. A change is state, never the clock, so a machine
+sleep is not an event. It prints one line, `wait: <final|changed|stuck> · status: ... · phase: ... · child <n> · unit <state> · timer <state>`
+(the status word, at most 80 characters, and a `paused-limit`'s `until <time>`, at most 40 more; the phase line
+without control characters or any `·`, at most 80 characters):
+
+| Line | Exit | What to do |
+|---|---|---|
+| `final`: status `done` or `blocked` and `runner-end` holds the same word: the runner accepted it (at once when already there). A `done` or `blocked` with no matching `runner-end` keeps `wait` waiting while the unit runs: the runner may still refuse it (receipts, CI, dirty tree) | 0 | stop watching; read `checkpoint.md` |
+| `changed`: a child launched, the phase or status moved, or the unit's or timer's state changed, and the job still runs or is scheduled | 11 | run `blast-off wait <job-dir>` again |
+| `stuck · status: paused-cap ...; paused-cap: run blast-off resume <job-dir>`: the soft cap paused the job and nothing runs | 12 | `blast-off resume <job-dir>`, then `wait` again |
+| `stuck ...; see blast-off status <job-dir>`: for 10 s (at least two polls) neither the runner unit nor a resume timer runs, and no `runner-end` matches the status (stopped, crashed, a reboot, a refused `done` or `blocked`, `paused-limit` with no timer); it never changes on its own | 12 | `blast-off status` and `logs`; fix what the runner refused, then `start`; `resume` for a `paused-limit` past its reset |
+| `stuck · no read for 60 s: <reason>; see blast-off status <job-dir>`: every read failed for 60 s (job dir deleted or moved, `checkpoint.md` left empty, the user bus gone); a shorter spell is retried at each poll | 12 | fix the reason, then `wait` again |
+| no job dir, a missing or empty `checkpoint.md`, a `BLAST_OFF_WAIT_POLL` outside 0.1 to 3600, or `systemctl --user` failing, at its start (the reason is on stderr) | 1 | fix the cause, then `wait` again; an empty `checkpoint.md` mid-rewrite or a bus hiccup clears on its own, so one plain rerun is fine |
+
+`wait` watches the unit, so run it after `start`; a foreground `blast-off run` reads as `stuck`.
 
 **Usage limits.** At each child's end the runner reads that session's usage record,
 `~/.claude/state/usage-limits-<session>.json`, which a status-line hook (`usage-limit-tee.sh`, not part

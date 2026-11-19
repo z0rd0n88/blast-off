@@ -14,7 +14,7 @@ desc="$(sed -n 's/^description: //p' <<<"$front")"
 (( ${#desc} <= 1024 )) || fail "SKILL.md description is ${#desc} chars, over 1024"
 # Line-anchored: the mode bullets, step 3, and the hand-over blocks (3-space indent) under step 7.
 for s in '^- \*\*Prompt-only\*\*' '^- \*\*Run\*\*' '^3\. \*\*Confirm the Target set\*\* .*own question' \
-  '^   export GH_TOKEN CLAUDE_FLAGS=' '^   blast-off start <job-dir>( |$)' '^   blast-off status <job-dir>( |$)' \
+  '^   export GH_TOKEN CLAUDE_FLAGS=' '^   blast-off start <job-dir>( |$)' '^   blast-off wait <job-dir>( |$)' '^   blast-off status <job-dir>( |$)' \
   '^   tmux -L blast-off-<name> attach -t job-<name>( |$)' '^   blast-off stop <job-dir>( |$)'; do
   grep -qE "$s" "$skill" || fail "SKILL.md has no line matching '$s'"
 done
@@ -31,7 +31,7 @@ startblock="$(awk '/^ *```/ {if (f && b ~ /blast-off start <job-dir>/) print b; 
 # --- README: every subcommand, every exit code the CLI prints, the big-next-job note ---
 readme="$REPO/README.md"
 [[ -f $readme ]] || fail "missing README.md"
-for c in run start status stop logs resume install preflight receipt ci-wait; do
+for c in run start status stop logs resume wait install preflight receipt ci-wait; do
   grep -qE "blast-off $c( |\`|$)" "$readme" || fail "README does not show 'blast-off $c'"
 done
 codes="$(sed -n '/^# Exit:/,/^set -/p' "$REPO/bin/blast-off" | grep -oE '(^#|Exit:|·) +[0-9]+ ' | grep -oE '[0-9]+')"

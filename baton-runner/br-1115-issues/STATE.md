@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
 status: PAUSED (between phases)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 6 of 9  unit: WORK  review_iter: 0 of 3
-phase_5_branch: feat/br-1115-issues/phase-5 (from main c4e2a41)
-current_baton: baton-runner/br-1115-issues/baton-phase-5-review-2.md
-units_used: 28
-pause_reason: phase 5 delivered as draft PR 41 (CI green); owner to merge 41 or say go for phase 6 (issue 14)
+phase: 7 of 9  unit: WORK  review_iter: 0 of 3
+phase_6_branch: feat/br-1115-issues/phase-6 (from main 62eeb5c)
+current_baton: baton-runner/br-1115-issues/baton-phase-6-review-3.md
+units_used: 34
+pause_reason: phase 6 delivered as draft PR 43 (CI green); owner to merge 43 or say go for phase 7 (issue 27)
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -27,9 +27,13 @@ phases:
     owner: P4-22a = fresh soft allotment on paused-cap resume (hard cap never resets); P4R2-4 = reword docs; P4R2-11 = deleting child-count is the reset, document it (both in #39)
   - id: phase-5  spec: issue 39 (child-count follow-ups from #22: owner rulings P4R2-4 reword docs, P4R2-11 document child-count delete as the reset; MEDIUMs P4R2-1, P4R2-2, P4R1-2, P4R1-3, P4R1-4, P4R1-5, P4R1-7)  readiness: READY  work_agent: general-purpose  base: main c4e2a41
     phase_branch: feat/br-1115-issues/phase-5  pr: https://github.com/z0rd0n88/blast-off/pull/41
-    units: 4  state: DONE (CLEAN iter 2; CI green; follow-ups in #40)
+    units: 4  state: DONE (CLEAN iter 2; merged 62eeb5c; follow-ups in #40)
     manager defaults (fix iter1): Q3 reject leading zeros in JOB_* numbers; Q5 refusals never echo child-count content
-  - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose  state: PENDING
+  - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose
+    phase_branch: feat/br-1115-issues/phase-6  pr: https://github.com/z0rd0n88/blast-off/pull/43
+    units: 6  state: DONE (CLEAN iter 3; CI green; follow-ups in #42)
+    owner: P6R1-1 = final only when the runner has recorded the end (2026-11-18); round-2 ruling: one more fix round, runner writes its end to its own file in the job dir and wait reads it
+    manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING

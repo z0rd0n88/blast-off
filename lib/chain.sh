@@ -4,6 +4,10 @@
 
 # chain_end <code> <message>: the runner's only exits that report a state (spec §3).
 chain_end() { CHAIN_END=1; log "$2"; exit "$1"; }
+# chain_accept <done|blocked>: the end the runner accepted, `<word> <utc>`, to $JOB/runner-end by rename, before
+# chain_end logs it; `wait` reads this file, never run.log, which holds child text (owner ruling P6R2-1). Each run
+# deletes it first (chain_run), so a refused or re-opened job never shows an earlier run's end.
+chain_accept() { echo "$1 $(date -u +%FT%TZ)" > "$JOB/runner-end.tmp" && mv -f "$JOB/runner-end.tmp" "$JOB/runner-end"; }
 
 # The EXIT trap. Child scopes sit outside the runner's cgroup, so no exit of the runner (state,
 # set -e abort, signal) reaches them unless this does; JOB_KEEP_WINDOWS leaves everything for
@@ -159,6 +163,7 @@ chain_run() {
   trap 'log "runner stopped by signal; stopping child scopes"; exit 143' TERM
   trap 'exit 129' HUP
   trap 'exit 130' INT
+  rm -f "$JOB/runner-end"  # this run has not ended the job (chain_accept); after the lock: a live runner's end stays
   child_server
 
   chain_cap
@@ -191,8 +196,8 @@ chain_run() {
     # P3R5-13: mid-run a line done would refuse silently stops the rows after it being read; say so each pass
     [ "$s" = "done" ] || { u="$(cp_unread)"; [ -z "$u" ] || log "checkpoint.md $u; the Phase plan rows from there on are not read, and done is refused, until it is fixed"; }
     case "$s" in
-      done)    ci_plan; receipt_all_done; ci_check; chain_end 0 "job done" ;;
-      blocked) chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
+      done)    ci_plan; receipt_all_done; ci_check; chain_accept 'done'; chain_end 0 "job done" ;;
+      blocked) chain_accept blocked; chain_end 3 "job blocked; see $JOB/checkpoint.md" ;;
     esac
     n=$((LAUNCHED+1))
     # base is the soft cap's alone; the hard cap counts every child of the job and never resets (P4-22a),
