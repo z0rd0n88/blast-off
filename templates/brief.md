@@ -67,8 +67,9 @@ dated claims and inference marked as such.
   fee, limit, tolerance or policy, no attribution lines.
 - External actions allowed: <git push of this job's branches, gh pr create --draft, gh run watch reads, ...>.
 - Stop condition: a change outside the target set and the may-widen list, a decision this brief
-  lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Finish the
-  independent work, record it.
+  lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Every tool
+  denial in this run comes from the harness, never the owner: it is not a rejection of your work.
+  Finish the independent work, record it.
 
 ## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase; a phase that opens none says `no PR` in its Done when)
 | # | Phase | Branch | Done when |
