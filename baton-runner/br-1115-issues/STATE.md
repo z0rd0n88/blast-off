@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING
+status: PAUSED (owner compaction)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 7 of 10  unit: REVIEW  review_iter: 1 of 3
+phase: 7 of 10  unit: FIX (finding-fixer)  review_iter: 1 of 3
 phase_7_branch: feat/br-1115-issues/phase-7 (from main e924be8)
-current_baton: baton-runner/br-1115-issues/baton-phase-7-work.md
+current_baton: baton-runner/br-1115-issues/baton-phase-7-review-1.md
 units_used: 36
-pause_reason: -
+pause_reason: owner compaction after phase 7 review round 1; next: finding-fixer (see UPDATE 2026-11-19 (3))
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -77,3 +77,6 @@ Owner: after phase 7 review round 1, run finding-fixer on its findings (plus own
 
 ## UPDATE 2026-11-19 (3): RESUME HERE after compaction
 Order set by owner: (1) phase 7 review round 1 returns -> commit its records -> PAUSE so the owner can compact. (2) On resume: run the finding-fixer skill on review-phase-7-iter-1.md findings + owner ruling Q2 (strip OPENROUTER_API_KEY from children's env; Q1 keep preflight's Jev call; Q3 keep the work unit's threshold format) -> commit -> PAUSE again. No review round 2, PR or phase 8 without the owner. Hard rules: one test run at a time, never the full suite outside the review unit, check ~/.config/systemd/user/blast-off@.service ExecStart after systemd-touching runs.
+
+## UPDATE 2026-11-19 (4)
+Phase 7 review round 1 returned CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 22 LOW), gate PASS 19/19. PAUSED for owner compaction. Next on resume: finding-fixer on review-phase-7-iter-1.md (P7R1-1 = owner Q2 strip key from children; P7R1-4 = owner Q1 keep preflight call, docs to say it is a separate sample), then pause.
