@@ -35,7 +35,7 @@ phases:
     owner: P6R1-1 = final only when the runner has recorded the end (2026-11-18); round-2 ruling: one more fix round, runner writes its end to its own file in the job dir and wait reads it
     manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose
-    phase_branch: feat/br-1115-issues/phase-7  pr: -
+    phase_branch: feat/br-1115-issues/phase-7  pr: https://github.com/z0rd0n88/blast-off/pull/45
     units: 4  state: DONE (CLEAN iter 2; 1 MEDIUM + 16 LOW open, listed in the PR)
     owner (2026-11-19): Q2 strip OPENROUTER_API_KEY from children's environment (fix round); Q1 keep preflight's Jev call; Q3 threshold format = work unit's default
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
