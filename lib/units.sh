@@ -15,11 +15,14 @@ units_install() {
 
 # UNIT_ENV: the --setenv=NAME list of every unit blast-off starts (the runner, the resume timer's
 # service). systemd-run reads each value from this environment, so no value is on the line (D14).
+# OPENROUTER_API_KEY (Jev's, issue 27) only when set and not empty: systemd stores it in the transient
+# unit file as it does GH_TOKEN (D21), and the timer's `resume` passes it on to the runner it starts.
 unit_env() {
   UNIT_ENV=(--setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS); local v
+  [ -z "${OPENROUTER_API_KEY:-}" ] || UNIT_ENV+=(--setenv=OPENROUTER_API_KEY)
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS \
            JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF BLAST_OFF_STATE_DIR BLAST_OFF_CI_APPEAR BLAST_OFF_CI_WATCH \
-           BLAST_OFF_CI_HEAD JOB_JEV; do
+           BLAST_OFF_CI_HEAD JOB_JEV JOB_JEV_MIN_CONF; do
     [ -z "${!v+x}" ] || UNIT_ENV+=(--setenv="$v")
   done
 }

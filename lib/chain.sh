@@ -96,6 +96,9 @@ chain_nums() {
     [[ ${!v:-0} =~ ^(0|[1-9][0-9]{0,8})$ ]] ||
       { NUMS_ERR="$v='${!v}' is not a whole number of at most 9 digits with no leading zero"; return 1; }
   done
+  # Jev's confidence threshold (issue 27): 0 to 1, at most 3 decimals, a leading digit (jq reads it as JSON)
+  [[ ${JOB_JEV_MIN_CONF:-0.7} =~ ^(0(\.[0-9]{1,3})?|1(\.0{1,3})?)$ ]] ||
+    { NUMS_ERR="JOB_JEV_MIN_CONF='$JOB_JEV_MIN_CONF' is not a number from 0 to 1 with at most 3 decimals (0.7, 0.85, 1)"; return 1; }
 }
 
 # chain_cap: MAXC, CAP_WHY and CAP_SOFT (empty for the hard cap). The soft cap (F2): the checkpoint's

@@ -18,12 +18,15 @@ preflight_run() {
 
   echo "job: $JOB · workdir: $WORKDIR · unit: $UNIT.service"
   k="$(cp_open_rows | head -n 1)"; row="$([ -z "$k" ] || cp_row "$k")"
-  # start's view, no jev call: start and the resume timer pass no OPENROUTER_API_KEY (owner question P6Q1)
-  OPENROUTER_API_KEY='' jev_flags "$row"
+  # start's view: start and the resume timer pass OPENROUTER_API_KEY by name when it is set (issue 27), so
+  # this asks Jev as the runner would, with this environment; the key's value is never printed
+  jev_flags "$row"
   echo "flags: $CHILD_FLAGS"
   echo "model: $(pf_flag model) · effort: $(pf_flag effort)"
   if [ -z "$k" ]; then echo "level: no open Phase plan row; static CLAUDE_FLAGS"
-  else echo "level: phase $k: static CLAUDE_FLAGS under start ($JEV_WHY; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev)"; fi
+  elif [ "$JEV_LEVEL" = static ]; then
+    echo "level: phase $k: static CLAUDE_FLAGS under start ($JEV_WHY$([ -n "${OPENROUTER_API_KEY:-}" ] || echo '; start passes none'))"
+  else echo "level: phase $k: $JEV_LEVEL under start (jev, confidence $JEV_CONF, threshold $JEV_MIN; start passes OPENROUTER_API_KEY by name)"; fi
   chain_cap
   echo "cap: $MAXC ($CAP_WHY)"
   # P4R1-3: what child-count holds and what is left under that cap; a paused-cap run under the soft cap

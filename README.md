@@ -15,7 +15,7 @@ Every option and environment variable: the header of [`bin/blast-off`](bin/blast
 
 bash, tmux 3.2 or later, jq, python3, systemd (user manager), `claude`, `gh`; `shellcheck` for the
 tests. Optional: `jev` with an OpenRouter key (`OPENROUTER_API_KEY`, `sk-or-`) to pick each phase's
-model level. Linux with a user systemd instance; on WSL2, `loginctl enable-linger` keeps it up.
+model level; a pick below confidence `JOB_JEV_MIN_CONF` (default 0.7) keeps `CLAUDE_FLAGS`. Linux with a user systemd instance; on WSL2, `loginctl enable-linger` keeps it up.
 
 ## Install
 
@@ -60,8 +60,12 @@ blast-off start <worktree>/.big-next-job       # transient unit blast-off-<name>
 `preflight` exits 1 and says why when `CLAUDE_FLAGS` is empty, a dependency is missing, or the
 estimated usage is more than the 7-day window has left. `start` passes `PATH`, `GH_TOKEN`,
 `CLAUDE_FLAGS` and every set `JOB_*` name to the unit by name (`systemd-run --setenv=NAME`), never by
-value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty. systemd keeps the
-resolved values in the transient unit's file under `$XDG_RUNTIME_DIR` until the unit is collected.
+value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty. With `OPENROUTER_API_KEY`
+set it passes that name too, so Jev picks each phase's model level under the unit; unset, every child
+gets `CLAUDE_FLAGS` as given. Each pick or fallback is a `run.log` line (`model level for phase 2: light
+(jev, confidence 0.87, threshold 0.7): ...`), never with the key. The resume timer passes the same names.
+systemd keeps the resolved values, the secrets too, in the transient unit's file under
+`$XDG_RUNTIME_DIR` until the unit is collected.
 
 A hand-started template instance (`systemctl --user start blast-off@<escaped job dir>.service`) sees
 only the user manager's environment, which has no `CLAUDE_FLAGS` and no `claude` on `PATH`, so it

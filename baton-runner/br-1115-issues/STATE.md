@@ -1,10 +1,10 @@
 # zord-baton-runner run br-1115-issues
 status: RUNNING
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 7 of 10  unit: WORK  review_iter: 0 of 3
+phase: 7 of 10  unit: REVIEW  review_iter: 1 of 3
 phase_7_branch: feat/br-1115-issues/phase-7 (from main e924be8)
-current_baton: baton-runner/br-1115-issues/baton-phase-6-review-3.md
-units_used: 35
+current_baton: baton-runner/br-1115-issues/baton-phase-7-work.md
+units_used: 36
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -36,7 +36,7 @@ phases:
     manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-7  pr: -
-    units: 1  state: RUNNING
+    units: 2  state: RUNNING
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
   - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING

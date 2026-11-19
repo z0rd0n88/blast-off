@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fake jev for scenarios; never calls the real one or any network. State lives in $FAKE_JEV (a dir):
 #   answer   the choice it returns for question `level` (default: other)
+#   confidence  that choice's confidence, as JSON (default: 0.87)
 #   fail     present: exit 2 with an error on stderr, as jev does on an HTTP failure
 #   calls    one line per call: argv, then the route facts it saw (TYPESAFE_API_KEY and JEV_BASE_URL set
 #            or unset, the OPENROUTER_API_KEY prefix), appended
@@ -12,4 +13,5 @@ n=1; [ ! -e "$FAKE_JEV/calls" ] || n=$(( $(wc -l < "$FAKE_JEV/calls") + 1 ))
 printf 'argv=%s typesafe=%s base=%s key=%s\n' "$*" "${TYPESAFE_API_KEY:+set}" "${JEV_BASE_URL:+set}" "${OPENROUTER_API_KEY:0:6}" >> "$FAKE_JEV/calls"
 cat > "$FAKE_JEV/state-$n"
 [ ! -e "$FAKE_JEV/fail" ] || { echo '{"error":"fake failure"}' >&2; exit 2; }
-jq -n --arg c "$(cat "$FAKE_JEV/answer" 2>/dev/null || echo other)" '{level: {choice: $c, confidence: 0.87, probabilities: {}}}'
+jq -n --arg c "$(cat "$FAKE_JEV/answer" 2>/dev/null || echo other)" --argjson p "$(cat "$FAKE_JEV/confidence" 2>/dev/null || echo 0.87)" \
+  '{level: {choice: $c, confidence: $p, probabilities: {}}}'
