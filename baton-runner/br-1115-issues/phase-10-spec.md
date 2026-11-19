@@ -5,7 +5,7 @@ Runs after phase 9, branched from main once phase 9 is merged. Docs only: no beh
 ## Scope (files)
 README.md, docs/spec.md, skills/blast-off/SKILL.md, templates/brief.md, templates/checkpoint.md,
 `bin/blast-off` usage/help header, and header/doc comments in lib/*.sh and tests/*.sh that state behaviour.
-Not in scope: code behaviour, other repos (Z0rd0nZords, ClaudeConfig), baton-runner/ records.
+Not in scope: code behaviour, other repos (Z0rd0nZords, ClaudeConfig), baton-runner/ records. Scope confirmed by the owner 2026-11-19: the blast-off repo's own docs only.
 
 ## 1. Every change included
 Each change merged in this run must be described where a reader would look for it. Source list
