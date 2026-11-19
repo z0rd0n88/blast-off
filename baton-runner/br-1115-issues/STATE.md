@@ -1,10 +1,10 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 7 finding-fixer)
+status: WAITING (phase 7 PR open; owner merges)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 7 of 10  unit: FIX (finding-fixer)  review_iter: 1 of 3
+phase: 7 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_7_branch: feat/br-1115-issues/phase-7 (from main e924be8)
-current_baton: baton-runner/br-1115-issues/baton-phase-7-review-1.md
-units_used: 36
+current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
+units_used: 38
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -36,7 +36,7 @@ phases:
     manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-7  pr: -
-    units: 2  state: RUNNING
+    units: 4  state: DONE (CLEAN iter 2; 1 MEDIUM + 16 LOW open, listed in the PR)
     owner (2026-11-19): Q2 strip OPENROUTER_API_KEY from children's environment (fix round); Q1 keep preflight's Jev call; Q3 threshold format = work unit's default
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
@@ -84,3 +84,9 @@ Phase 7 review round 1 returned CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 22 LOW),
 ## UPDATE 2026-11-19 (5)
 Owner after compaction: "resume and skip the upcoming pause". finding-fixer launched on all 28 phase 7 findings (workflow wf_9117e623-7cc, 3 adjudicators + 1 writer). No pause after it: the run continues with review round 2 and delivery (draft PR), then waits for the owner's merge as in phases 1-6.
 Manager defaults for unanswered questions: P7R1-5 start/resume refuse bad JOB_* numbers before any unit; P7R1-10/11 confidence outside 0..1, missing or null keeps static flags with an accurate reason; P7R1-21 document only; P7R1-22 and P7R1-27 no edit, follow-up issue.
+
+## UPDATE 2026-11-19 (6)
+finding-fixer done: 23 findings fixed (commit 096062b), P7R1-12 already handled, P7R1-24 and P7R1-28 refuted, P7R1-21 docs only, P7R1-22 and P7R1-27 deferred to a follow-up issue. Manager re-ran 11/12/20/51/60/61/70: GATE-ONLY PASS 7/7, ExecStart unchanged. Record: fixer-phase-7-iter-1.md. Review round 2 (narrow) running.
+
+## UPDATE 2026-11-19 (7)
+Review round 2 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDIUM / 16 LOW (review-phase-7-iter-2.md). Delivery: draft PR to main. Next: owner merges, then phase 8 (issue 16).
