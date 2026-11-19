@@ -105,3 +105,13 @@
 - 2026-11-18 phase 6/9 · DELIVER: push + draft PR + follow-up issue
 - 2026-11-18 phase 6/9 · PR https://github.com/z0rd0n88/blast-off/pull/43 draft · CI gate pass (run 44316874152) · follow-ups #42
 - 2026-11-18 PAUSE: phase 6 DONE; awaiting owner (merge 43 / phase 7)
+- 2026-11-19 owner: merge 43 and start phase 7; PR 43 merged e924be8; phase-6 branch deleted
+- 2026-11-19 phase 7/9 · WORK spawn (issue 27) · units 35/75
+- 2026-11-19 owner: add phase 10 (docs update, every change included, every fact verified); spec phase-10-spec.md
+- 2026-11-19 owner: phase 10 adds README options guide, separate Technical details section (systemd, runner, child, state files), and CHANGELOG.md (per worked day, high level)
+- 2026-11-19 phase 7/10 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-7-work.md · open Q1 preflight Jev call, Q2 children inherit key, Q3 threshold format
+- 2026-11-19 phase 7/10 · REVIEW iter1 spawn · units 36/75
+- 2026-11-19 owner: phase 7 Q2 strip key from children; Q1 keep preflight Jev call
+- 2026-11-19 owner: phase 7 fix step = finding-fixer, then pause (iron-ham-split dropped)
+- 2026-11-19 phase 7/10 · REVIEW iter1 return COMPLETE · VERDICT CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 22 LOW) · gate PASS 19/19 · baton baton-runner/br-1115-issues/baton-phase-7-review-1.md
+- 2026-11-19 PAUSE: owner compaction; next finding-fixer

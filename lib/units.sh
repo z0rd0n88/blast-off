@@ -15,11 +15,15 @@ units_install() {
 
 # UNIT_ENV: the --setenv=NAME list of every unit blast-off starts (the runner, the resume timer's
 # service). systemd-run reads each value from this environment, so no value is on the line (D14).
+# OPENROUTER_API_KEY (Jev's, issue 27) only when jev_flags would use it (an sk-or- value, JOB_JEV not 0),
+# so a key Jev cannot use is never stored: systemd stores it in the transient unit file as it does
+# GH_TOKEN (D21), and the timer's `resume` passes it on to the runner it starts.
 unit_env() {
   UNIT_ENV=(--setenv=PATH --setenv=GH_TOKEN --setenv=CLAUDE_FLAGS); local v
+  [ "${JOB_JEV:-1}" = 0 ] || [[ ${OPENROUTER_API_KEY:-} != sk-or-* ]] || UNIT_ENV+=(--setenv=OPENROUTER_API_KEY)
   for v in JOB_MAX_CHILDREN JOB_CAP_FACTOR JOB_CHILD_TIMEOUT JOB_SESSION JOB_KEEP_WINDOWS BLAST_OFF_TRUST_SECONDS \
            JOB_USAGE_PAUSE JOB_RESUME_MARGIN JOB_API_BACKOFF BLAST_OFF_STATE_DIR BLAST_OFF_CI_APPEAR BLAST_OFF_CI_WATCH \
-           BLAST_OFF_CI_HEAD JOB_JEV; do
+           BLAST_OFF_CI_HEAD JOB_JEV JOB_JEV_MIN_CONF; do
     [ -z "${!v+x}" ] || UNIT_ENV+=(--setenv="$v")
   done
 }
@@ -29,6 +33,8 @@ unit_check() {
   [ -n "${CLAUDE_FLAGS:-}" ] || die "CLAUDE_FLAGS is unset or empty; every child needs --model and --effort (K8, D8)"
   [ -n "${GH_TOKEN:-}" ] || die "GH_TOKEN is unset or empty; --setenv=GH_TOKEN would pass an empty value to the unit"
   test -s "$JOB/brief.md" && test -s "$JOB/checkpoint.md" || die "missing $JOB/brief.md or checkpoint.md"
+  # a JOB_* number run refuses would reach only the unit's journal; refuse here, on the terminal (P7R1-5)
+  chain_nums || die "$NUMS_ERR"
 }
 
 # The transient form of the template: same [Service] directives as -p properties, names by --setenv.

@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: PAUSED (between phases)
+status: WAITING (phase 7 PR open; owner merges)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 7 of 9  unit: WORK  review_iter: 0 of 3
-phase_6_branch: feat/br-1115-issues/phase-6 (from main 62eeb5c)
-current_baton: baton-runner/br-1115-issues/baton-phase-6-review-3.md
-units_used: 34
-pause_reason: phase 6 delivered as draft PR 43 (CI green); owner to merge 43 or say go for phase 7 (issue 27)
+phase: 7 of 10  unit: REVIEW  review_iter: 2 of 3
+phase_7_branch: feat/br-1115-issues/phase-7 (from main e924be8)
+current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
+units_used: 38
+pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -31,12 +31,16 @@ phases:
     manager defaults (fix iter1): Q3 reject leading zeros in JOB_* numbers; Q5 refusals never echo child-count content
   - id: phase-6  spec: issue 14  readiness: READY  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-6  pr: https://github.com/z0rd0n88/blast-off/pull/43
-    units: 6  state: DONE (CLEAN iter 3; CI green; follow-ups in #42)
+    units: 6  state: DONE (CLEAN iter 3; merged e924be8; follow-ups in #42)
     owner: P6R1-1 = final only when the runner has recorded the end (2026-11-18); round-2 ruling: one more fix round, runner writes its end to its own file in the job dir and wait reads it
     manager defaults: Q1 paused-cap exits 12 (stuck, needs resume); Q2 foreground run without a unit reads stuck
-  - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose  state: PENDING
+  - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose
+    phase_branch: feat/br-1115-issues/phase-7  pr: https://github.com/z0rd0n88/blast-off/pull/45
+    units: 4  state: DONE (CLEAN iter 2; 1 MEDIUM + 16 LOW open, listed in the PR)
+    owner (2026-11-19): Q2 strip OPENROUTER_API_KEY from children's environment (fix round); Q1 keep preflight's Jev call; Q3 threshold format = work unit's default
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
+  - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
 skipped (not in this run): 15, 11, 19, 24, 10, 20, 17, 18, 25, 23; 29 beyond the PR 32 warning
 
@@ -64,3 +68,29 @@ Owner added issue 39 to the run. It is phase 5 (it changes the code PR 38 adds);
 
 ## UPDATE 2026-11-17 (4)
 Owner: merge 38 and start phase 5. PR 38 merged (c4e2a41), phase-4 branch deleted, phase 5 (issue 39) WORK spawned on feat/br-1115-issues/phase-5 from main.
+
+## UPDATE 2026-11-19
+Owner added phase 10: update all documentation, every change included, every fact verified. Spec: phase-10-spec.md.
+
+## UPDATE 2026-11-19 (2)
+Owner: after phase 7 review round 1, run finding-fixer on its findings (plus owner ruling Q2: strip OPENROUTER_API_KEY from children) instead of a fix unit; then PAUSE. No iron-ham-split. Do not start review round 2 or delivery without the owner.
+
+## UPDATE 2026-11-19 (3): RESUME HERE after compaction
+Order set by owner: (1) phase 7 review round 1 returns -> commit its records -> PAUSE so the owner can compact. (2) On resume: run the finding-fixer skill on review-phase-7-iter-1.md findings + owner ruling Q2 (strip OPENROUTER_API_KEY from children's env; Q1 keep preflight's Jev call; Q3 keep the work unit's threshold format) -> commit -> PAUSE again. No review round 2, PR or phase 8 without the owner. Hard rules: one test run at a time, never the full suite outside the review unit, check ~/.config/systemd/user/blast-off@.service ExecStart after systemd-touching runs.
+
+## UPDATE 2026-11-19 (4)
+Phase 7 review round 1 returned CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 22 LOW), gate PASS 19/19. PAUSED for owner compaction. Next on resume: finding-fixer on review-phase-7-iter-1.md (P7R1-1 = owner Q2 strip key from children; P7R1-4 = owner Q1 keep preflight call, docs to say it is a separate sample), then pause.
+
+## UPDATE 2026-11-19 (5)
+Owner after compaction: "resume and skip the upcoming pause". finding-fixer launched on all 28 phase 7 findings (workflow wf_9117e623-7cc, 3 adjudicators + 1 writer). No pause after it: the run continues with review round 2 and delivery (draft PR), then waits for the owner's merge as in phases 1-6.
+Manager defaults for unanswered questions: P7R1-5 start/resume refuse bad JOB_* numbers before any unit; P7R1-10/11 confidence outside 0..1, missing or null keeps static flags with an accurate reason; P7R1-21 document only; P7R1-22 and P7R1-27 no edit, follow-up issue.
+
+## UPDATE 2026-11-19 (6)
+finding-fixer done: 23 findings fixed (commit 096062b), P7R1-12 already handled, P7R1-24 and P7R1-28 refuted, P7R1-21 docs only, P7R1-22 and P7R1-27 deferred to a follow-up issue. Manager re-ran 11/12/20/51/60/61/70: GATE-ONLY PASS 7/7, ExecStart unchanged. Record: fixer-phase-7-iter-1.md. Review round 2 (narrow) running.
+
+## UPDATE 2026-11-19 (7)
+Review round 2 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDIUM / 16 LOW (review-phase-7-iter-2.md). Delivery: draft PR to main. Next: owner merges, then phase 8 (issue 16).
+
+## OWNER RULING 2026-11-19: PR size (from phase 8 on)
+- Run records (baton-runner/) stay off phase branches and phase PRs. Plan: phase 8 branch drops baton-runner/ from the index once (git rm -r --cached) and lists it in .git/info/exclude; records are committed to their own branch run/br-1115-issues (never merged) with a temp index, so the PR diff is code, tests and docs only. PR 45 (phase 7) keeps its records as opened.
+- Before review, if the phase code diff (records excluded) is over 750 changed lines, run iron-ham-split. Its plan-approval stop is skipped only when the owner has said the run is unattended; otherwise wait for the owner.

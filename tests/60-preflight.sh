@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # 60-preflight: `blast-off preflight <job-dir> [workdir]` prints, one `name: value` line each, what a
 # launch would use and what stands against it (F2, F9, F10, K8): the flags `start` gives, model and
-# effort, the level (static, no jev call: start passes no OPENROUTER_API_KEY, P6Q1), cap, timeout,
+# effort, the level (Jev's pick as start gives it: start passes OPENROUTER_API_KEY by name when it is set, issue 27;
+# the pick with its confidence and threshold, or static and why), cap, timeout,
 # account, current usage, usage estimate, slice
 # (D1-7), scope stop timeout (Q2), open PRs on the brief's target set, behind-base count. It writes
 # nothing. Exit 1, every line still printed, when the estimate is over what is left of the seven_day
 # window or a launch would refuse (CLAUDE_FLAGS empty); no estimate or no usage record never refuses.
 source "$REPO/tests/lib.sh"
 use_fakes
-unset JOB_CHILD_TIMEOUT JOB_CAP_FACTOR JOB_MAX_CHILDREN JOB_BASE JOB_JEV BLAST_OFF_ESTIMATE_FROM
-export CLAUDE_FLAGS="--model fake --effort low --foo bar" OPENROUTER_API_KEY=sk-or-dummy GH_TOKEN=dummy-not-a-token
+unset JOB_CHILD_TIMEOUT JOB_CAP_FACTOR JOB_MAX_CHILDREN JOB_BASE JOB_JEV JOB_JEV_MIN_CONF BLAST_OFF_ESTIMATE_FROM
+key=sk-or-test-xxx-not-a-key-60
+export CLAUDE_FLAGS="--model fake --effort low --foo bar" OPENROUTER_API_KEY="$key" GH_TOKEN=dummy-not-a-token
 export FAKE_JEV="$PWD/jev" FAKE_GH="$PWD/gh" BLAST_OFF_STATE_DIR="$PWD/state"
 mkdir -p "$FAKE_JEV" "$FAKE_GH" "$BLAST_OFF_STATE_DIR"; echo deep > "$FAKE_JEV/answer"
 bo="$REPO/bin/blast-off"
@@ -50,9 +52,9 @@ before="$(ls -A "$JOB" | tr '\n' ' ')"
 # --- everything printed, nothing written ---
 rc=0; BLAST_OFF_ESTIMATE_FROM="$prior" "$bo" preflight "$JOB" > p1.out 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || fail "preflight exit $rc: $(cat p1.out)"
-has '^flags: --model fake --effort low --foo bar$' p1.out
-has '^model: fake · effort: low$' p1.out
-has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; start passes no OPENROUTER_API_KEY, owner question P6Q1; a foreground run with the key and JOB_JEV not 0 asks Jev\)$' p1.out
+has '^flags: --model opus --effort xhigh --foo bar$' p1.out
+has '^model: opus · effort: xhigh$' p1.out
+has '^level: phase 2: deep under start \(jev, confidence 0\.87, threshold 0\.7; start passes OPENROUTER_API_KEY by name\)$' p1.out
 has '^cap: 9 \(soft: 3 Phase plan rows x JOB_CAP_FACTOR 3\)$' p1.out
 has '^child-count: none, a fresh job; first child 1; 9 left under cap 9$' p1.out
 has '^timeout: 7200 s per child$' p1.out
@@ -71,7 +73,25 @@ command grep -A1 -x 'pr list --state open --limit 100 --json number,title,headRe
 has '^behind: 1 \(git rev-list --count HEAD\.\.origin/main\)$' p1.out
 has '^preflight: ok$' p1.out
 [ "$(ls -A "$JOB" | tr '\n' ' ')" = "$before" ] || fail "preflight wrote into the job dir: $(ls -A "$JOB")"
-[ ! -e "$FAKE_JEV/calls" ] || fail "preflight asked jev (start passes no key, P6Q1): $(cat "$FAKE_JEV/calls")"
+[ "$(wc -l < "$FAKE_JEV/calls")" -eq 1 ] || fail "preflight did not ask jev once, as start would: $(cat "$FAKE_JEV/calls" 2>&1)"
+grep -q 'Parser' "$FAKE_JEV/state-1" || fail "preflight did not ask about the first open row (2): $(cat "$FAKE_JEV/state-1")"
+! grep -q -- "$key" p1.out || fail "preflight printed the key's value"
+# a pick below the threshold: static, with the confidence and the threshold (issue 27)
+rc=0; JOB_JEV_MIN_CONF=0.9 "$bo" preflight "$JOB" > p14.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "JOB_JEV_MIN_CONF=0.9: exit $rc: $(cat p14.out)"
+has '^flags: --model fake --effort low --foo bar$' p14.out
+has '^level: phase 2: static CLAUDE_FLAGS under start \(jev picked deep, confidence 0\.87 below 0\.9\)$' p14.out
+# no temp file for jev's stderr: a logged fallback, not a dead preflight (jev_flags never fails)
+rc=0; XDG_RUNTIME_DIR="$PWD/no-such-dir" "$bo" preflight "$JOB" > p-notmp.out 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "no temp dir for jev: exit $rc: $(cat p-notmp.out)"
+has '^level: phase 2: static CLAUDE_FLAGS under start \(jev not asked: no temp file in .*/no-such-dir\)$' p-notmp.out
+# a JOB_JEV_MIN_CONF that is no number from 0 to 1 refuses before any line, like a bad JOB_* count
+rc=0; JOB_JEV_MIN_CONF=2 "$bo" preflight "$JOB" > p15.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "JOB_JEV_MIN_CONF=2: exit $rc, want 1: $(cat p15.out)"
+has "^preflight: refused: JOB_JEV_MIN_CONF='2' is not a number from 0 to 1" p15.out
+[ "$(wc -l < p15.out)" -eq 1 ] || fail "JOB_JEV_MIN_CONF=2 printed more than its refusal: $(cat p15.out)"
+[ "$(wc -l < "$FAKE_JEV/calls")" -eq 2 ] || fail "JOB_JEV_MIN_CONF=2 asked jev (p1 and p14 ask once each): $(cat "$FAKE_JEV/calls")"
+! grep -q -- "$key" p14.out || fail "preflight printed the key's value on a low-confidence pick"
 
 # --- an estimate over what is left of the seven_day window refuses ---
 echo '{"seven_day":{"used_percentage":70,"resets_at":'$((now+259200))'}}' > "$BLAST_OFF_STATE_DIR/usage-limits-s3.json"
@@ -103,9 +123,12 @@ has '^preflight: ok$' p6.out
 printf '# brief, no target set\n' > "$JOB/brief.md"
 rc=0; env -u OPENROUTER_API_KEY -u GH_TOKEN CLAUDE_FLAGS= "$bo" preflight "$JOB" > p5.out 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || fail "CLAUDE_FLAGS empty: exit $rc, want 1: $(cat p5.out)"
-has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; ' p5.out
+has '^level: phase 2: static CLAUDE_FLAGS under start \(no OPENROUTER_API_KEY in the runner environment; start passes none\)$' p5.out
 has '^GH_TOKEN: unset \(start refuses\)$' p5.out
 has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p5.out
+rc=0; env -u CLAUDE_FLAGS "$bo" preflight "$JOB" > p-unset.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "CLAUDE_FLAGS unset: exit $rc, want 1: $(cat p-unset.out)"
+has '^preflight: refused: CLAUDE_FLAGS is unset or empty$' p-unset.out
 has '^open PRs on the target set: 4 \(no Target set bullet in brief\.md; every open PR\)$' p5.out
 
 # --- the job's child count (P4R1-3): launched, base, next child, what is left under the cap; a garbled one refuses ---
@@ -148,3 +171,7 @@ for v in 08 010; do
   [ "$rc" -eq 1 ] || fail "JOB_MAX_CHILDREN=$v: exit $rc, want 1: $(cat p13.out)"
   has "^preflight: refused: JOB_MAX_CHILDREN='$v' is not a whole number " p13.out
 done
+# a value holding a newline is quoted on one line, so it prints no line of its own (P7R1-26)
+rc=0; JOB_JEV_MIN_CONF=$'x\npreflight: ok\n' "$bo" preflight "$JOB" > p-nl.out 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "JOB_JEV_MIN_CONF with a newline: exit $rc, want 1: $(cat p-nl.out)"
+! grep -qx 'preflight: ok' p-nl.out || fail "JOB_JEV_MIN_CONF's newline printed a line of its own: $(cat p-nl.out)"

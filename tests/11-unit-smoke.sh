@@ -87,4 +87,15 @@ wait_until 10 not_active "$unit" || fail "runner unit still $(unit_state "$unit"
 kill -0 "$gc" 2>/dev/null || fail "grandchild died with the runner; this case no longer tests stop's scope glob"
 "$bo" stop "$JOB" > stop3.out 2>&1 || fail "stop after runner kill: $(cat stop3.out)"
 wait_until 5 gone "$gc" || fail "grandchild $gc alive after stop (scope glob path)"
+
+# issue 27, C1 under a real unit: start passes OPENROUTER_API_KEY by name and the runner gets it, so it asks
+# jev (the fake, which fails here: the unit has no FAKE_JEV) instead of logging that it has no key (P7R1-6)
+new_job keyjob noop
+printf '\n## Phase plan\n| # | Phase | Done when | Status |\n|---|---|---|---|\n| 1 | Keyed | x | pending |\n' >> "$JOB/checkpoint.md"
+OPENROUTER_API_KEY=sk-or-fake-p7r1-6-not-a-key "$bo" start "$JOB" > start-key.out 2>&1 || fail "start with a fake key: $(cat start-key.out)"
+wait_until 20 grep -q 'model level for phase 1: ' "$JOB/run.log" || fail "no model level line under the unit: $(cat "$JOB/run.log" 2>&1)"
+grep -q 'model level for phase 1: static CLAUDE_FLAGS (jev failed: ' "$JOB/run.log" ||
+  fail "the runner under the unit did not get the key: $(grep 'model level' "$JOB/run.log")"
+! grep -q sk-or-fake-p7r1-6 "$JOB/run.log" || fail "run.log holds the key's value"
+"$bo" stop "$JOB" > stop-key.out 2>&1 || fail "stop (keyjob): $(cat stop-key.out)"
 echo ok
