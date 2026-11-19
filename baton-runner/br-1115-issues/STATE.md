@@ -90,3 +90,7 @@ finding-fixer done: 23 findings fixed (commit 096062b), P7R1-12 already handled,
 
 ## UPDATE 2026-11-19 (7)
 Review round 2 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDIUM / 16 LOW (review-phase-7-iter-2.md). Delivery: draft PR to main. Next: owner merges, then phase 8 (issue 16).
+
+## OWNER RULING 2026-11-19: PR size (from phase 8 on)
+- Run records (baton-runner/) stay off phase branches and phase PRs. Plan: phase 8 branch drops baton-runner/ from the index once (git rm -r --cached) and lists it in .git/info/exclude; records are committed to their own branch run/br-1115-issues (never merged) with a temp index, so the PR diff is code, tests and docs only. PR 45 (phase 7) keeps its records as opened.
+- Before review, if the phase code diff (records excluded) is over 750 changed lines, run iron-ham-split. Its plan-approval stop is skipped only when the owner has said the run is unattended; otherwise wait for the owner.
