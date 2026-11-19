@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: PAUSED (owner compaction)
+status: RUNNING (phase 7 finding-fixer)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 7 of 10  unit: FIX (finding-fixer)  review_iter: 1 of 3
 phase_7_branch: feat/br-1115-issues/phase-7 (from main e924be8)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-1.md
 units_used: 36
-pause_reason: owner compaction after phase 7 review round 1; next: finding-fixer (see UPDATE 2026-11-19 (3))
+pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
 worktree note: the run uses the manager session's own worktree, because a session hook blocks writes anywhere else (the skill's .worktrees/<run-id> location was tried and removed)
@@ -80,3 +80,7 @@ Order set by owner: (1) phase 7 review round 1 returns -> commit its records -> 
 
 ## UPDATE 2026-11-19 (4)
 Phase 7 review round 1 returned CLEAN (0 CRITICAL / 0 HIGH / 6 MEDIUM / 22 LOW), gate PASS 19/19. PAUSED for owner compaction. Next on resume: finding-fixer on review-phase-7-iter-1.md (P7R1-1 = owner Q2 strip key from children; P7R1-4 = owner Q1 keep preflight call, docs to say it is a separate sample), then pause.
+
+## UPDATE 2026-11-19 (5)
+Owner after compaction: "resume and skip the upcoming pause". finding-fixer launched on all 28 phase 7 findings (workflow wf_9117e623-7cc, 3 adjudicators + 1 writer). No pause after it: the run continues with review round 2 and delivery (draft PR), then waits for the owner's merge as in phases 1-6.
+Manager defaults for unanswered questions: P7R1-5 start/resume refuse bad JOB_* numbers before any unit; P7R1-10/11 confidence outside 0..1, missing or null keeps static flags with an accurate reason; P7R1-21 document only; P7R1-22 and P7R1-27 no edit, follow-up issue.
