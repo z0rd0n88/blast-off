@@ -105,3 +105,6 @@
 - 2026-11-18 phase 6/9 · DELIVER: push + draft PR + follow-up issue
 - 2026-11-18 phase 6/9 · PR https://github.com/z0rd0n88/blast-off/pull/43 draft · CI gate pass (run 44316874152) · follow-ups #42
 - 2026-11-18 PAUSE: phase 6 DONE; awaiting owner (merge 43 / phase 7)
+- 2026-11-19 owner: merge 43 and start phase 7; PR 43 merged e924be8; phase-6 branch deleted
+- 2026-11-19 phase 7/9 · WORK spawn (issue 27) · units 35/75
+- 2026-11-19 owner: add phase 10 (docs update, every change included, every fact verified); spec phase-10-spec.md
