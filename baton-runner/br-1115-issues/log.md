@@ -111,3 +111,5 @@
 - 2026-11-19 owner: phase 10 adds README options guide, separate Technical details section (systemd, runner, child, state files), and CHANGELOG.md (per worked day, high level)
 - 2026-11-19 phase 7/10 · WORK return COMPLETE · baton baton-runner/br-1115-issues/baton-phase-7-work.md · open Q1 preflight Jev call, Q2 children inherit key, Q3 threshold format
 - 2026-11-19 phase 7/10 · REVIEW iter1 spawn · units 36/75
+- 2026-11-19 owner: phase 7 Q2 strip key from children; Q1 keep preflight Jev call
+- 2026-11-19 owner: phase 7 fix step = finding-fixer, then pause (iron-ham-split dropped)

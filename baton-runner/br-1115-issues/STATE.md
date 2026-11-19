@@ -37,6 +37,7 @@ phases:
   - id: phase-7  spec: issue 27  readiness: READY (threshold confirmed: below 0.7 keeps static flags; JOB_JEV_MIN_CONF overrides)  work_agent: general-purpose
     phase_branch: feat/br-1115-issues/phase-7  pr: -
     units: 2  state: RUNNING
+    owner (2026-11-19): Q2 strip OPENROUTER_API_KEY from children's environment (fix round); Q1 keep preflight's Jev call; Q3 threshold format = work unit's default
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  state: PENDING
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
   - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING
@@ -70,3 +71,9 @@ Owner: merge 38 and start phase 5. PR 38 merged (c4e2a41), phase-4 branch delete
 
 ## UPDATE 2026-11-19
 Owner added phase 10: update all documentation, every change included, every fact verified. Spec: phase-10-spec.md.
+
+## UPDATE 2026-11-19 (2)
+Owner: after phase 7 review round 1, run finding-fixer on its findings (plus owner ruling Q2: strip OPENROUTER_API_KEY from children) instead of a fix unit; then PAUSE. No iron-ham-split. Do not start review round 2 or delivery without the owner.
+
+## UPDATE 2026-11-19 (3): RESUME HERE after compaction
+Order set by owner: (1) phase 7 review round 1 returns -> commit its records -> PAUSE so the owner can compact. (2) On resume: run the finding-fixer skill on review-phase-7-iter-1.md findings + owner ruling Q2 (strip OPENROUTER_API_KEY from children's env; Q1 keep preflight's Jev call; Q3 keep the work unit's threshold format) -> commit -> PAUSE again. No review round 2, PR or phase 8 without the owner. Hard rules: one test run at a time, never the full suite outside the review unit, check ~/.config/systemd/user/blast-off@.service ExecStart after systemd-touching runs.
