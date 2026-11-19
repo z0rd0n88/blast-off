@@ -108,3 +108,4 @@
 - 2026-11-19 owner: merge 43 and start phase 7; PR 43 merged e924be8; phase-6 branch deleted
 - 2026-11-19 phase 7/9 · WORK spawn (issue 27) · units 35/75
 - 2026-11-19 owner: add phase 10 (docs update, every change included, every fact verified); spec phase-10-spec.md
+- 2026-11-19 owner: phase 10 adds README options guide, separate Technical details section (systemd, runner, child, state files), and CHANGELOG.md (per worked day, high level)
