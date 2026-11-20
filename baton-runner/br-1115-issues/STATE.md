@@ -1,5 +1,5 @@
 # zord-baton-runner run br-1115-issues
-status: WAITING (phase 9 owner question P9R1-5)
+status: WAITING (phase 9 PR 49 open; CI then owner merges)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_9_branch: feat/br-1115-issues/phase-9 (from main d5e4707)
@@ -43,8 +43,8 @@ phases:
     phase_branch: feat/br-1115-issues/phase-8  pr: https://github.com/z0rd0n88/blast-off/pull/48
     units: 4  state: DONE (merged d5e4707; follow-ups in #47)
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  base: main d5e4707
-    phase_branch: feat/br-1115-issues/phase-9  pr: -
-    units: 0  state: RUNNING
+    phase_branch: feat/br-1115-issues/phase-9  pr: https://github.com/z0rd0n88/blast-off/pull/49
+    units: 2  state: DONE (CLEAN iter 1 + reviewer-text fixes 8a267b4; P9R1-5 owner: keep verbatim)
   - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
 skipped (not in this run): 15, 11, 19, 24, 10, 20, 17, 18, 25, 23; 29 beyond the PR 32 warning
@@ -123,3 +123,6 @@ Phase 9 work done: 9f9bec8 (README.md:55-57 and SKILL.md:25-27 launch-from-targe
 
 ## UPDATE 2026-11-19 (15)
 Phase 9 review round 1 CLEAN: full gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDIUM / 4 LOW. Manager applied P9R1-1 (SKILL.md: warn before step 1, recommend restarting in target repo; ledger: kept "If this session started elsewhere", changed "tell the owner before step 5" to the reviewer text, added nothing else), P9R1-2 (README sentence moved into the skill paragraph), P9R1-3 (70-docs greps the # Prompt: heading), P9R1-4 (spec lines 8-10 rewrapped, VistaMarkets/vbe named): 8a267b4, 70-docs PASS, ExecStart unchanged. skill-sheriff-cc not installed, not run. Open: P9R1-5 owner question (keep prompt copy verbatim vs redact transcript paths).
+
+## UPDATE 2026-11-19 (16)
+Owner on P9R1-5: keep the prompt copy verbatim. Fixes were the reviewer's exact text, so no round 2. Draft PR 49 opened (Closes #21). Next: CI gate, owner merges, then phase 10 (docs + CHANGELOG).
