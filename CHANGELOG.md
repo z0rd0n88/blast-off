@@ -17,7 +17,7 @@ it is new). Newest day first. Dates are git author dates as recorded, all at UTC
   variable with its default and effect) and a Technical details section (systemd units and the
   resume timer, the runner loop, the child, job-dir files); every claim in the README, spec, skill
   and code comments was checked against the code and fixed where wrong; this changelog
-  (PR #<n>).
+  (PR #50).
 
 ## 2026-11-18
 
