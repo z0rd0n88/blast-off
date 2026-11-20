@@ -1,8 +1,8 @@
 # zord-baton-runner run br-1115-issues
-status: WAITING (phase 9 PR 49 open; CI then owner merges)
+status: RUNNING (phase 10 work A+B)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
-phase_9_branch: feat/br-1115-issues/phase-9 (from main d5e4707)
+phase_10_branch: feat/br-1115-issues/phase-10 (from main 9c86128)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
 units_used: 45
@@ -44,8 +44,10 @@ phases:
     units: 4  state: DONE (merged d5e4707; follow-ups in #47)
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  base: main d5e4707
     phase_branch: feat/br-1115-issues/phase-9  pr: https://github.com/z0rd0n88/blast-off/pull/49
-    units: 2  state: DONE (CLEAN iter 1 + reviewer-text fixes 8a267b4; P9R1-5 owner: keep verbatim)
-  - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING
+    units: 2  state: DONE (merged 9c86128; P9R1-5 owner: keep verbatim)
+  - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main 9c86128
+    phase_branch: feat/br-1115-issues/phase-10  pr: -
+    units: 0  state: RUNNING (A changelog in isolated worktree || B fact check; then C options guide + technical details)
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
 skipped (not in this run): 15, 11, 19, 24, 10, 20, 17, 18, 25, 23; 29 beyond the PR 32 warning
 
@@ -126,3 +128,6 @@ Phase 9 review round 1 CLEAN: full gate PASS 19/19, 0 CRITICAL / 0 HIGH / 1 MEDI
 
 ## UPDATE 2026-11-19 (16)
 Owner on P9R1-5: keep the prompt copy verbatim. Fixes were the reviewer's exact text, so no round 2. Draft PR 49 opened (Closes #21). Next: CI gate, owner merges, then phase 10 (docs + CHANGELOG).
+
+## UPDATE 2026-11-19 (17)
+Owner: merge 49 and start phase 10. PR 49 merged (9c86128), issue 21 closed, phase-9 branch deleted. Phase 10 split into work units: A CHANGELOG.md (isolated worktree, no tests, parallel), B fact ledger + coverage + fixes, C README options guide + Technical details (after B). Split check after C (750-line rule).
