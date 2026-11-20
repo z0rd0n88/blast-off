@@ -11,6 +11,7 @@ Design and the full behaviour of every command: [`docs/spec.md`](docs/spec.md). 
 from the systemd guide's template, verified on the build box: [`docs/systemd-guide-deviations.md`](docs/systemd-guide-deviations.md).
 Every option and environment variable: the header of [`bin/blast-off`](bin/blast-off).
 The original spec blast-off was built from: [`docs/2026-11-04-large-job-launcher-prompt.md`](docs/2026-11-04-large-job-launcher-prompt.md).
+What changed on each day worked: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Requirements
 
