@@ -10,6 +10,7 @@ or the job as done.
 Design and the full behaviour of every command: [`docs/spec.md`](docs/spec.md). How the units differ
 from the systemd guide's template, verified on the build box: [`docs/systemd-guide-deviations.md`](docs/systemd-guide-deviations.md).
 Every option and environment variable: the header of [`bin/blast-off`](bin/blast-off).
+The original spec blast-off was built from: [`docs/2026-11-04-large-job-launcher-prompt.md`](docs/2026-11-04-large-job-launcher-prompt.md).
 
 ## Requirements
 
@@ -47,7 +48,9 @@ Keep the job dir out of git (from inside the worktree, where `.git` is a file):
    tmux server `blast-off-<name>`.
 
 The skill [`skills/blast-off/SKILL.md`](skills/blast-off/SKILL.md) walks a Claude session through
-scoping, writing both files and handing over the start line.
+scoping, writing both files and handing over the start line. Start that session inside the target repo
+(the repo the job changes), not in another project's checkout or worktree: a session loads that
+directory's `AGENTS.md`/`CLAUDE.md` and hooks on every turn.
 
 ## Check, then start
 
