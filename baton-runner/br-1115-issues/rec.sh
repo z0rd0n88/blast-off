@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # rec.sh "<message>": commit baton-runner/ to the run branch run/br-1115-issues without switching branches
-# (owner ruling 2026-11-19: run records stay off phase branches and PRs; Z0rd0nZords#217).
+# (owner ruling 2026-11-19: run records stay off phase branches and PRs; z0rd0n88/my-skills#47).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 B=run/br-1115-issues idx=$(mktemp)
