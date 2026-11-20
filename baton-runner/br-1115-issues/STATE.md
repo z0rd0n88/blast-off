@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 10 work A+B)
+status: RUNNING (phase 10 work C)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_10_branch: feat/br-1115-issues/phase-10 (from main 9c86128)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 45
+units_used: 47
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -131,3 +131,6 @@ Owner on P9R1-5: keep the prompt copy verbatim. Fixes were the reviewer's exact 
 
 ## UPDATE 2026-11-19 (17)
 Owner: merge 49 and start phase 10. PR 49 merged (9c86128), issue 21 closed, phase-9 branch deleted. Phase 10 split into work units: A CHANGELOG.md (isolated worktree, no tests, parallel), B fact ledger + coverage + fixes, C README options guide + Technical details (after B). Split check after C (750-line rule).
+
+## UPDATE 2026-11-19 (18)
+Phase 10 unit A: CHANGELOG.md (11 days, 168 commits) 3631c5d, cherry-picked as db14a67; ledger phase-10/changelog-ledger.md. Unit B: fact check 0a5d3b1, 240 claims (200 ok, 38 fixed, 2 deleted), coverage.md, fact-ledger.md, work-B.md; GATE-ONLY 00-harness,51-templates,70-docs PASS, ExecStart unchanged. Open for reviewer: scripts/gate.sh:2-4 header says every scenario (outside file list). Unit C (README options guide + Technical details) spawned.
