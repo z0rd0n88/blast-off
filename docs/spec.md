@@ -5,8 +5,8 @@ under a systemd user unit, with no Claude session open to drive it. It ports the
 `big-next-job`'s `run-job` and adds what the MoonPay, vista-sign-in and MoonPay Step 1 runs lacked:
 child liveness, a soft derived cap, dirty-tree refusal, usage pause and resume, receipts and a CI read.
 
-Source of the keep and fix lists: `VistaMobileBE/docs/handoff/2026-11-04-large-job-launcher-prompt.md`
-§4 and §5 (commit `afc647e0`). Source of the directive table: `~/.claude/docs/guides/system-d-guide.md`
+Source of the keep and fix lists: [`docs/2026-11-04-large-job-launcher-prompt.md`](2026-11-04-large-job-launcher-prompt.md)
+§4 and §5, copied from `VistaMobileBE/docs/handoff/` (same text at commits `afc647e0` and `db41485ce`). Source of the directive table: `~/.claude/docs/guides/system-d-guide.md`
 §5 (commit `ad995d4`). blast-off never reads or writes the installed `big-next-job` skill at runtime (D1).
 
 ## 1. Keep and fix map
