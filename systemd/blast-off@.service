@@ -3,7 +3,7 @@
 # %f undoes the escaping and prepends "/", so `run` gets the absolute job dir.
 # The user manager's environment holds no CLAUDE_FLAGS or GH_TOKEN and a PATH without claude, so a
 # hand-started instance exits 1; `blast-off start` runs the transient form, passing those names with
-# --setenv and reading every [Service] directive below as a -p property.
+# --setenv and reading every [Service] directive below but ExecStart= as a -p property.
 # `blast-off install` writes this file with @BLAST_OFF@ replaced by the checkout's bin/blast-off.
 # No Restart=: the runner's non-zero exits are states (blocked, paused, ...), not failures.
 # No [Install]: never enabled (D6).

@@ -34,6 +34,14 @@ readme="$REPO/README.md"
 for c in run start status stop logs resume wait install preflight receipt ci-wait; do
   grep -qE "blast-off $c( |\`|$)" "$readme" || fail "README does not show 'blast-off $c'"
 done
+# Phase 10: a Technical details section, and an options guide row (first cell) for every verb the CLI's case dispatches
+grep -qx '## Technical details' "$readme" || fail "README has no '## Technical details' heading"
+verbs="$(sed -n '/^case "\${1:-}" in$/,/^esac$/p' "$REPO/bin/blast-off" | sed -nE 's/^  ([^ )]+)\).*/\1/p' | tr '|' '\n' | grep -vxE '\*|""')"
+[[ $(wc -w <<<"$verbs") -ge 12 ]] || fail "read $(wc -w <<<"$verbs") verbs from bin/blast-off's case, expected at least 12: $verbs"
+guide="$(sed -n '/^## Options guide$/,/^## /p' "$readme" | sed -n 's/^| *\([^|]*\)|.*/\1/p')"
+for v in $verbs; do
+  grep -qE -- "(^|[ ,])\`$v( |\`)" <<<"$guide" || fail "README options guide has no row for '$v'"
+done
 codes="$(sed -n '/^# Exit:/,/^set -/p' "$REPO/bin/blast-off" | grep -oE '(^#|Exit:|·) +[0-9]+ ' | grep -oE '[0-9]+')"
 [[ $(wc -w <<<"$codes") -eq 10 ]] || fail "bin/blast-off header lists $(wc -w <<<"$codes") exit codes, expected 10: $codes"
 for e in $codes; do

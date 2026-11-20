@@ -1,9 +1,10 @@
 # shellcheck shell=bash
 # preflight.sh: `blast-off preflight <job-dir> [workdir]`. One `name: value` line per thing a launch
 # would use or meet (F2, F9, F10, K8, D1-7, Q2, P3Q3), then `preflight: ok` (exit 0) or
-# `preflight: refused: <why>` (exit 1): CLAUDE_FLAGS empty, a runtime dependency missing, a garbled
-# child-count, or a usage estimate over what is left of the seven_day window; a bad JOB_* count refuses
-# before any other line. It writes nothing: log lines go to stdout only.
+# `preflight: refused: <why>` (exit 1): brief.md missing, CLAUDE_FLAGS empty, a runtime dependency or gh
+# missing, a garbled child-count, or a usage estimate over what is left of the seven_day window; a bad
+# JOB_* count refuses before any other line. It writes nothing to the job dir:
+# log lines go to stdout only.
 
 preflight_run() {
   local probs=() b row k
@@ -18,8 +19,9 @@ preflight_run() {
 
   echo "job: $JOB · workdir: $WORKDIR · unit: $UNIT.service"
   k="$(cp_open_rows | head -n 1)"; row="$([ -z "$k" ] || cp_row "$k")"
-  # start's view: start and the resume timer pass OPENROUTER_API_KEY by name when it is set (issue 27), so
-  # this asks Jev as the runner would, with this environment; the key's value is never printed
+  # start's view: start and the resume timer pass OPENROUTER_API_KEY by name when Jev can use it
+  # (sk-or-, JOB_JEV not 0; issue 27), so this asks Jev as the runner would, with this environment;
+  # the key's value is never printed
   jev_flags "$row"
   echo "flags: $CHILD_FLAGS"
   echo "model: $(pf_flag model) · effort: $(pf_flag effort)"

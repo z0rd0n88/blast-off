@@ -36,8 +36,9 @@ child_stop_all() {
 # child_launch <n>: CHILD_DIR (settings + done.json; named for the job, removed by child_clean), CHILD_WIN, CHILD_SCOPE. tmux 3.4 moves each pane
 # into a tmux-spawn scope outside the runner's unit; systemd-run --scope moves claude again, into
 # blast-off.slice under a name the runner and `blast-off stop` can stop (spec §4). tmux moves only the
-# pane's own pid, after fork and without waiting, so '; exit' makes the shell fork systemd-run rather
-# than exec it: a late tmux move lands on the shell, never on claude (else claude ends in a tmux-spawn
+# pane's own pid, after fork and without waiting, so the commands after claude make the shell fork
+# systemd-run rather than exec it: a late tmux move lands on the shell, never on claude (else claude
+# ends in a tmux-spawn
 # scope the runner cannot name). CHILD_WIN is the pane id (%N): an index target (session:1.0) of a
 # closed window resolves to another window on tmux 3.4 and would hide the death (D2-1).
 child_launch() {

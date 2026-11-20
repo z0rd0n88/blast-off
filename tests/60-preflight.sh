@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # 60-preflight: `blast-off preflight <job-dir> [workdir]` prints, one `name: value` line each, what a
 # launch would use and what stands against it (F2, F9, F10, K8): the flags `start` gives, model and
-# effort, the level (Jev's pick as start gives it: start passes OPENROUTER_API_KEY by name when it is set, issue 27;
-# the pick with its confidence and threshold, or static and why), cap, timeout,
+# effort, the level (Jev's pick as start gives it: start passes OPENROUTER_API_KEY by name when Jev
+# can use it, issue 27; the pick with its confidence and threshold, or static and why), cap, timeout,
 # account, current usage, usage estimate, slice
 # (D1-7), scope stop timeout (Q2), open PRs on the brief's target set, behind-base count. It writes
-# nothing. Exit 1, every line still printed, when the estimate is over what is left of the seven_day
-# window or a launch would refuse (CLAUDE_FLAGS empty); no estimate or no usage record never refuses.
+# nothing to the job dir. Exit 1, every line still printed, when the estimate is over what is left
+# of the seven_day
+# window or a launch would refuse (CLAUDE_FLAGS empty, a garbled child-count); a bad JOB_* number exits 1
+# at once with only its refused line; no estimate or no usage record never refuses.
 source "$REPO/tests/lib.sh"
 use_fakes
 unset JOB_CHILD_TIMEOUT JOB_CAP_FACTOR JOB_MAX_CHILDREN JOB_BASE JOB_JEV JOB_JEV_MIN_CONF BLAST_OFF_ESTIMATE_FROM
