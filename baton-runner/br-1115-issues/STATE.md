@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 8 fix round 1)
+status: RUNNING (phase 8 review round 2)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
-phase: 8 of 10  unit: FIX  review_iter: 1 of 3
+phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_8_branch: feat/br-1115-issues/phase-8 (from main ec15714)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 41
+units_used: 42
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -106,3 +106,6 @@ Phase 8 work done: 71abdef (templates/brief.md stop condition, tests/51-template
 
 ## UPDATE 2026-11-19 (10)
 Phase 8 review round 1 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 2 MEDIUM / 7 LOW (review-phase-8-iter-1.md). Manager: one fix round anyway, because P8R1-1 (sentence in launcher-rewritten section 4) would stop the fix reaching children. Retry clause stays out (reviewer agrees). Owner Q1 (allow fixing a defect a denial names): manager default no new line. Owner Q2 (README/SKILL: watch only, never answer a child prompt): follow-up issue at delivery.
+
+## UPDATE 2026-11-19 (11)
+Phase 8 fix round 1: f4baca5 (sentence moved to section 9 step 9; section 4 restored; test anchored to section 9; red, green and two probes in baton-phase-8-fix-1.md). Review round 2 (narrow) running.
