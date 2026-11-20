@@ -63,6 +63,12 @@ for s in 'a phase that opens no PR says `no PR` in brief §5 and closes its row 
 done
 # A '!' start line without CLAUDE_FLAGS exits 1 (lib/units.sh unit_check).
 ! grep -qF '! blast-off start' "$skill" "$readme" || fail "SKILL.md or README hands over '! blast-off start' with no CLAUDE_FLAGS"
+# #21: the launching session starts in the target repo; the original launcher prompt is kept in docs/
+s='inside the target repo (the repo the job changes)'
+[[ $R == *"$s"* ]] || fail "README does not say '$s'"
+[[ $K == *"$s"* ]] || fail "SKILL.md does not say '$s'"
+[[ -f $REPO/docs/2026-11-04-large-job-launcher-prompt.md ]] || fail "missing docs/2026-11-04-large-job-launcher-prompt.md"
+grep -qF '(docs/2026-11-04-large-job-launcher-prompt.md)' "$readme" || fail "README does not link docs/2026-11-04-large-job-launcher-prompt.md"
 
 # --- deviations: one row per guide §5 directive, a disposition and a filled verified cell ---
 # Every directive of the systemd guide's §5 template .

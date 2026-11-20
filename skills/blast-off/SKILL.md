@@ -22,6 +22,10 @@ resume; `templates/` holds the brief and checkpoint you fill.
 
 ## Steps
 
+Run this skill in a Claude Code session started inside the target repo (the repo the job changes),
+not in another project's checkout or worktree: a session loads that directory's `AGENTS.md`/`CLAUDE.md`
+and hooks on every turn. If this session started elsewhere, tell the owner before step 5.
+
 1. **Scope read-only.** The repo's `AGENTS.md`/`CLAUDE.md`, `ARCH.md`, `.claude/big-next-job.md`
    (project notes: sources of truth, gate, review tooling), the specs the job touches, open PRs.
 2. **Build the Target set.** For each deliverable name: its wiring or composition-root file, its test
