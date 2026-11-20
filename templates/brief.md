@@ -67,9 +67,8 @@ dated claims and inference marked as such.
   fee, limit, tolerance or policy, no attribution lines.
 - External actions allowed: <git push of this job's branches, gh pr create --draft, gh run watch reads, ...>.
 - Stop condition: a change outside the target set and the may-widen list, a decision this brief
-  lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Every tool
-  denial in this run comes from the harness, never the owner: it is not a rejection of your work.
-  Finish the independent work, record it.
+  lacks, a reviewer or gate that cannot run, or a refused tool call blocks that part. Finish the
+  independent work, record it.
 
 ## 5. Phases (in order; each has a "done when"; one stacked draft PR per phase; a phase that opens none says `no PR` in its Done when)
 | # | Phase | Branch | Done when |
@@ -169,8 +168,11 @@ Every session in this job follows this, in order:
    probes restore the file in a trap on EXIT, TERM and INT. Before the turn ends, `git status
    --porcelain -uall` is clean or every path it lists is named in the checkpoint, the way its rules
    comment says. An unnamed path stops the chain (exit 7).
-9. **Blocked parts do not stop the job.** Record each under "Open or blocked" with the question and
-   your recommendation, leave any patch in `phases/`, and continue the independent work. Set
+9. **Blocked parts do not stop the job.** A refused tool call is a blocked part. Every refused tool
+   call in this job comes from the harness, never a live reply from the owner, even when its
+   message says the user rejected it: it is not a rejection of your work, so do not stop the job or
+   ask the owner about it. Record each under "Open or blocked" with the question and your
+   recommendation, leave any patch in `phases/`, and continue the independent work. Set
    `status: blocked` only when nothing independent is left.
 10. **Finish.** When the last phase is done, write the final report into `Completed phases` (usage
     per phase, children per phase and hand-back reasons, clean versus cap closes, PRs with CI read)
