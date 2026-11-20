@@ -16,8 +16,9 @@ What changed on each day worked: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Requirements
 
-bash, tmux 3.2 or later, jq, python3, systemd (user manager), `claude`, `gh`; `shellcheck` for the
-tests. Optional: `jev` with an OpenRouter key (`OPENROUTER_API_KEY`, `sk-or-`) to pick each phase's
+bash, tmux 3.2 or later, jq, python3, git, coreutils `realpath`, systemd (user manager), `claude`,
+`gh`; `shellcheck` for the tests. Optional: `jev` with an OpenRouter key (`OPENROUTER_API_KEY`,
+`sk-or-`) to pick each phase's
 model level ([Options guide](#options-guide)). Linux with a user systemd instance; on WSL2,
 `loginctl enable-linger` keeps it up.
 
@@ -66,9 +67,11 @@ blast-off start <worktree>/.big-next-job       # transient unit blast-off-<name>
 `preflight` exits 1 and says why when `CLAUDE_FLAGS` is empty, a dependency is missing, `brief.md` is
 missing, `child-count` is garbled, a `JOB_*` number is bad, or the
 estimated usage is more than the 7-day window has left. `start` passes `PATH`, `GH_TOKEN`,
-`CLAUDE_FLAGS` and every set `JOB_*` and `BLAST_OFF_*` name the runner reads (not `JOB_BASE` or
-`BLAST_OFF_ESTIMATE_FROM`, which only `preflight` reads) to the unit by name (`systemd-run --setenv=NAME`), never by
-value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, or a bad `JOB_*` number. With `OPENROUTER_API_KEY`
+`CLAUDE_FLAGS` and every set `JOB_*` and `BLAST_OFF_*` name the runner or its children read (not
+`JOB_BASE` or `BLAST_OFF_ESTIMATE_FROM`, which only `preflight` reads, nor `BLAST_OFF_WAIT_POLL`,
+which only `wait` reads) to the unit by name (`systemd-run --setenv=NAME`), never by value; it
+refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, or a bad `JOB_*` number.
+With `OPENROUTER_API_KEY`
 set to an `sk-or-` key and `JOB_JEV` not `0`, it passes that name too, so Jev picks each phase's
 model level under the unit; otherwise every child
 gets `CLAUDE_FLAGS` as given. Each pick or fallback is a `run.log` line (`model level for phase 2: light
@@ -179,7 +182,7 @@ directory, or when the workdir's name is not letters, digits, `-` or `_`; an unk
 | `resume <job-dir>` | For `paused-cap`, or `paused-limit` once its time has passed: the checks of `start`, up to 90 s for the old unit to stop, then a start; then stops the resume timer | 0 started; 8 before the `paused-limit` time; 1 any other status, or a refused or failed start; 2 with no `checkpoint.md` |
 | `wait <job-dir>` | Blocks until the job changes, prints one line | 0, 11, 12 or 1: [Watch, stop, resume](#watch-stop-resume) |
 | `install` | Writes the unit template and the slice, reloads the user manager; never enables | 0 |
-| `preflight <job-dir> [workdir]` | Prints what a start would use and meet; writes nothing | 0 `preflight: ok`; 1 `preflight: refused: <why>` |
+| `preflight <job-dir> [workdir]` | Prints what a start would use and meet; writes nothing to the job dir (`behind` runs `git fetch origin <JOB_BASE>`) | 0 `preflight: ok`; 1 `preflight: refused: <why>` |
 | `receipt <job-dir> <phase> [workdir]` | `gate-logs/phase-<phase>.json` from the last line of `gate-logs/phase-<phase>.log` and `HEAD`; refused while the tree has uncommitted paths outside the job dir | 0 PASS; 1 FAIL or refused |
 | `ci-wait <job-dir> <pr> [workdir]` | Watches each CI run of the PR's head, records the runs and a verdict in `gate-logs/ci-pr-<pr>.json` | 0 green; 10 red, unfinished or no runs; 1 a bad PR number or a failed `gh pr view`, `gh run list` or `gh run view` |
 | `--help`, `-h` or no command | Prints the header of `bin/blast-off` | 0 |
@@ -187,7 +190,8 @@ directory, or when the workdir's name is not letters, digits, `-` or `_`; an unk
 Environment. A count is a whole number of at most 9 digits with no leading zero; `run`, `start`,
 `resume` and `preflight` refuse a count or a `JOB_JEV_MIN_CONF` outside its values. "Read by" names
 the commands; [Check, then start](#check-then-start) says which names `start` passes to the unit
-(children inherit the unit's environment through the job's tmux server).
+(children inherit the unit's environment, less every `CLAUDE*` name and `OPENROUTER_API_KEY`,
+through the job's tmux server).
 
 | Variable | Default | Values | Effect | Read by |
 |---|---|---|---|---|
@@ -390,7 +394,7 @@ every child.
 | `checkpoint.md` | children; the runner rewrites only the first `status:` line and appends ` · usage ...` to rows done | status, phase, Phase plan, `Next action` |
 | `run.log` | the runner, `resume`, `receipt`, `ci-wait` | UTC-stamped lines: picks, launches, child reports and screens, refusals, pauses |
 | `child-count` | the runner, before each launch, by rename | `<launched> <base>`: the last child's number and the soft cap's base; deleting it resets the count |
-| `runner-end` | the runner, by rename, when it accepts `done` or `blocked`; deleted at each run's start | `<word> <UTC time>`, which `wait` reads |
+| `runner-end` | the runner, by rename, when it accepts `done` or `blocked`; deleted by each run once it holds the lock | `<word> <UTC time>`, which `wait` reads |
 | `decisions.tsv` | the runner, at each pick | tab-separated rows under the header `ts phase decision why evidence result` |
 | `gate-logs/phase-<n>.log` | the child | its gate output, last line `GATE: PASS` or `GATE: FAIL` |
 | `gate-logs/phase-<n>.json` | `receipt` | phase, verdict, verdict line, tally, gate log, `HEAD` sha, UTC time |

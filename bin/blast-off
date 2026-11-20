@@ -7,7 +7,8 @@
 # Usage: blast-off run <job-dir> [workdir]   the chain loop in the foreground (the unit's ExecStart)
 #        blast-off start <job-dir>            run it as transient unit blast-off-<name>.service
 #        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
-#        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: start (the runner sets running)
+#        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: start
+#                                             (the runner sets running)
 #        blast-off wait <job-dir>             block until the status, phase, child or unit changes, print one line:
 #                                             exit 0 the runner accepted done or blocked (its runner-end file), 11
 #                                             changed (wait again), 12 for 10 s nothing runs or is scheduled and no
@@ -23,7 +24,7 @@
 #        JOB_CAP_FACTOR=3          soft cap = Phase plan rows in checkpoint.md times this
 #        JOB_MAX_CHILDREN          overrides the soft cap; with no Phase plan row it reads, the hard cap (default 12)
 #        JOB_SESSION=job-<name>    tmux session on the job's own server, tmux -L blast-off-<name>
-#        JOB_KEEP_WINDOWS=1        leave finished children's windows open
+#        JOB_KEEP_WINDOWS          set to any value (0 too): leave finished children's windows open
 #        BLAST_OFF_TRUST_SECONDS=60  seconds after a child starts that its trust dialog is answered
 #        JOB_USAGE_PAUSE=95        pause when a usage window is at or above this percent at a child's end
 #        JOB_RESUME_MARGIN=60      seconds after a usage reset that the resume timer fires

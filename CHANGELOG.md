@@ -13,8 +13,11 @@ it is new). Newest day first. Dates are git author dates as recorded, all at UTC
 - Docs: blast-off is launched from the target repo, the original launcher prompt is kept in
   `docs/`, and the spec's keep and fix lists point at that copy (#21, PR #49).
 - Merged `blast-off wait` (PR #43), built on 2026-11-17 and 2026-11-18.
-- (Phase 10, adjust when it lands) Documentation update and fact check: README options guide,
-  technical details, this changelog.
+- Docs: the README gains an Options guide (every command with its exit codes, every environment
+  variable with its default and effect) and a Technical details section (systemd units and the
+  resume timer, the runner loop, the child, job-dir files); every claim in the README, spec, skill
+  and code comments was checked against the code and fixed where wrong; this changelog
+  (PR #<n>).
 
 ## 2026-11-18
 
@@ -41,8 +44,8 @@ it is new). Newest day first. Dates are git author dates as recorded, all at UTC
 
 ## 2026-11-15
 
-- A dead child pane that gave no exit status is now logged, with a test for the reset (#29,
-  PR #32).
+- A dead child pane that gave no exit status is now logged, and the flag clears for the next
+  child (#29, PR #32).
 - Added `scripts/gate.sh`, a gate wrapper around `tests/run` (PR #33).
 - Test tooling: `tests/run` keeps scenario work dirs under `BLAST_OFF_TEST_KEEP` and CI uploads
   them when the gate fails (#30); `BLAST_OFF_TEST_ONLY` runs a subset, also from a CI `only`

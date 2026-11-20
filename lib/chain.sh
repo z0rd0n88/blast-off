@@ -126,8 +126,9 @@ chain_cap() {
 # fresh job, 0 0: deleting it is the owner's one reset (P4R2-11). Anything else but two whole numbers of at
 # most 9 digits with BASE <= LAUNCHED, a dangling symlink among them (P4R1-5), returns 1 with COUNT_ERR:
 # a garbled count must not reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
-# COUNT_ERR names the file and, when it can be read, its size and the shape it wants, never the content: it reaches run.log, status and
-# preflight, and a second line could forge a run.log line or a link show a secret (P5R1-5, owner Q5).
+# COUNT_ERR names the file and, when it can be read, its size and the shape it wants, never the
+# content: it reaches run.log, status and preflight, and a second line could forge a run.log line or a
+# link show a secret (P5R1-5, owner Q5).
 chain_count() {
   local f="$JOB/child-count" c
   LAUNCHED=0 BASE=0 COUNT_ERR='' COUNT_SAY="child-count: none, a fresh job; first child 1"
