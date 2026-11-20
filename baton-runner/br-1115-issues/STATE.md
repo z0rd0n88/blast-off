@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 10 work C)
+status: RUNNING (phase 10 review round 1)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_10_branch: feat/br-1115-issues/phase-10 (from main 9c86128)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 47
+units_used: 48
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -134,3 +134,6 @@ Owner: merge 49 and start phase 10. PR 49 merged (9c86128), issue 21 closed, pha
 
 ## UPDATE 2026-11-19 (18)
 Phase 10 unit A: CHANGELOG.md (11 days, 168 commits) 3631c5d, cherry-picked as db14a67; ledger phase-10/changelog-ledger.md. Unit B: fact check 0a5d3b1, 240 claims (200 ok, 38 fixed, 2 deleted), coverage.md, fact-ledger.md, work-B.md; GATE-ONLY 00-harness,51-templates,70-docs PASS, ExecStart unchanged. Open for reviewer: scripts/gate.sh:2-4 header says every scenario (outside file list). Unit C (README options guide + Technical details) spawned.
+
+## UPDATE 2026-11-19 (19)
+Phase 10 unit C: c45292a, README Options guide (165-219, 12 commands, 25 env vars) and Technical details (265-413, ASCII diagram), 110 ledger rows, 70-docs check (Technical details heading + a row per dispatched verb), red/green, GATE-ONLY PASS, ExecStart unchanged. Split check: 374+/40- over 10 files, under 750, no split. Review round 1 running (all fixed rows + seeded sample of ok rows, full gate).

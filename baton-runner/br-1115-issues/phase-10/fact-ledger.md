@@ -301,3 +301,122 @@ Counts: 240 claims; 200 ok (7 of them new text this unit added, each checked), 3
 | #46 P7R2-16 row 12 points at a row-11 claim | docs/spec.md:246-247 | test 11-unit-smoke.sh:90-99 | fixed (counted above) |
 | #47 "README.md:97 and SKILL.md:73 say watch a child's window only; never answer a prompt in it" | README.md, SKILL.md | text not present at 9c86128 (grep "never answer": no hit) | ok (nothing to check; owner question stays in #47) |
 | #47 P8R2-3 step 9 text checked anywhere in §9 | docs/spec.md:259 | test 51-templates.sh:98; the row says "section 9 text (step 9 in the template)", true of the template | ok |
+
+## README options guide and Technical details (unit C)
+
+Locations are README.md lines in unit C's commit. "probe" = run by unit C in a scratch job dir with no
+checkpoint.md (`blast-off status|logs|resume <dir>`, `blast-off bogus`, `blast-off`). Code paths are
+relative to the repo root.
+
+| claim | location | evidence | result |
+|---|---|---|---|
+| README points at the Options guide and Technical details for every command and variable | README.md:12-13 | sections at README.md:165, :265 | ok |
+| jev picks each phase's model level, details in the Options guide (threshold sentence moved to the env table) | README.md:20-21 | lib/jev.sh:29-58 | ok |
+| `<name>` is the workdir's basename; the workdir is the job dir's parent unless a `[workdir]` is given | README.md:167-168 | bin/blast-off:63-64, :74-78 | ok |
+| a command taking `<job-dir>` exits 1 when it is missing or not a dir, or the workdir name is not letters, digits, `-`, `_` | README.md:168-170 | bin/blast-off:57, :61-65 | ok |
+| an unknown command exits 1 | README.md:170 | bin/blast-off:81; probe `blast-off bogus` rc=1 | ok |
+| `run <job-dir> [workdir]`: the chain in the foreground, the unit's ExecStart | README.md:174 | bin/blast-off:74; systemd/blast-off@.service:15; lib/units.sh:48 | ok |
+| `run` exits per the Exit codes table, 129/130/143 on HUP/INT/TERM | README.md:174 | lib/chain.sh:167-169, :27 (rc >= 128 stands) | ok |
+| `start` refuses unset/empty CLAUDE_FLAGS or GH_TOKEN, missing/empty brief.md or checkpoint.md, a bad JOB_* number | README.md:175 | lib/units.sh:32-38; test 12-start-env.sh | ok |
+| `start` runs `run` as transient unit blast-off-<name>.service and prints its systemd-run line | README.md:175 | lib/units.sh:44-50, bin/blast-off:67 | ok |
+| `start` exits 0 started, 1 refused, systemd-run's code when it fails | README.md:175 | bin/blast-off:57 (die 1); lib/units.sh:50 (`|| return`), set -e at bin/blast-off:48 | ok |
+| `status` prints checkpoint.md to its first `## `, ActiveState, child count, timer state, the resume line for an unarmed paused-limit | README.md:176 | lib/units.sh:76-86 | ok |
+| `status` exits 0; 2 with no checkpoint.md | README.md:176 | lib/units.sh:77 under pipefail; probe rc=2 | ok |
+| `stop` stops the runner unit, every child scope, the resume timer; 1 when the unit is still active | README.md:177 | lib/units.sh:89-95 | ok |
+| `logs`: last 40 lines of run.log and of the unit's journal; exit 0 | README.md:178 | lib/units.sh:97-100 (both `||`); probe rc=0 | ok |
+| `resume` acts on paused-cap, or paused-limit once its time passed | README.md:179 | lib/units.sh:61-66 | ok |
+| `resume`: start's checks, up to 90 s for the old unit, a start, then stops the timer | README.md:179 | lib/units.sh:67-73 | ok |
+| `resume` exits 8 before the time; 1 other status or refused/failed start; 2 with no checkpoint.md | README.md:179 | lib/units.sh:62, :65, :67, :72; probe rc=2 | ok |
+| `wait` blocks until the job changes, prints one line; exits 0, 11, 12 or 1 | README.md:180 | lib/units.sh:110-142; test 13-wait.sh | ok |
+| `install` writes the template and slice, reloads the user manager, never enables; exit 0 | README.md:181 | lib/units.sh:8-14 (no enable) | ok |
+| `preflight` prints what a start would use and meet, writes nothing; 0 ok, 1 refused | README.md:182 | lib/preflight.sh:2-6, :11, :50-51; test 60-preflight.sh | ok |
+| `receipt` writes phase-<phase>.json from the gate log's last line and HEAD; refused on uncommitted paths outside the job dir; 0 PASS, 1 FAIL or refused | README.md:183 | lib/receipt.sh:19-39, :12; test 40-receipt-required.sh | ok |
+| `ci-wait` watches each run of the PR head, records runs and verdict in ci-pr-<pr>.json; 0 green, 10 red/unfinished/none, 1 bad PR or failed gh pr view/run list/run view | README.md:184 | lib/ci.sh:13-47 (die at :15, :18, :20, :30, :36; exit 10 at :46); test 41-ci-wait.sh | ok |
+| `--help`, `-h` or no command prints the header of bin/blast-off; exit 0 | README.md:185 | bin/blast-off:80; probe rc=0 | ok |
+| a count is a whole number of at most 9 digits, no leading zero; run, start, resume, preflight refuse it or a bad JOB_JEV_MIN_CONF | README.md:187-188 | lib/chain.sh:94-103; callers chain.sh:155, units.sh:37, preflight.sh:15 | ok |
+| children inherit the unit's environment through the job's tmux server | README.md:190 | lib/child.sh:5-6, :22-23 | ok |
+| CLAUDE_FLAGS: required; every child's flags; a Jev pick replaces only --model and --effort; read by run, start, resume, preflight | README.md:194 | lib/chain.sh:148; units.sh:33; preflight.sh:16; jev.sh:55-57; child.sh:50 | ok |
+| GH_TOKEN: start and resume refuse without it; reaches runner, children, gh; unset, no resume timer; read by start, resume, run, preflight | README.md:195 | lib/units.sh:22, :34; child.sh:5-6; usage.sh:64-65; preflight.sh:43 | ok |
+| OPENROUTER_API_KEY: sk-or- only, else CLAUDE_FLAGS; passed only when sk-or- and JOB_JEV not 0; never given to a child | README.md:196 | lib/jev.sh:34-37; units.sh:23; child.sh:22 (`-u OPENROUTER_API_KEY`) | ok |
+| JOB_JEV: default on; 0 means no Jev; read by run, start, resume, preflight | README.md:197 | lib/jev.sh:33; units.sh:23; preflight.sh:23 | ok |
+| JOB_JEV_MIN_CONF: 0.7; 0 to 1, at most 3 decimals; below it keeps CLAUDE_FLAGS | README.md:198 | lib/jev.sh:31, :47-49; chain.sh:101-102 | ok |
+| JOB_CHILD_TIMEOUT: 7200; seconds before a child is stopped and the next starts; read by run, preflight | README.md:199 | lib/chain.sh:152, :224-225; child.sh:88; preflight.sh:41 | ok |
+| JOB_CAP_FACTOR: 3; soft cap = rows times it | README.md:200 | lib/chain.sh:117 | ok |
+| JOB_MAX_CHILDREN: with rows the soft cap instead; none: hard cap, default 12 | README.md:201 | lib/chain.sh:114-120 | ok |
+| JOB_USAGE_PAUSE: 95; pause at or above at a child's end | README.md:202 | lib/usage.sh:21, :26; chain.sh:245-246 | ok |
+| JOB_RESUME_MARGIN: 60; seconds after the reset the timer fires | README.md:203 | lib/usage.sh:45 | ok |
+| JOB_API_BACKOFF: 600; after overloaded, server_error, unknown | README.md:204 | lib/chain.sh:230-231, :214 | ok |
+| JOB_SESSION: job-<name>; session on server blast-off-<name>; read by run, start | README.md:205 | bin/blast-off:69; child.sh:23; units.sh:51 | ok |
+| JOB_KEEP_WINDOWS: any non-empty value, 0 too; keeps finished child's window, scope, dir, and server and scopes at runner exit; timed-out or failed child still stopped | README.md:206 | lib/child.sh:137, :144 (`-n` test, force); chain.sh:22, :223-235 | ok |
+| JOB_BASE: main; preflight's behind count after fetching it | README.md:207 | lib/preflight.sh:139-147 | ok |
+| BLAST_OFF_TRUST_SECONDS: 60; window after start in which the trust dialog is answered | README.md:208 | lib/child.sh:89-92 | ok |
+| BLAST_OFF_STATE_DIR: ~/.claude/state; where usage records are read; run, preflight | README.md:209 | lib/usage.sh:19; preflight.sh:72 | ok |
+| BLAST_OFF_ESTIMATE_FROM: default this job's checkpoint.md; source of preflight's estimate | README.md:210 | lib/preflight.sh:90 | ok |
+| BLAST_OFF_CI_APPEAR: 60; ci-wait waits for runs to be listed | README.md:211 | lib/ci.sh:20-23 | ok |
+| BLAST_OFF_CI_WATCH: 3600; one run's watch; past it recorded as it stands | README.md:212 | lib/ci.sh:26-27 | ok |
+| BLAST_OFF_CI_HEAD: 60; runner's gh pr view at done; past it unread, exit 10 | README.md:213 | lib/ci.sh:132-134 | ok |
+| BLAST_OFF_WAIT_POLL: 5; 0.1 to 3600, at most 3 decimals; between wait's reads | README.md:214 | lib/units.sh:111-114, :135 | ok |
+| PATH must hold the runner's commands, gh for preflight; children get this checkout's bin/ first; start passes it | README.md:215 | lib/chain.sh:89, :149; preflight.sh:17; child.sh:22; units.sh:22 | ok |
+| XDG_CONFIG_HOME: install writes to its systemd/user | README.md:216 | lib/units.sh:5, :9-11 | ok |
+| XDG_RUNTIME_DIR (/tmp fallback): lock, child dirs, temp files; run, preflight | README.md:217 | lib/chain.sh:37, :65; child.sh:45; jev.sh:39 (preflight via jev_flags) | ok |
+| BLAST_OFF_TEST_* and BLAST_OFF_NO_SHELLCHECK are tests only, all in tests/run's header | README.md:218 | tests/run:5-8, :11, :24, :49 | ok |
+| diagram: start -> systemd-run unit -> runner in slice -> tmux window -> child scope running claude -> Stop hook done.json -> runner stops scope, next child | README.md:267-278 | lib/units.sh:44-48; systemd/blast-off@.service:16; child.sh:23, :49-50; templates/settings.child.json; chain.sh:220-223 | ok |
+| install writes the template with @BLAST_OFF@ replaced, copies the slice, daemon-reload | README.md:282-284 | lib/units.sh:8-14 | ok |
+| template [Service]: Type=exec, ExecStart run %f, Slice, KillMode=control-group, ManagedOOMPreference=avoid, TimeoutStopSec=60; no Restart=, no [Install] | README.md:284-286 | systemd/blast-off@.service:13-19, :8-9 | ok |
+| instance name is the path-escaped job dir; %f gives the absolute path | README.md:286-287 | systemd/blast-off@.service:1-3 | ok |
+| start and resume never start the template; systemd-run --user --collect --unit --working-directory, --setenv=NAME, -p per [Service] line except ExecStart, then run <job-dir> | README.md:289-293 | lib/units.sh:41-50, :72 | ok |
+| systemd-run copies a --setenv=NAME value from its own environment | README.md:291-292 | lib/units.sh:16-17; test 12-start-env.sh | ok |
+| each child runs in blast-off-<name>-child-<n>.scope made by systemd-run --user --scope --slice=blast-off.slice | README.md:293-294 | lib/child.sh:48-50 | ok |
+| scopes sit outside the runner's cgroup, so runner and stop stop them by name; stop's systemctl --user stop list | README.md:294-296 | lib/chain.sh:13-14; units.sh:88-91; child.sh:31 | ok |
+| at a usage pause the session id of the child's Stop payload names the usage record | README.md:298-299 | lib/chain.sh:238; usage.sh:19 | ok |
+| the runner stops an earlier .resume.timer/.service, then systemd-run --on-calendar UTC, AccuracySec=1s, same --setenv names, resume <job-dir> | README.md:299-302 | lib/usage.sh:57, :68-71 | ok |
+| timer time: latest reset of windows at or over JOB_USAGE_PAUSE, else five-hour reset, else 5 h; plus margin; at least 5 s ahead | README.md:303-304 | lib/usage.sh:26-27, :44-45; chain.sh:246 | ok |
+| a calendar timer that elapses during sleep fires on wake | README.md:304-305 | lib/usage.sh:53-54 (systemd.timer(5)) | ok |
+| when it fires, resume waits up to 90 s, starts as start does, stops the timer | README.md:305-307 | lib/units.sh:68-73 | ok |
+| no timer, a logged line instead, when GH_TOKEN unset or workdir is not the job dir's parent | README.md:307-308 | lib/usage.sh:58-66 | ok |
+| every call is systemctl --user or systemd-run --user; blast-off never calls loginctl | README.md:310-312 | `grep -n 'systemctl\|systemd-run\|loginctl' bin/blast-off lib/*.sh`: every call has --user (units.sh:50 through its args at :44), no loginctl | ok |
+| under the unit stdout/stderr go to its journal; each log line also printed; die errors (CLAUDE_FLAGS, PATH) only there | README.md:312-314 | bin/blast-off:56-57 (tee, stderr); chain.sh:148-149 | ok |
+| run checks CLAUDE_FLAGS, commands, brief.md, checkpoint.md, JOB_* values, child-count; exits 1 | README.md:318-319 | lib/chain.sh:148-156 | ok |
+| lock path, noclobber, pid and start time from /proc/<pid>/stat; live holder exits 1; stale taken over | README.md:321-323 | lib/chain.sh:36-52; test 23-runner-lock.sh | ok |
+| on exit: ignore HUP/INT/TERM, stop scopes, server, child dirs unless JOB_KEEP_WINDOWS, remove lock, non-state non-signal exit becomes 1 | README.md:324-326 | lib/chain.sh:19-28, child.sh:30-34 | ok |
+| TERM logs and exits 143, HUP 129, INT 130 | README.md:326-327 | lib/chain.sh:167-169 | ok |
+| setup: delete runner-end, start tmux server, log cap and count, git top level (none: dirty and receipt checks off) | README.md:328-329 | lib/chain.sh:170-181; receipt.sh:46 | ok |
+| paused-cap -> running (fresh soft allotment); paused-limit past -> running; ahead -> exit 8; then dirty check exit 7 | README.md:329-332 | lib/chain.sh:185-195, :85 | ok |
+| loop: receipt check (9); done: Phase plan, open-row, CI checks (9 or 10), runner-end, 0; blocked: runner-end, 3 | README.md:333-334 | lib/chain.sh:198-205; ci.sh:60-64; receipt.sh:68-71 | ok |
+| cap: exit 4 hard, paused-cap and 6 soft; due back-off sleep | README.md:334-335 | lib/chain.sh:209-214 | ok |
+| fingerprint is the first 16 hex of sha256; warning over 150 lines | README.md:335-336 | lib/checkpoint.sh:8, :111-114 | ok |
+| flags, child-count updated, launch, wait, report, stop | README.md:336-337 | lib/chain.sh:217-223 | ok |
+| usage read; ` · usage` appended to rows this child closed; dirty check; usage pause unless done/blocked; two stalls exit 5 | README.md:337-340 | lib/chain.sh:238-254; checkpoint.sh:134-142 | ok |
+| children write only running, done, blocked (templates/brief.md §9) | README.md:342 | templates/brief.md:112, :163 | ok |
+| the runner writes only paused-cap, paused-limit until, running; never done or blocked | README.md:342-344 | cp_set_status callers: lib/chain.sh:187, :192, :211; usage.sh:47 | ok |
+| tmux server `-f /dev/null -L blast-off-<name>`, one session JOB_SESSION in the workdir; owner's tmux.conf kept out | README.md:348-349 | lib/child.sh:16-17, :22-23 | ok |
+| server env is the runner's less CLAUDE* and OPENROUTER_API_KEY, bin/ first on PATH, BLAST_OFF set | README.md:349-352 | lib/child.sh:14, :22 | ok |
+| remain-on-exit on keeps a dead pane and screen; a run first stops server, scopes, child dirs | README.md:352-353 | lib/child.sh:15, :24-26, :30-34 | ok |
+| Jev asked when the first open row changed; row text on stdin, TYPESAFE_API_KEY and JEV_BASE_URL removed, 60 s timeout | README.md:355-357 | lib/jev.sh:62-67, :40; test 61-jev-pick.sh | ok |
+| light/standard/deep flag pairs replace --model and --effort; other answer, failure, low confidence keep CLAUDE_FLAGS | README.md:357-360 | lib/jev.sh:8-15, :41-57 | ok |
+| each pick is a run.log line and a decisions.tsv row | README.md:360-361 | lib/jev.sh:68-79 | ok |
+| child dir under XDG_RUNTIME_DIR with settings.json: Stop -> done.json, StopFailure -> failed.json | README.md:363-365 | lib/child.sh:45-46; templates/settings.child.json:1 | ok |
+| new window with JOB_DIR, JOB_CHILD runs systemd-run --scope claude <flags> --settings, then writes exit status to <dir>/exit | README.md:365-367 | lib/child.sh:49-50 | ok |
+| the prompt is fixed: continue, read checkpoint.md, brief.md, follow Child protocol, work from the workdir | README.md:367-369 | lib/chain.sh:161 | ok |
+| once a second: done.json, failed.json, pane dead or unreadable twice, timeout, in that order | README.md:371-373 | lib/child.sh:69-93 | ok |
+| trust dialog: first BLAST_OFF_TRUST_SECONDS, `Yes, I trust this folder` on screen -> Down Enter | README.md:373-374 | lib/child.sh:89-92 | ok |
+| done.json: session_id, transcript_path, last message to run.log, tail to journal; stop scope, close window | README.md:376-378 | lib/child.sh:106-125, :143-147; chain.sh:223 | ok |
+| failed.json: logged with its error, stopped; rate_limit pauses; overloaded/server_error/unknown wait JOB_API_BACKOFF | README.md:378-379 | lib/chain.sh:226-233, :245-246 | ok |
+| timed-out child logged and stopped; exited child: status and last 40 screen lines logged, stopped; exit 75 pauses | README.md:379-381 | lib/chain.sh:224-225, :234-236; child.sh:98-101; usage.sh:9 | ok |
+| then the child dir is removed; JOB_KEEP_WINDOWS keeps the window, scope and dir of a child that ended its turn, and every dir | README.md:381-383 | lib/chain.sh:240; child.sh:136-147 | ok |
+| brief.md: run and start check it is not empty; preflight reads its Target set | README.md:389 | lib/chain.sh:150; units.sh:35; preflight.sh:115 | ok |
+| checkpoint.md: the runner rewrites only the first status line and appends ` · usage` to rows done | README.md:390 | lib/checkpoint.sh:117, :134-142 | ok |
+| run.log written by the runner, resume, receipt, ci-wait, UTC-stamped | README.md:391 | bin/blast-off:56, :70; units.sh:71; receipt.sh:12, :37; ci.sh:27, :45 | ok |
+| child-count: `<launched> <base>`, by rename, before each launch; deleting resets | README.md:392 | lib/chain.sh:131-145, :219 | ok |
+| runner-end: `<word> <UTC>` by rename at an accepted done or blocked; deleted at each run's start; wait reads it | README.md:393 | lib/chain.sh:11, :170, :203-204; units.sh:118 | ok |
+| decisions.tsv: tab-separated rows under header ts phase decision why evidence result | README.md:394 | lib/jev.sh:77-79 | ok |
+| gate-logs/phase-<n>.log by the child, last line GATE: PASS or FAIL | README.md:395 | lib/receipt.sh:4-9, :23-24 | ok |
+| gate-logs/phase-<n>.json by receipt: phase, verdict, verdict line, tally, gate log, HEAD sha, UTC | README.md:396 | lib/receipt.sh:30-35; templates/receipt.json | ok |
+| gate-logs/ci-pr-<pr>.json by ci-wait: pr, head sha, utc, runs (id, name, conclusion), verdict success/failure/absent | README.md:397 | lib/ci.sh:36-43 | ok |
+| phases/ never written by blast-off; the 150-line warning suggests it | README.md:399-400 | lib/checkpoint.sh:113; `grep -n 'phases/' bin lib`: only that log text | ok |
+| usage records read from BLAST_OFF_STATE_DIR, written by a status-line hook | README.md:400-401 | lib/usage.sh:3-6, :19 | ok |
+| receipt: last non-empty line must start `GATE: `; refused on uncommitted paths outside the job dir | README.md:403-404 | lib/receipt.sh:6-9, :24-28 | ok |
+| ci-wait: head via gh pr view; runs less workflow_dispatch; empty list re-read every 5 s up to CI_APPEAR; gh run watch --exit-status under CI_WATCH; up to 3 rounds; verdict success when all success/skipped/neutral | README.md:404-408 | lib/ci.sh:18-43, :52-55 | ok |
+| each pass every done row: sha in HEAD's history, PASS receipt for it matching the gate log; a row done by the last child: git diff <sha> HEAD empty outside the job dir | README.md:409-411 | lib/receipt.sh:45-65 | ok |
+| at done each PR's record's head checked against a fresh gh pr view under CI_HEAD | README.md:411-413 | lib/ci.sh:104-108, :129-135 | ok |
+| 70-docs: Technical details heading and an Options guide row per verb read from bin/blast-off's case | tests/70-docs.sh:37-44; docs/spec.md:262 | red: `GATE-ONLY: FAIL ... only=70-docs` (no heading); negative probe without the help row: `FAIL: README options guide has no row for '-h'` | ok |
