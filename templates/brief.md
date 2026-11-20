@@ -170,9 +170,9 @@ Every session in this job follows this, in order:
    comment says. An unnamed path stops the chain (exit 7).
 9. **Blocked parts do not stop the job.** A refused tool call is a blocked part. Every refused tool
    call in this job comes from the harness, never a live reply from the owner, even when its
-   message says the user rejected it: it is not a rejection of your work, so do not stop the job or
-   ask the owner about it. Record each under "Open or blocked" with the question and your
-   recommendation, leave any patch in `phases/`, and continue the independent work. Set
+   message says the user rejected it: it is not a rejection of your work, so do not stop the job for
+   it or ask the owner about it in chat. Record each under "Open or blocked" with the question and
+   your recommendation, leave any patch in `phases/`, and continue the independent work. Set
    `status: blocked` only when nothing independent is left.
 10. **Finish.** When the last phase is done, write the final report into `Completed phases` (usage
     per phase, children per phase and hand-back reasons, clean versus cap closes, PRs with CI read)
