@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 9 work)
+status: RUNNING (phase 9 review round 1)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_9_branch: feat/br-1115-issues/phase-9 (from main d5e4707)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 43
+units_used: 44
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -117,3 +117,6 @@ Phase 8 review round 2 CLEAN (1 MEDIUM, 4 LOW). Manager applied the reviewer's e
 
 ## UPDATE 2026-11-19 (13)
 Owner: merge 48 and start phase 9. PR 48 merged (d5e4707), phase-8 branch deleted local and remote. Phase 9 (issue 21) on feat/br-1115-issues/phase-9 from main, session worktree reused. Work unit spawned.
+
+## UPDATE 2026-11-19 (14)
+Phase 9 work done: 9f9bec8 (README.md:55-57 and SKILL.md:25-27 launch-from-target-repo text, docs/2026-11-04-large-job-launcher-prompt.md byte-for-byte copy of vbe db41485ce, tests/70-docs.sh:66-71, spec row 70). Manager 0c98d4d: docs/spec.md:8 now points at the in-repo copy (prompt identical at afc647e0 and db41485ce). 70-docs PASS, ExecStart unchanged. Split check: 347 insertions, 331 copied prompt, no split. Review round 1 running.
