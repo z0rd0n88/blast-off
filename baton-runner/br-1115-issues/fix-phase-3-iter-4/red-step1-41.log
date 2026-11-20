@@ -1,9 +1,0 @@
-FAIL 41-ci-wait
-  | FAIL: heading in another case: exit 10, want 10 and 'PR #7 CI red': 2026-11-16T12:24:55Z child cap 12 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)
-  | 2026-11-16T12:24:55Z workdir /tmp/tmp.f71u88uBlA/cwd/test-3026740-hd is not in a git repo; dirty-tree check off, receipt check off
-  | 2026-11-16T12:24:55Z status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a `## Phase plan` table with a row per phase (from the left margin, first cell a digit, Status cell last) that ends `done (<sha>) · PR #<n>`, or `done (<sha>) · no PR` for a phase the brief says opens no PR, then run again; done refused, status unchanged
-  | 2026-11-16T12:24:55Z child cap 12 (hard: no Phase plan row the runner reads in checkpoint.md; done is refused (exit 10) until it has one)
-  | 2026-11-16T12:24:55Z workdir /tmp/tmp.f71u88uBlA/cwd/test-3026740-hd is not in a git repo; dirty-tree check off, receipt check off
-  | 2026-11-16T12:24:55Z status done but the Phase plan has no done row, so nothing says which PR to read or that there is none: add a `## Phase plan` table with a row per phase (from the left margin, first cell a digit, Status cell last) that ends `done (<sha>) · PR #<n>`, or `done (<sha>) · no PR` for a phase the brief says opens no PR, then run again; done refused, status unchanged
-PASS shellcheck (33 files)
-GATE-ONLY: FAIL passed=0 failed=1 shellcheck=ok only=41-ci-wait

@@ -1,9 +1,0 @@
-== p10 (before fix)
-unread: line 8 'Closed as `done (<sha>)` after `blast-off ci-wait <job-dir> 8`; x<y.' follows the Phase plan table: each phase is a row of that one table, and a note under it is plain text (no table, code block or HTML); move the phase into the table or delete the line
-cells: 0|done (abc1234) · PR #8 ;
-== p11 (before fix)
-unread: 
-cells: 0|done (abc1234) · no PR ;
-== p12 (before fix)
-unread: 
-cells: 

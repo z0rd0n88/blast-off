@@ -1,3 +1,0 @@
-PASS 40-receipt-required
-PASS shellcheck (33 files)
-GATE-ONLY: PASS passed=1 failed=0 shellcheck=ok only=40-receipt-required

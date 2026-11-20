@@ -94,6 +94,9 @@ for s in 'gh pr list' 'rev-list --count HEAD..origin/' 'git fetch origin' 'git s
          'where it has none, no CI is configured: close the row' 'Never add, remove or edit a workflow file to change what the runner reads of CI'; do
   [[ $S9 == *"$s"* ]] || fail "brief section 9 lacks: $s"
 done
+# #16: a child read a harness tool denial as the owner rejecting its work and stopped its round
+s='A refused tool call is a blocked part. Every refused tool call in this job comes from the harness, never a live reply from the owner, even when its message says the user rejected it: it is not a rejection of your work, so do not stop the job for it or ask the owner about it in chat.'
+[[ $S9 == *"$s"* ]] || fail "brief section 9 lacks: $s"
 # the close order the runner checks: commit, gate, receipt, PR, ci-wait, then the done cell
 S4="${S9#*"**Close the phase**"}"; [ "$S4" != "$S9" ] || fail "brief section 9 has no Close the phase step"
 last=-1
