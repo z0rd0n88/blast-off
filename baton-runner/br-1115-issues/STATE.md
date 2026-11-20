@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 10 fix round 1)
+status: WAITING (phase 10 PR 50 open; CI then owner merges)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_10_branch: feat/br-1115-issues/phase-10 (from main 9c86128)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 49
+units_used: 50
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -46,8 +46,8 @@ phases:
     phase_branch: feat/br-1115-issues/phase-9  pr: https://github.com/z0rd0n88/blast-off/pull/49
     units: 2  state: DONE (merged 9c86128; P9R1-5 owner: keep verbatim)
   - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main 9c86128
-    phase_branch: feat/br-1115-issues/phase-10  pr: -
-    units: 0  state: RUNNING (A changelog in isolated worktree || B fact check; then C options guide + technical details)
+    phase_branch: feat/br-1115-issues/phase-10  pr: https://github.com/z0rd0n88/blast-off/pull/50
+    units: 7  state: DONE (A db14a67, B 0a5d3b1, C c45292a, review 1 CLEAN, fix a0946fd, changelog PR number 3f0e1a3)
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
 skipped (not in this run): 15, 11, 19, 24, 10, 20, 17, 18, 25, 23; 29 beyond the PR 32 warning
 
@@ -140,3 +140,6 @@ Phase 10 unit C: c45292a, README Options guide (165-219, 12 commands, 25 env var
 
 ## UPDATE 2026-11-19 (20)
 Phase 10 review round 1 CLEAN: full gate PASS 19/19, fixed rows 39/40, seeded sample 29/31 ok, 0 CRITICAL / 0 HIGH / 3 MEDIUM / 13 LOW. Owner rulings: P10R1-10 and -11 (gate.sh and service-template comments, outside file list) fix here; P10R1-16 keep the 70-docs test lines. Fix round 1 spawned for P10R1-1..15.
+
+## UPDATE 2026-11-19 (21)
+Phase 10 fix round 1: a0946fd, 15 applied, 0 refuted, 0 blocked; GATE-ONLY PASS; manager checked no non-comment code line changed outside the approved 70-docs check. Diff 409+/58- (13 files), no split. No review round 2 (fixes were reviewer text; CI runs the full gate). Draft PR 50 opened; 3f0e1a3 names PR 50 in the CHANGELOG. Next: CI, owner merges; run then complete.

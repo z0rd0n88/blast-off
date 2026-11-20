@@ -12,10 +12,10 @@ Counts: 240 claims; 200 ok (7 of them new text this unit added, each checked), 3
 |---|---|---|---|
 | runner checks liveness, soft cap, git tree, usage, receipts, CI before accepting a phase/job | README.md:6-8 | lib/child.sh:69-95, lib/chain.sh:104-120, :53-85, lib/usage.sh:17-50, lib/receipt.sh:45-71, lib/ci.sh:57-119 | ok |
 | a child works one step and the runner relaunches until `done` or `blocked` | README.md:4-6 | lib/chain.sh:196-205 | ok |
-| link docs/spec.md, docs/systemd-guide-deviations.md, bin/blast-off header, launcher prompt copy exist | README.md:10-13 | files present (`ls docs/`); test 70-docs.sh:70-72 pins the prompt link | ok (lines 9-13 not edited, per brief) |
-| requirements: bash, tmux 3.2+, jq, python3, systemd, claude, gh; shellcheck for tests | README.md:17-18 | lib/chain.sh:88 (DEPS), lib/preflight.sh:17 (gh), tests/run:76-77 (shellcheck) | ok |
+| links docs/spec.md, docs/systemd-guide-deviations.md, the Options guide and Technical details, the launcher prompt copy and CHANGELOG.md | README.md:10-15 | files and headings present (`ls docs/`, `grep -n '^## ' README.md`); test 70-docs.sh:70-72 pins the prompt link | ok (fix round 1: unit C replaced the bin/blast-off header link, P10R1-15) |
+| requirements: bash, tmux 3.2+, jq, python3, git, coreutils realpath, systemd, claude, gh; shellcheck for tests | README.md:19-20 | lib/chain.sh:89 (DEPS), :150, lib/preflight.sh:17 (gh), tests/run:76-77 (shellcheck) | fixed (fix round 1, P10R1-6: git and realpath were missing) |
 | optional jev with an `sk-or-` OpenRouter key | README.md:18 | lib/jev.sh:34-38 | ok |
-| pick below `JOB_JEV_MIN_CONF` (default 0.7) keeps `CLAUDE_FLAGS` | README.md:19 | lib/jev.sh:31, :47-49; test 61-jev-pick.sh | ok |
+| pick below `JOB_JEV_MIN_CONF` (default 0.7) keeps `CLAUDE_FLAGS` | moved by unit C: README.md:202 (row 342) | lib/jev.sh:31, :47-49; test 61-jev-pick.sh | ok |
 | `install` writes blast-off@.service and blast-off.slice, daemon-reload | README.md:25, :30-31 | lib/units.sh:8-14; test 11-unit-smoke.sh:13-16 | ok |
 | `install` never runs `enable` | README.md:31 | lib/units.sh:8-14 (no enable); systemd/blast-off@.service:9 (no [Install]) | ok |
 | slice limits MemoryHigh=14G, MemoryMax=18G, CPUQuota=1600%, TasksMax=4096, oomd 65% | README.md:32-33 | systemd/blast-off.slice:10-15 | ok |
@@ -157,7 +157,7 @@ Counts: 240 claims; 200 ok (7 of them new text this unit added, each checked), 3
 | mid-run, a line done would refuse is logged each pass | docs/spec.md:111-112 | lib/chain.sh:200 | ok |
 | wait codes 0/11/12/1 summary, 60 s at least one retry | docs/spec.md:114-117 | lib/units.sh:102-142 | fixed (P6R3-14) |
 | "They are outside this table's range" | docs/spec.md:118-119 | 11 and 12 are; 0 and 1 are not (§3 table rows 0, 1) | fixed (P6R1-18) |
-| code 2 unused; non-zero but 1 is a state | docs/spec.md:121-122 | no `exit 2`/`chain_end 2` in lib/ or bin/ (grep) | ok |
+| the runner never exits 2; status and resume exit 2 only when checkpoint.md is missing; non-zero but 1 is a state | docs/spec.md:122-124 | no `exit 2`/`chain_end 2` in lib/ or bin/ (grep); lib/units.sh:61 (cp_status), :77 (`sed` on a missing file under `set -euo pipefail` gives 2, probed rc=2 for both) | fixed (fix round 1, P10R1-4: the grep missed implicit exits under set -e) |
 | private tmux server `-L <unit>` from inside the runner, CLAUDE* and OPENROUTER_API_KEY scrubbed | docs/spec.md:128-133 | lib/child.sh:12-27 | ok |
 | socket under /tmp/tmux-1000/; watch line prints the attach command | docs/spec.md:137-139 | tmux(1) default socket dir; lib/child.sh:51; lib/units.sh:51 | ok |
 | runner stops an earlier run's scopes and server at start; EXIT trap does the same unless JOB_KEEP_WINDOWS | docs/spec.md:139 | lib/child.sh:15, :30-34; lib/chain.sh:21 | ok |
@@ -420,3 +420,28 @@ relative to the repo root.
 | each pass every done row: sha in HEAD's history, PASS receipt for it matching the gate log; a row done by the last child: git diff <sha> HEAD empty outside the job dir | README.md:409-411 | lib/receipt.sh:45-65 | ok |
 | at done each PR's record's head checked against a fresh gh pr view under CI_HEAD | README.md:411-413 | lib/ci.sh:104-108, :129-135 | ok |
 | 70-docs: Technical details heading and an Options guide row per verb read from bin/blast-off's case | tests/70-docs.sh:37-44; docs/spec.md:262 | red: `GATE-ONLY: FAIL ... only=70-docs` (no heading); negative probe without the help row: `FAIL: README options guide has no row for '-h'` | ok |
+
+## Fix round 1
+
+| claim | location | evidence | result |
+|---|---|---|---|
+| JOB_KEEP_WINDOWS: any value, 0 too, leaves finished children's windows open | bin/blast-off:27 | lib/chain.sh:22, lib/child.sh:137, :144 (`-n`/`-z` tests only) | fixed (P10R1-1; was `JOB_KEEP_WINDOWS=1`) |
+| resume header line rewrapped, words unchanged | bin/blast-off:10-11 | lib/units.sh:60-74 | ok (P10R1-14) |
+| start passes every set JOB_*/BLAST_OFF_* name the runner or its children read, not JOB_BASE, BLAST_OFF_ESTIMATE_FROM, BLAST_OFF_WAIT_POLL | README.md:70-73 | lib/units.sh:22-28 (unit_env list); lib/ci.sh:21, :26 (CI_APPEAR, CI_WATCH read by ci-wait in a child); lib/units.sh:111 (WAIT_POLL, wait only) | fixed (P10R1-2) |
+| requirements add git and coreutils realpath | README.md:19-20 | lib/chain.sh:89, :150 | fixed (P10R1-6) |
+| preflight writes nothing to the job dir; behind runs git fetch origin <JOB_BASE> | README.md:185 | lib/preflight.sh:12 (LOG=/dev/null), :144 (git fetch); test 60 job dir unchanged | fixed (P10R1-5) |
+| children inherit the unit's environment less every CLAUDE* name and OPENROUTER_API_KEY | README.md:193-194 | lib/child.sh:14, :22 | fixed (P10R1-7) |
+| runner-end deleted by each run once it holds the lock | README.md:397 | lib/chain.sh:166-171 (chain_lock, then rm -f runner-end) | fixed (P10R1-3; also ledger row at README.md:393 above) |
+| preflight row: writing nothing to the job dir | docs/spec.md:63 | lib/preflight.sh:12, :144 | fixed (P10R1-5) |
+| wait exit 1 causes: no <job-dir> argument or job dir, refused workdir name, missing/empty checkpoint.md, bad BLAST_OFF_WAIT_POLL, systemctl failing | docs/spec.md:116-118 | bin/blast-off:66 (workdir name); docs/spec.md:61 section 2 list | fixed (P10R1-8) |
+| runner never exits 2; status and resume exit 2 only with no checkpoint.md | docs/spec.md:122-124 | lib/units.sh:61, :77; reviewer probe rc=2 | fixed (P10R1-4) |
+| preflight writes nothing to the job dir: log lines to stdout only | lib/preflight.sh:6-7 | lib/preflight.sh:12, :144 | fixed (P10R1-5) |
+| preflight's Jev comment rewrapped, words unchanged | lib/preflight.sh:22-24 | lib/units.sh:23 | ok (P10R1-14) |
+| the commands after claude make the shell fork systemd-run rather than exec it | lib/child.sh:39-40 | lib/child.sh:51 (`...; rc=$?; echo $rc > .../exit; exit $rc`) | fixed (P10R1-9; was "'; exit' makes") |
+| COUNT_ERR comment rewrapped, words unchanged | lib/chain.sh:129-131 | lib/chain.sh:136, :139 | ok (P10R1-14) |
+| gate.sh runs every scenario or those BLAST_OFF_TEST_ONLY names, then shellcheck; last line GATE: or GATE-ONLY: | scripts/gate.sh:2-5 | tests/run:46, :66-80 (shellcheck either way), :85-88 | fixed (P10R1-10, owner ruling) |
+| transient form reads every [Service] directive but ExecStart= as a -p property | systemd/blast-off@.service:6 | lib/units.sh:45-47 | fixed (P10R1-11, owner ruling) |
+| Jev paragraph rewrapped, words unchanged | skills/blast-off/SKILL.md:68-72 | lib/units.sh:23; lib/jev.sh:31 | ok (P10R1-14) |
+| test 60 header: preflight writes nothing to the job dir; level line rewrapped | tests/60-preflight.sh:4-9 | lib/preflight.sh:12, :144; the test's job-dir-unchanged check | fixed (P10R1-5 sibling, P10R1-14) |
+| phase 10 bullet: Options guide, Technical details, claims checked and fixed, this changelog | CHANGELOG.md:16-20 | README.md `## Options guide`, `## Technical details`; this ledger | fixed (P10R1-12; PR number filled in when opened) |
+| dead pane with no exit status logged, flag clears for the next child | CHANGELOG.md:47-48 | lib/child.sh:83-85; tests/20-dead-child.sh:99-101 | fixed (P10R1-13) |
