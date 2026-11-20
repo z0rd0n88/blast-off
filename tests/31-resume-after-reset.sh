@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 31-resume-after-reset: `blast-off resume` refuses a paused-limit job before its reset (exit 8,
-# nothing changed) and, after it, sets running and starts the runner unit; paused-cap resumes too;
+# nothing changed) and, after it, starts the runner unit, which sets running; paused-cap resumes too;
 # `run` continues a paused-limit job whose reset has passed. The resume timer armed at exit 8 fires
 # for real at the reset, and the job it starts runs to done.
 source "$REPO/tests/lib.sh"

@@ -60,9 +60,11 @@ blast-off preflight <worktree>/.big-next-job   # prints flags, model level, cap,
 blast-off start <worktree>/.big-next-job       # transient unit blast-off-<name>.service in blast-off.slice
 ```
 
-`preflight` exits 1 and says why when `CLAUDE_FLAGS` is empty, a dependency is missing, or the
+`preflight` exits 1 and says why when `CLAUDE_FLAGS` is empty, a dependency is missing, `brief.md` is
+missing, `child-count` is garbled, a `JOB_*` number is bad, or the
 estimated usage is more than the 7-day window has left. `start` passes `PATH`, `GH_TOKEN`,
-`CLAUDE_FLAGS` and every set `JOB_*` name to the unit by name (`systemd-run --setenv=NAME`), never by
+`CLAUDE_FLAGS` and every set `JOB_*` and `BLAST_OFF_*` name the runner reads (not `JOB_BASE` or
+`BLAST_OFF_ESTIMATE_FROM`, which only `preflight` reads) to the unit by name (`systemd-run --setenv=NAME`), never by
 value; it refuses to start with `GH_TOKEN` or `CLAUDE_FLAGS` unset or empty, or a bad `JOB_*` number. With `OPENROUTER_API_KEY`
 set to an `sk-or-` key and `JOB_JEV` not `0`, it passes that name too, so Jev picks each phase's
 model level under the unit; otherwise every child
@@ -111,8 +113,8 @@ recurring loop or cron: the session wakes only when it returns. It reads the che
 (`BLAST_OFF_WAIT_POLL`), and, at `done` or `blocked`, the job dir's `runner-end`, which the runner writes only when
 it accepts that end. It never reads `run.log`, which holds child text. A change is state, never the clock, so a machine
 sleep is not an event. It prints one line, `wait: <final|changed|stuck> · status: ... · phase: ... · child <n> · unit <state> · timer <state>`
-(the status word, at most 80 characters, and a `paused-limit`'s `until <time>`, at most 40 more; the phase line
-without control characters or any `·`, at most 80 characters):
+(the status word, at most 80 characters, and a `paused-limit`'s `until <time>`, the time at most 40 characters; the phase line
+without control characters and with each `·` turned into `-`, at most 80 characters):
 
 | Line | Exit | What to do |
 |---|---|---|
@@ -120,8 +122,8 @@ without control characters or any `·`, at most 80 characters):
 | `changed`: a child launched, the phase or status moved, or the unit's or timer's state changed, and the job still runs or is scheduled | 11 | run `blast-off wait <job-dir>` again |
 | `stuck · status: paused-cap ...; paused-cap: run blast-off resume <job-dir>`: the soft cap paused the job and nothing runs | 12 | `blast-off resume <job-dir>`, then `wait` again |
 | `stuck ...; see blast-off status <job-dir>`: for 10 s (at least two polls) neither the runner unit nor a resume timer runs, and no `runner-end` matches the status (stopped, crashed, a reboot, a refused `done` or `blocked`, `paused-limit` with no timer); it never changes on its own | 12 | `blast-off status` and `logs`; fix what the runner refused, then `start`; `resume` for a `paused-limit` past its reset |
-| `stuck · no read for 60 s: <reason>; see blast-off status <job-dir>`: every read failed for 60 s (job dir deleted or moved, `checkpoint.md` left empty, the user bus gone); a shorter spell is retried at each poll | 12 | fix the reason, then `wait` again |
-| no job dir, a missing or empty `checkpoint.md`, a `BLAST_OFF_WAIT_POLL` outside 0.1 to 3600, or `systemctl --user` failing, at its start (the reason is on stderr) | 1 | fix the cause, then `wait` again; an empty `checkpoint.md` mid-rewrite or a bus hiccup clears on its own, so one plain rerun is fine |
+| `stuck · no read for 60 s: <reason>; see blast-off status <job-dir>`: every read failed for 60 s or more (at least one retry, so a long `BLAST_OFF_WAIT_POLL` stretches it; job dir deleted or moved, `checkpoint.md` left empty, the user bus gone); a shorter spell is retried at each poll | 12 | fix the reason, then `wait` again |
+| no `<job-dir>` argument, no job dir, a workdir name that is not letters, digits, `-` or `_`, a missing or empty `checkpoint.md`, a `BLAST_OFF_WAIT_POLL` outside 0.1 to 3600, or `systemctl --user` failing, at its start (the reason is on stderr) | 1 | fix the cause, then `wait` again; an empty `checkpoint.md` mid-rewrite or a bus hiccup clears on its own, so one plain rerun is fine |
 
 `wait` watches the unit, so run it after `start`; a foreground `blast-off run` reads as `stuck`.
 
@@ -192,3 +194,12 @@ tests/run    # every tests/NN-*.sh with fake claude, gh and jev; shellcheck; end
 ```
 
 Scenarios start real `blast-off-test-<pid>-*` units, child scopes and tmux servers in the user manager and stop them; they need a live user systemd instance.
+
+`BLAST_OFF_TEST_ONLY="30-paused-limit 41-ci-wait"` (spaces or commas) runs only those scenarios, for a
+diagnosis: the verdict line is then `GATE-ONLY: PASS|FAIL ... only=<names>`, which `blast-off receipt`
+refuses, and a name that is no scenario fails. `BLAST_OFF_TEST_KEEP=<dir>` keeps each scenario's work
+dir as `<dir>/<name>` instead of removing it (not under `bin/`, `lib/` or `tests/`). `scripts/gate.sh
+<log-dir>` runs `tests/run`, tees its output to `<log-dir>/tests-run.log` and exits with its status.
+CI (`.github/workflows/ci.yml`) runs `tests/run` on every pull request, the job capped at 30 minutes
+and the gate step at 25; a red run uploads the kept work dirs as the artifact `blast-off-tests`
+(`blast-off-tests.tgz`). A manual dispatch takes an `only` input, passed to `BLAST_OFF_TEST_ONLY`.

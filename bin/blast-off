@@ -7,12 +7,13 @@
 # Usage: blast-off run <job-dir> [workdir]   the chain loop in the foreground (the unit's ExecStart)
 #        blast-off start <job-dir>            run it as transient unit blast-off-<name>.service
 #        blast-off status|stop|logs <job-dir> checkpoint header + unit state · stop unit and children · logs
-#        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: running, then start
+#        blast-off resume <job-dir>           paused-cap, or paused-limit after its reset: start (the runner sets running)
 #        blast-off wait <job-dir>             block until the status, phase, child or unit changes, print one line:
 #                                             exit 0 the runner accepted done or blocked (its runner-end file), 11
 #                                             changed (wait again), 12 for 10 s nothing runs or is scheduled and no
-#                                             runner-end matches (stopped, crashed, done or blocked refused,
-#                                             paused-cap), or no read for 60 s
+#                                             runner-end matches (stopped, crashed, a reboot, done or blocked
+#                                             refused, paused-cap, paused-limit with no timer), or no read for
+#                                             60 s (at least one retry); 1 when it cannot start watching
 #        blast-off install                    write the template and slice to ~/.config/systemd/user
 #        blast-off preflight <job-dir> [workdir]  print start's flags and level, cap, account, usage, estimate, slice, PRs, behind; exit 1 to refuse
 #        blast-off receipt <job-dir> <phase> [workdir]  last GATE: line of gate-logs/phase-<phase>.log + HEAD -> phase-<phase>.json

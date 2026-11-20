@@ -6,7 +6,8 @@
 chain_end() { CHAIN_END=1; log "$2"; exit "$1"; }
 # chain_accept <done|blocked>: the end the runner accepted, `<word> <utc>`, to $JOB/runner-end by rename, before
 # chain_end logs it; `wait` reads this file, never run.log, which holds child text (owner ruling P6R2-1). Each run
-# deletes it first (chain_run), so a refused or re-opened job never shows an earlier run's end.
+# deletes it once it holds the lock (chain_run), so a job that run refuses or re-opens never shows an earlier run's
+# end; a run that exits before the lock leaves it, and a signal between this and chain_end leaves it with no end line.
 chain_accept() { echo "$1 $(date -u +%FT%TZ)" > "$JOB/runner-end.tmp" && mv -f "$JOB/runner-end.tmp" "$JOB/runner-end"; }
 
 # The EXIT trap. Child scopes sit outside the runner's cgroup, so no exit of the runner (state,
@@ -125,7 +126,7 @@ chain_cap() {
 # fresh job, 0 0: deleting it is the owner's one reset (P4R2-11). Anything else but two whole numbers of at
 # most 9 digits with BASE <= LAUNCHED, a dangling symlink among them (P4R1-5), returns 1 with COUNT_ERR:
 # a garbled count must not reset the cap to 0, and a huge one must not wrap the counter negative (P4R1-6).
-# COUNT_ERR names the file and the shape it wants, never the content: it reaches run.log, status and
+# COUNT_ERR names the file and, when it can be read, its size and the shape it wants, never the content: it reaches run.log, status and
 # preflight, and a second line could forge a run.log line or a link show a secret (P5R1-5, owner Q5).
 chain_count() {
   local f="$JOB/child-count" c

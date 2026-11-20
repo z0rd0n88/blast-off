@@ -66,7 +66,7 @@ recommend starting a new session in the target repo; go on here only if the owne
    ```
 
    Tell the owner with it: when the shell that runs `start` has `OPENROUTER_API_KEY` (an OpenRouter
-   `sk-or-` key), `start` passes it to the unit by name and Jev then picks `--model` and `--effort` for
+   `sk-or-` key) and `JOB_JEV` is not `0`, `start` passes it to the unit by name and Jev then picks `--model` and `--effort` for
    each phase in place of those in `CLAUDE_FLAGS` (its other flags stay; a pick below `JOB_JEV_MIN_CONF`,
    default 0.7, keeps them); `JOB_JEV=0`, exported before `start`, keeps `CLAUDE_FLAGS` for every phase.
    Step 6's `level` line is preflight's own Jev call from your environment, a forecast: the runner asks
