@@ -1,11 +1,11 @@
 # zord-baton-runner run br-1115-issues
-status: RUNNING (phase 8 review round 2)
+status: WAITING (phase 8 PR open; owner merges)
 worktree: /home/alex/blast-off/.claude/worktrees/pending-items-53932d
 phase: 8 of 10  unit: REVIEW  review_iter: 2 of 3
 phase_8_branch: feat/br-1115-issues/phase-8 (from main ec15714)
 records_branch: run/br-1115-issues (never merged; baton-runner/rec.sh commits to it; baton-runner/ is in .git/info/exclude)
 current_baton: baton-runner/br-1115-issues/baton-phase-7-review-2.md
-units_used: 42
+units_used: 43
 pause_reason: -
 budgets: { global_ceiling: 75, phase_thrash: 20, bail_calls: 50, bail_files: 10 }
 gate: scripts/gate.sh wraps tests/run (no uv, no MYPY_TARGET); merged in PR 33
@@ -40,8 +40,8 @@ phases:
     units: 4  state: DONE (CLEAN iter 2; merged ec15714; 1 MEDIUM + 16 LOW open, listed in the PR)
     owner (2026-11-19): Q2 strip OPENROUTER_API_KEY from children's environment (fix round); Q1 keep preflight's Jev call; Q3 threshold format = work unit's default
   - id: phase-8  spec: issue 16  readiness: READY  work_agent: general-purpose  base: main ec15714
-    phase_branch: feat/br-1115-issues/phase-8  pr: -
-    units: 0  state: RUNNING
+    phase_branch: feat/br-1115-issues/phase-8  pr: https://github.com/z0rd0n88/blast-off/pull/48
+    units: 4  state: DONE (CLEAN iter 2 + P8R2-1/-3 wording fix 9756b02; follow-ups in #47)
   - id: phase-9  spec: issue 21  readiness: READY (launcher prompt source: git -C /home/alex/vista-root/vbe show db41485ce:docs/handoff/2026-11-04-large-job-launcher-prompt.md)  work_agent: general-purpose  state: PENDING
   - id: phase-10  spec: owner request 2026-11-19, docs update + fact check (baton-runner/br-1115-issues/phase-10-spec.md)  readiness: READY  work_agent: general-purpose  base: main after phase 9 merges  state: PENDING
 review rule (from phase 1): reviewers must not run the full suite; only the review unit runs scripts/gate.sh, once, with nothing else running
@@ -109,3 +109,6 @@ Phase 8 review round 1 CLEAN: gate PASS 19/19, 0 CRITICAL / 0 HIGH / 2 MEDIUM / 
 
 ## UPDATE 2026-11-19 (11)
 Phase 8 fix round 1: f4baca5 (sentence moved to section 9 step 9; section 4 restored; test anchored to section 9; red, green and two probes in baton-phase-8-fix-1.md). Review round 2 (narrow) running.
+
+## UPDATE 2026-11-19 (12)
+Phase 8 review round 2 CLEAN (1 MEDIUM, 4 LOW). Manager applied the reviewer's exact P8R2-1 wording ("for it", "in chat") and the P8R2-3 spec row fix directly: 9756b02, 51 and 70 PASS. Draft PR 48 open (includes the one-time baton-runner/ removal 736bc67); follow-ups #47. Next: owner merges, then phase 9 (issue 21).
