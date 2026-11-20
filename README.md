@@ -48,13 +48,11 @@ Keep the job dir out of git (from inside the worktree, where `.git` is a file):
    tmux server `blast-off-<name>`.
 
 The skill [`skills/blast-off/SKILL.md`](skills/blast-off/SKILL.md) walks a Claude session through
-scoping, writing both files and handing over the start line.
+scoping, writing both files and handing over the start line. Start that session inside the target repo
+(the repo the job changes), not in another project's checkout or worktree: a session loads that
+directory's `AGENTS.md`/`CLAUDE.md` and hooks on every turn.
 
 ## Check, then start
-
-Start the Claude Code session that writes and launches a job inside the target repo (the repo the job
-changes), not in another project's checkout or worktree: a session loads that directory's
-`AGENTS.md`/`CLAUDE.md` and hooks on every turn.
 
 ```bash
 export GH_TOKEN CLAUDE_FLAGS="--model opus --effort high"   # plus any flags the owner allows

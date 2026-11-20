@@ -67,7 +67,7 @@ done
 s='inside the target repo (the repo the job changes)'
 [[ $R == *"$s"* ]] || fail "README does not say '$s'"
 [[ $K == *"$s"* ]] || fail "SKILL.md does not say '$s'"
-[[ -f $REPO/docs/2026-11-04-large-job-launcher-prompt.md ]] || fail "missing docs/2026-11-04-large-job-launcher-prompt.md"
+grep -qx '# Prompt: build the standalone unattended job launcher' "$REPO/docs/2026-11-04-large-job-launcher-prompt.md" || fail "docs/2026-11-04-large-job-launcher-prompt.md does not hold the launcher prompt"
 grep -qF '(docs/2026-11-04-large-job-launcher-prompt.md)' "$readme" || fail "README does not link docs/2026-11-04-large-job-launcher-prompt.md"
 
 # --- deviations: one row per guide §5 directive, a disposition and a filled verified cell ---
